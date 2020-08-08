@@ -13,7 +13,9 @@ target_include_directories(
   
 target_link_libraries(
   ActsCudaPlugin
-  PUBLIC ActsCore ${CUDART_LIBRARY})
+  PUBLIC 
+    ActsCore 
+    ${CUDART_LIBRARY})
 
 install(
   TARGETS ActsCudaPlugin
