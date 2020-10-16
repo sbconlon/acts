@@ -11,7 +11,7 @@
 #include <iterator>
 
 namespace Acts{
-    
+
     template <typename external_spacepoint_t>
     std::vector<Acts::Seed<external_spacepoint_t>> prepareDoubletGraph(const auto first,
                                                                        const auto last,
@@ -20,10 +20,20 @@ namespace Acts{
                                                                        const char *filename="event00000",
                                                                        long verbose=0,
                                                                        long show_config=0);
-    
+
+    template <typename external_spacepoint_t>
+    std::vector<Acts::Seed<external_spacepoint_t>> prepareTripletGraph(const auto first,
+                                                                       const auto last,
+                                                                       const size_t nhits,
+                                                                       const char *config_path="configs/prep_trackml.yaml",
+                                                                       const char *filename="event00000",
+                                                                       long verbose=0,
+                                                                       long show_config=0);
+
     void print_hello();
 
 } // namespace Acts
 
 
-#include "Acts/Plugins/Exatrkx/gnn_impl.hpp"
+#include "Acts/Plugins/Exatrkx/gnn_doublet_impl.hpp"
+#include "Acts/Plugins/Exatrkx/gnn_triplet_impl.hpp"
