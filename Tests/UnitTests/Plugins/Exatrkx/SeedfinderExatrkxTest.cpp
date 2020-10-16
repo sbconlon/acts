@@ -196,6 +196,7 @@ std::vector<std::vector<const SpacePoint*>> truth_to_tracks(std::vector<const Sp
     return tracks;
 }
 
+/***
 void print_track(std::vector<std::vector<const SpacePoint*>> tracks, int idx) {
     std::vector <const SpacePoint*> trk = tracks[idx];
     std::cout << "Example Size: " << trk.size() << std::endl;
@@ -204,6 +205,7 @@ void print_track(std::vector<std::vector<const SpacePoint*>> tracks, int idx) {
         std::cout << (*ex)->ids->hid() << "  " << (*ex)->ids->pid() << "    " << (*ex)->layer() << "        " <<  (*ex)->r() << std::endl;
     }
 }
+***/
 
 std::vector<Acts::Seed<SpacePoint>> tracks_to_dplet_seeds(std::vector<std::vector<const SpacePoint *>> tracks) {
     
@@ -305,11 +307,11 @@ int main(int argc, char** argv) {
     // --> Build Exatrkx Graph
     auto start_trkx = std::chrono::system_clock::now();
     std::vector<Acts::Seed<SpacePoint>> exatrkx_seedVect;
-    exatrkx_seedVect = Acts::prepareGraph<SpacePoint>(spVect.begin(),
-                                               spVect.end(),
-                                               spVect.size(),
-                                               "prep_small.yaml",
-                                               "event00000");
+    exatrkx_seedVect = Acts::prepareDoubletGraph<SpacePoint>(spVect.begin(),
+                                                             spVect.end(),
+                                                             spVect.size(),
+                                                             "prep_small.yaml",
+                                                             "event00000");
     
     auto end_trkx = std::chrono::system_clock::now();
     std::chrono::duration<double> elap_trkx = end_trkx - start_trkx;

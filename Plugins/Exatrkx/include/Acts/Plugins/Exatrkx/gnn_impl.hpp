@@ -23,13 +23,13 @@ namespace Acts {
     }
 
     template <typename external_spacepoint_t>
-    std::vector<Acts::Seed<external_spacepoint_t>> Acts::prepareGraph(const auto first,
-                                                                       const auto last, 
-                                                                       const size_t nhits, 
-                                                                       const char *config_path,
-                                                                       const char *filename,
-                                                                       long verbose,
-                                                                       long show_config){
+    std::vector<Acts::Seed<external_spacepoint_t>> Acts::prepareDoubletGraph(const auto first,
+                                                                             const auto last, 
+                                                                             const size_t nhits, 
+                                                                             const char *config_path,
+                                                                             const char *filename,
+                                                                             long verbose,
+                                                                            long show_config){
 
         // Variable declarations
         PyObject *pName, *pModule, *pFunc;
@@ -101,7 +101,7 @@ namespace Acts {
         
         if(pModule != NULL) {
             // Import python wrapper function
-            pFunc = PyObject_GetAttrString(pModule, "wrap_process_event");
+            pFunc = PyObject_GetAttrString(pModule, "wrap_prepare_doublets");
             if (pFunc && PyCallable_Check(pFunc)) {
                 
                 // Convert C Arrays to Numpy Arrays

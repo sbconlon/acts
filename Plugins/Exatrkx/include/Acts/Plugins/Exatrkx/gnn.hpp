@@ -13,13 +13,13 @@
 namespace Acts{
     
     template <typename external_spacepoint_t>
-    std::vector<Acts::Seed<external_spacepoint_t>> prepareGraph(const auto first,
-                                                                 const auto last,
-                                                                 const size_t nhits,
-                                                                 const char *config_path="configs/prep_trackml.yaml",
-                                                                 const char *filename="event00000",
-                                                                 long verbose=0,
-                                                                 long show_config=0);
+    std::vector<Acts::Seed<external_spacepoint_t>> prepareDoubletGraph(const auto first,
+                                                                       const auto last,
+                                                                       const size_t nhits,
+                                                                       const char *config_path="configs/prep_trackml.yaml",
+                                                                       const char *filename="event00000",
+                                                                       long verbose=0,
+                                                                       long show_config=0);
     
     void print_hello();
 
