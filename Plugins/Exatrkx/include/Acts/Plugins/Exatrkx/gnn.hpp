@@ -35,5 +35,5 @@ namespace Acts{
 } // namespace Acts
 
 
-#include "Acts/Plugins/Exatrkx/gnn_doublet_impl.hpp"
-#include "Acts/Plugins/Exatrkx/gnn_triplet_impl.hpp"
+#include "Acts/Plugins/Exatrkx/gnn_dplet_impl.hpp"
+#include "Acts/Plugins/Exatrkx/gnn_tplet_impl.hpp"

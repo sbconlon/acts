@@ -400,7 +400,7 @@ int main(int argc, char** argv) {
     auto tit = truth_dplet_seedVect.begin();
     for (auto eit=exatrkx_seedVect.begin(); eit!=exatrkx_seedVect.end(); ++eit) {
         for (tit=truth_dplet_seedVect.begin(); tit!=truth_dplet_seedVect.end(); ++tit) {
-            if(*(eit->sp()[0]) == *(tit->sp()[0]) && *(eit->sp()[2]) == *(tit->sp()[2])) {
+            if(*(eit->sp()[0]) == *(tit->sp()[0]) && *(eit->sp()[1]) == *(tit->sp()[1]) && *(eit->sp()[2]) == *(tit->sp()[2])) {
                 exatrkx_correct++;
                 break;
             }
@@ -417,8 +417,10 @@ int main(int argc, char** argv) {
         }
     }
 
+    std::cout << exatrkx_correct << std::endl;
+
     float exatrkx_precision = (float) exatrkx_correct / (float) exatrkx_seedVect.size();
-    float exatrkx_recall = (float) exatrkx_correct / (float) truth_dplet_seedVect.size();
+    float exatrkx_recall = (float) exatrkx_correct / (float) truth_tplet_seedVect.size();
     float acts_precision = (float) acts_correct / (float) acts_seedVect.size();
     float acts_recall = (float) acts_correct / (float) truth_tplet_seedVect.size();
 

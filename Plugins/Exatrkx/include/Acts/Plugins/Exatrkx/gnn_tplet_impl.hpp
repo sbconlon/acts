@@ -17,11 +17,6 @@
 
 namespace Acts {
 
-    static void* wrap_import_array(){
-        import_array();
-        return NULL;
-    }
-
     template <typename external_spacepoint_t>
     std::vector<Acts::Seed<external_spacepoint_t>> Acts::prepareTripletGraph(const auto first,
                                                                              const auto last,
@@ -162,8 +157,8 @@ namespace Acts {
                     const external_spacepoint_t &bSp = **(spIter);
                     spIter = first;
                     int mIdx = *((int *) PyArray_GETPTR2(pEdgeIdxs, j, 1));
-                    std::advance(spIter, tIdx);
-                    const external_spacepoint_t &tSp = **(spIter);
+                    std::advance(spIter, mIdx);
+                    const external_spacepoint_t &mSp = **(spIter);
                     spIter = first;
                     int tIdx = *((int *) PyArray_GETPTR2(pEdgeIdxs, j, 2));
                     std::advance(spIter, tIdx);
