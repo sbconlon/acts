@@ -24,12 +24,12 @@ namespace Acts {
 
     template <typename external_spacepoint_t>
     std::vector<Acts::Seed<external_spacepoint_t>> Acts::prepareDoubletGraph(const auto first,
-                                                                             const auto last, 
-                                                                             const size_t nhits, 
+                                                                             const auto last,
+                                                                             const size_t nhits,
                                                                              const char *config_path,
                                                                              const char *filename,
                                                                              long verbose,
-                                                                            long show_config){
+                                                                             long show_config){
 
         // Variable declarations
         PyObject *pName, *pModule, *pFunc;
@@ -41,7 +41,7 @@ namespace Acts {
         int nEdges=0;
         std::vector<Acts::Seed<external_spacepoint_t>> edges;
         bool hasHitID, hasPrtID;
-        
+
         // Determine if SpacePoint obj has valid truth info
         if((*first)->ids == NULL){
             hasHitID = false;
@@ -54,7 +54,7 @@ namespace Acts {
                 hasHitID = false;
             }
         }
-        
+
         // Split SpacePoint vector into hit and truth arrays
         int nHitColumns = 6;
         int nTruthColumns = 2;
@@ -67,15 +67,15 @@ namespace Acts {
                 hitData[nHitColumns*i] = (float) (*current)->ids->hid();
                 truthData[nTruthColumns*i] = (*current)->ids->hid();
                 truthData[nTruthColumns*i + 1] = (*current)->ids->pid();
-                
-                
+
+
             } else if(hasHitID && !hasPrtID) {
                 hitData[nHitColumns * i] = (float) (*current)->ids->hid();
-                
+
             } else if (!hasHitID && !hasPrtID) {
                 hitData[nHitColumns * i] = (float) i;
             }
-            
+
             hitData[nHitColumns * i + 1] = (*current)->layer();
             hitData[nHitColumns * i + 2] = (*current)->x();
             hitData[nHitColumns * i + 3] = (*current)->y();
@@ -83,12 +83,12 @@ namespace Acts {
             hitData[nHitColumns * i + 5] = (*current)->r();
             ++i;
         }
-        
+
         // Initialize Python session
         Py_Initialize();
         PyRun_SimpleString("import sys");
         PyRun_SimpleString("sys.path.append(\".\")");
-        
+
         // Import Exatrkx Python module
         pName = PyUnicode_FromString("cEmbedded.wrap_prepare");
         if (pName == NULL){
@@ -98,12 +98,11 @@ namespace Acts {
         pModule = PyImport_Import(pName);
         wrap_import_array();
         Py_DECREF(pName);
-        
+
         if(pModule != NULL) {
             // Import python wrapper function
             pFunc = PyObject_GetAttrString(pModule, "wrap_prepare_doublets");
             if (pFunc && PyCallable_Check(pFunc)) {
-                
                 // Convert C Arrays to Numpy Arrays
                 npy_intp htDims[2] = {nhits, nHitColumns};
                 npy_intp trDims[2] = {nhits, nTruthColumns};
@@ -117,14 +116,14 @@ namespace Acts {
                 pFilename = PyUnicode_FromString(filename);
                 pVerbose = PyBool_FromLong(verbose);
                 pShowConfig = PyBool_FromLong(show_config);
-            
+
             }
             else {
                 PyErr_Print();
                 throw std::runtime_error("Failed to load prepare function");
             }
             if(hasPrtID) {
-                pEdgeIdxs = (PyArrayObject *) PyObject_CallFunctionObjArgs(pFunc, 
+                pEdgeIdxs = (PyArrayObject *) PyObject_CallFunctionObjArgs(pFunc,
                                                                            pHits,
                                                                            pTruth,
                                                                            pConfigPath,
@@ -132,7 +131,7 @@ namespace Acts {
                                                                            pVerbose,
                                                                            pShowConfig, NULL);
             } else {
-                pEdgeIdxs = (PyArrayObject *) PyObject_CallFunctionObjArgs(pFunc, 
+                pEdgeIdxs = (PyArrayObject *) PyObject_CallFunctionObjArgs(pFunc,
                                                                            pHits,
                                                                            Py_None,
                                                                            pConfigPath,
@@ -140,9 +139,9 @@ namespace Acts {
                                                                            pVerbose,
                                                                            pShowConfig, NULL);
             }
-            
+
             if (pEdgeIdxs != NULL) {
-                
+
                 // Free old memory
                 free(hitData);
                 free(truthData);
@@ -151,7 +150,7 @@ namespace Acts {
                 Py_DECREF(pConfigPath);
                 Py_DECREF(pVerbose);
                 Py_DECREF(pShowConfig);
-                
+
                 // Use edge idxs to populate seed vector
                 npy_intp *edgeDims = PyArray_DIMS(pEdgeIdxs);
                 int nEdges = edgeDims[0];
