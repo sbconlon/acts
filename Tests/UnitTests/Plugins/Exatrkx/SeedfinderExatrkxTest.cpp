@@ -20,6 +20,7 @@
 #include "Acts/Plugins/Exatrkx/gnn.hpp"
 #include "ATLASCuts.hpp"
 #include "SpacePoint.hpp"
+#include "helper.hpp"
 
 int getTrackMLLayer(int volId, int layId){
     // Maps volume and layer id pairs onto 0-9 integer space
@@ -257,6 +258,7 @@ int main(int argc, char** argv) {
 
     std::string file{"sp.txt"};
     std::string type{"lxyz"};
+    std::string save_path{""};
     //bool help(false);
     //bool quiet(false);
     //bool allgroup(false);
@@ -266,7 +268,7 @@ int main(int argc, char** argv) {
     // --> Parse command line
 
     int opt;
-    while((opt = getopt(argc, argv, "f:t:h")) != -1){
+    while((opt = getopt(argc, argv, "f:t:s:h")) != -1){
         switch (opt) {
             case 'f':
                 file = optarg;
@@ -274,6 +276,8 @@ int main(int argc, char** argv) {
             case 't':
                 type = optarg;
                 break;
+            case 's':
+                save = optarg;
             default:
                 std::cerr << "Usage: " << argv[0] << " [-hq] [-f FILENAME]\n";
                 exit(EXIT_FAILURE);
@@ -312,7 +316,6 @@ int main(int argc, char** argv) {
                                                              spVect.size(),
                                                              "prep_small.yaml",
                                                              "event00000");
-
     auto end_trkx = std::chrono::system_clock::now();
     std::chrono::duration<double> elap_trkx = end_trkx - start_trkx;
     double exatrkx_time= elap_trkx.count();
@@ -435,6 +438,14 @@ int main(int argc, char** argv) {
     std::cout << "Recall:    " << acts_recall << std::endl;
     std::cout << "-----------------------------------" << std::endl;
     std::cout << std::endl;
+
+    if(!save.empty()) {
+      save_edges_to_csv(save + "/exatrkx")
+      std::cout << "Successfully saved exatrkx triplets" << std::endl;
+      save_edges_to_csv(save + "/acts")
+      std::cout << "Successfully saved acts triplets" << std::endl;
+      } else
+    }
 
     return 0;
 }
