@@ -74,14 +74,14 @@
 
 
 void save_edges_to_csv(std::vector<Acts::Seed<SpacePoint>> seeds, std::string output_path) {
-  fstream outfile;
-  outfile.open(output_path + "-edges.csv", fstream::out); // TODO: allow user to define eventid and graph id
+  std::fstream outfile;
+  outfile.open(output_path + "-edges.csv", std::fstream::out); // TODO: allow user to define eventid and graph id
   int evtid = 0; // TODO: allow for user defined evtid
   for(auto it=seeds.begin(); it!=seeds.end(); ++it){
     outfile << evtid << ',';
-    outfile << it->sp()[0]->ids.hid() << ',';
-    outfile << it->sp()[1]->ids.hid() << ',';
-    outfile << it->sp()[2]->ids.hid() << ',' << std::endl;
+    outfile << it->sp()[0]->ids->hid() << ',';
+    outfile << it->sp()[1]->ids->hid() << ',';
+    outfile << it->sp()[2]->ids->hid() << std::endl;
   }
   outfile.close();
 }

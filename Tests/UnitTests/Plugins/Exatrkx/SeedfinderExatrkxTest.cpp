@@ -258,7 +258,7 @@ int main(int argc, char** argv) {
 
     std::string file{"sp.txt"};
     std::string type{"lxyz"};
-    std::string save_path{""};
+    std::string save{""};
     //bool help(false);
     //bool quiet(false);
     //bool allgroup(false);
@@ -278,8 +278,9 @@ int main(int argc, char** argv) {
                 break;
             case 's':
                 save = optarg;
+		break;
             default:
-                std::cerr << "Usage: " << argv[0] << " [-hq] [-f FILENAME]\n";
+                std::cerr << "Usage: " << argv[0] << " [-f-t-sh] [-f FILENAME] [-t FILETYPE] [-s SAVEPATH]\n";
                 exit(EXIT_FAILURE);
         }
     }
@@ -440,11 +441,10 @@ int main(int argc, char** argv) {
     std::cout << std::endl;
 
     if(!save.empty()) {
-      save_edges_to_csv(save + "/exatrkx")
+      save_edges_to_csv(exatrkx_seedVect, save + "/exatrkx");
       std::cout << "Successfully saved exatrkx triplets" << std::endl;
-      save_edges_to_csv(save + "/acts")
+      save_edges_to_csv(acts_seedVect, save + "/acts");
       std::cout << "Successfully saved acts triplets" << std::endl;
-      } else
     }
 
     return 0;
