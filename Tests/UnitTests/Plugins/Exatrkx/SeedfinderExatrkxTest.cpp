@@ -391,7 +391,7 @@ int main(int argc, char** argv) {
 
     std::vector<Acts::Seed<SpacePoint>> acts_seedVect;
     for (auto it=acts_2DseedVect.begin(); it!=acts_2DseedVect.end(); ++it){
-        for (auto jt=(*it).begin(); jt!=(*it).end(); ++jt) {
+	for (auto jt=(*it).begin(); jt!=(*it).end(); ++jt) {
             acts_seedVect.push_back(*jt);
         }
     }
@@ -411,7 +411,7 @@ int main(int argc, char** argv) {
         }
     }
     int acts_correct = 0;
-    tit = truth_tplet_seedVect.begin();
+    //tit = truth_tplet_seedVect.begin();
     for (auto ait=acts_seedVect.begin(); ait!=acts_seedVect.end(); ++ait) {
         for (tit=truth_tplet_seedVect.begin(); tit!=truth_tplet_seedVect.end(); ++tit) {
             if(*(ait->sp()[0]) == *(tit->sp()[0]) && *(ait->sp()[1]) == *(tit->sp()[1]) && *(ait->sp()[2]) == *(tit->sp()[2])) {
