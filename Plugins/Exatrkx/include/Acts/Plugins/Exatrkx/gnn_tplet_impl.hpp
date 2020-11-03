@@ -71,7 +71,7 @@ namespace Acts {
                 hitData[nHitColumns * i] = (float) i;
             }
 
-            hitData[nHitColumns * i + 1] = (*current)->layer();
+            //hitData[nHitColumns * i + 1] = (*current)->layer();
             hitData[nHitColumns * i + 2] = (*current)->x();
             hitData[nHitColumns * i + 3] = (*current)->y();
             hitData[nHitColumns * i + 4] = (*current)->z();

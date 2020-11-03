@@ -58,7 +58,8 @@ namespace Acts {
         hasVolumes = (*first)->vols == NULL;
 
         // Split SpacePoint vector into hit and truth arrays
-        if (hasVolumes) nHitColumns = 8; else nHitColumns = 6;
+        int nHitColumns;
+	if (hasVolumes) nHitColumns = 7; else nHitColumns = 5;
         int nTruthColumns = 2;
         hitData = (float *) malloc(sizeof(float) * nhits * nHitColumns);
         if (hasPrtID) { truthData = (unsigned long *) malloc(sizeof(unsigned long) * nhits * nTruthColumns); }
@@ -82,13 +83,15 @@ namespace Acts {
             if(hasVolumes) {
                 hitData[nHitColumns*i + 6] = (float) (*current)->vols->volId();
                 hitData[nHitColumns*i + 7] = (float) (*current)->vols->layerId();
-            }
+            } else {
+                hitData[nHitColumns*i + 6] = 0;
+		hitData[nHitColumns*i + 7] = 0;
+	    }
 
-            hitData[nHitColumns * i + 1] = (*current)->layer();
-            hitData[nHitColumns * i + 2] = (*current)->x();
-            hitData[nHitColumns * i + 3] = (*current)->y();
-            hitData[nHitColumns * i + 4] = (*current)->z();
-            hitData[nHitColumns * i + 5] = (*current)->r();
+            hitData[nHitColumns * i + 1] = (*current)->x();
+            hitData[nHitColumns * i + 2] = (*current)->y();
+            hitData[nHitColumns * i + 3] = (*current)->z();
+            hitData[nHitColumns * i + 4] = (*current)->r();
             ++i;
         }
 

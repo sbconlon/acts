@@ -70,6 +70,7 @@ std::vector<const SpacePoint*> readFile(std::string filename, std::string type) 
     float x, y, z;
     SpacePoint* sp;
     Truth* tr;
+    Volumes* vl;
 
     if(type == "TrackML") {
         // Filename is treated as "/path/to/eventID"
@@ -121,7 +122,7 @@ std::vector<const SpacePoint*> readFile(std::string filename, std::string type) 
 
                 // Construct spacepoint
                 if (trHid == htHid) {
-                    sp = new SpacePoint{x, y, z,  layer};
+                    sp = new SpacePoint{x, y, z};
                     tr = new Truth{trHid, pid};
                     vl = new Volumes{volId, layId};
                     sp->ids = tr;
@@ -158,7 +159,7 @@ std::vector<const SpacePoint*> readFile(std::string filename, std::string type) 
                         varR = 9. * cov;
                         varZ = .06;
                     }
-                    sp = new SpacePoint{x, y, z, layer};
+                    sp = new SpacePoint{x, y, z};
                     sp->varianceR = varR;
                     sp->varianceZ = varZ;
                     readSP.push_back(sp);
@@ -217,13 +218,13 @@ void print_track(std::vector<std::vector<const SpacePoint*>> tracks, int idx) {
 std::vector<Acts::Seed<SpacePoint>> tracks_to_dplet_seeds(std::vector<std::vector<const SpacePoint *>> tracks) {
 
     std::vector<Acts::Seed<SpacePoint>> seeds;
-    const SpacePoint &mSp = *(new SpacePoint{0, 0, 0, 0});                                        // Dummy spacepoint to fill middle point in the seed
+    const SpacePoint &mSp = *(new SpacePoint{0, 0, 0});                                           // Dummy spacepoint to fill middle point in the seed
     for (auto trkIter=tracks.begin(); trkIter!=tracks.end(); ++trkIter) {
         for (auto hit1=(*trkIter).begin(); hit1!=(*trkIter).end(); ++hit1) {
             auto hit2 = hit1 + 1;
-            while (hit2!=(*trkIter).end() && (*hit1)->layer() >= (*hit2)->layer()) { ++hit2; }    // Screen for duplicate hits
-            int next_layer = (*hit2)->layer();
-            while(hit2!=(*trkIter).end() && (*hit2)->layer() == next_layer) {                     // Use all hits in the next layer as a seed
+            while(hit2!=(*trkIter).end() && (*hit1)->vols == (*hit2)->vols) { ++hit2; }             // Screen for duplicate hits
+            Volumes* next_vols = (*hit2)->vols;
+	    while(hit2!=(*trkIter).end() && (*hit2)->vols == next_vols) {                           // Use all hits in the next layer as a seed
                 const SpacePoint &bSp = **hit1;
                 const SpacePoint &tSp = **hit2;
                 seeds.push_back(Acts::Seed<SpacePoint>(bSp, mSp, tSp, 0));
@@ -238,15 +239,15 @@ std::vector<Acts::Seed<SpacePoint>> tracks_to_tplet_seeds(std::vector<std::vecto
 
     std::vector<Acts::Seed<SpacePoint>> seeds;
     for (auto trkIter=tracks.begin(); trkIter!=tracks.end(); ++trkIter) {
-        for (auto hit1=(*trkIter).begin(); hit1!=(*trkIter).end(); ++hit1) {                         // bottom hit loop
+        for (auto hit1=(*trkIter).begin(); hit1!=(*trkIter).end(); ++hit1) {                      // bottom hit loop
             auto hit2 = hit1 + 1;
-            while (hit2!=(*trkIter).end() && (*hit1)->layer() >= (*hit2)->layer()) { ++hit2; }       // screen for duplicate bottom hits
-            int second_layer = (*hit2)->layer();
-            for (; hit2!=(*trkIter).end() && (*hit2)->layer() == second_layer; ++hit2) {             // middle hit loop (use all hits in 2nd layer)
+            while (hit2!=(*trkIter).end() && (*hit1)->vols == (*hit2)->vols) { ++hit2; }          // screen for duplicate bottom hits
+            Volumes* second_vols = (*hit2)->vols;
+            for (; hit2!=(*trkIter).end() && (*hit2)->vols == second_vols; ++hit2) {              // middle hit loop (use all hits in 2nd layer)
                 auto hit3 = hit2 + 1;
-                while (hit3!=(*trkIter).end() && (*hit2)->layer() >= (*hit3)->layer()) { ++hit3; }   // screen for duplicate middle hits
-                int third_layer = (*hit3)->layer();
-                for (; hit3!=(*trkIter).end() && (*hit3)->layer() == third_layer; ++hit3) {          // top hit loop (use all hits in 3rd layer)
+                while (hit3!=(*trkIter).end() && (*hit2)->vols >= (*hit3)->vols) { ++hit3; }       // screen for duplicate middle hits
+                Volumes* third_vols = (*hit3)->vols;
+                for (; hit3!=(*trkIter).end() && (*hit3)->vols == third_vols; ++hit3) {            // top hit loop (use all hits in 3rd layer)
                     const SpacePoint &bSp = **hit1;
                     const SpacePoint &mSp = **hit2;
                     const SpacePoint &tSp = **hit3;

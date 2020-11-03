@@ -35,7 +35,7 @@ struct Volumes {
     int m_layerId;
 
     // Constructors
-    Volums(int layerId, int volId){
+    Volumes(int layerId, int volId){
       m_layerId = layerId;
       m_volId = volId;
     }
@@ -43,26 +43,26 @@ struct Volumes {
     // Member Functions
     int volId() const { return m_volId; }
     int layerId() const { return m_layerId; }
-}
+};
 
 struct SpacePoint {
-  // Member variables
+  // Private member variables
   float m_x;
   float m_y;
   float m_z;
   float m_r;
-  int m_layer;
+
+  // Public member variables
   float varianceR=0;
   float varianceZ=0;
   Truth* ids = NULL;
   Volumes* vols = NULL;
 
   // Constructor
-  SpacePoint (float x, float y, float z, int layer) {
+  SpacePoint (float x, float y, float z) {
       m_x = x;
       m_y = y;
       m_z = z;
-      m_layer = layer;
       m_r = std::sqrt(m_x * m_x + m_y * m_y);
   }
 
@@ -71,7 +71,6 @@ struct SpacePoint {
   float y() const { return m_y; }
   float z() const { return m_z; }
   float r() const { return m_r; }
-  int layer() const { return m_layer; }
 };
 
 bool operator==(SpacePoint a, SpacePoint b) {
@@ -80,7 +79,10 @@ bool operator==(SpacePoint a, SpacePoint b) {
     } else {
         return (a.x() == b.x() &&
                 a.y() == b.y() &&
-                a.z() == b.z() &&
-                a.layer() == b.layer());
+                a.z() == b.z());
     }
+}
+
+bool operator==(Volumes a, Volumes b) {
+    return (a.volId() == b.volId() && a.layerId() && b.layerId());
 }
