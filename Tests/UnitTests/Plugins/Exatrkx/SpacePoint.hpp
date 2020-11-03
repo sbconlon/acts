@@ -12,7 +12,7 @@ struct Truth {
     // Member Variables
     unsigned long m_hid;
     unsigned long m_pid;
-    
+
     // Constructors
     Truth(unsigned long hid, unsigned long pid) {
         m_hid = hid;
@@ -22,12 +22,28 @@ struct Truth {
         m_hid = hid;
         m_pid = 0;
     }
-    
+
     // Member Functions
     unsigned long hid() const { return m_hid; }
     unsigned long pid() const { return m_pid; }
     void setPid(unsigned long pid){ m_pid = pid; }
 };
+
+struct Volumes {
+    // Member variables
+    int m_volId;
+    int m_layerId;
+
+    // Constructors
+    Volums(int layerId, int volId){
+      m_layerId = layerId;
+      m_volId = volId;
+    }
+
+    // Member Functions
+    int volId() const { return m_volId; }
+    int layerId() const { return m_layerId; }
+}
 
 struct SpacePoint {
   // Member variables
@@ -39,7 +55,8 @@ struct SpacePoint {
   float varianceR=0;
   float varianceZ=0;
   Truth* ids = NULL;
-  
+  Volumes* vols = NULL;
+
   // Constructor
   SpacePoint (float x, float y, float z, int layer) {
       m_x = x;

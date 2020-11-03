@@ -40,7 +40,7 @@ namespace Acts {
         const int* edgeIdxs = NULL;
         int nEdges=0;
         std::vector<Acts::Seed<external_spacepoint_t>> edges;
-        bool hasHitID, hasPrtID;
+        bool hasHitID, hasPrtID, hasVolumes;
 
         // Determine if SpacePoint obj has valid truth info
         if((*first)->ids == NULL){
@@ -54,26 +54,34 @@ namespace Acts {
                 hasHitID = false;
             }
         }
+        // Determine if SpacePoint obj has valid volume info
+        hasVolumes = (*first)->vols == NULL;
 
         // Split SpacePoint vector into hit and truth arrays
-        int nHitColumns = 6;
+        if (hasVolumes) nHitColumns = 8; else nHitColumns = 6;
         int nTruthColumns = 2;
         hitData = (float *) malloc(sizeof(float) * nhits * nHitColumns);
         if (hasPrtID) { truthData = (unsigned long *) malloc(sizeof(unsigned long) * nhits * nTruthColumns); }
         auto current = first;
         int i=0;
         for (; current != last; current++) {
+            // Fill in hit id and particle id info
             if (hasHitID && hasPrtID) {
                 hitData[nHitColumns*i] = (float) (*current)->ids->hid();
                 truthData[nTruthColumns*i] = (*current)->ids->hid();
                 truthData[nTruthColumns*i + 1] = (*current)->ids->pid();
-
 
             } else if(hasHitID && !hasPrtID) {
                 hitData[nHitColumns * i] = (float) (*current)->ids->hid();
 
             } else if (!hasHitID && !hasPrtID) {
                 hitData[nHitColumns * i] = (float) i;
+            }
+
+            // Fill in volume id info
+            if(hasVolumes) {
+                hitData[nHitColumns*i + 6] = (float) (*current)->vols->volId();
+                hitData[nHitColumns*i + 7] = (float) (*current)->vols->layerId();
             }
 
             hitData[nHitColumns * i + 1] = (*current)->layer();

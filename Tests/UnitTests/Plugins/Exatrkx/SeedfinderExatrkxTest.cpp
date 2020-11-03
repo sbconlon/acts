@@ -22,6 +22,7 @@
 #include "SpacePoint.hpp"
 #include "helper.hpp"
 
+/*
 int getTrackMLLayer(int volId, int layId){
     // Maps volume and layer id pairs onto 0-9 integer space
     // and returns -1 if hit is in a endcap
@@ -46,7 +47,7 @@ int getTrackMLLayer(int volId, int layId){
             return -1;
             break;
     }
-}
+}*/
 
 bool isInt(std::string str) {
     if (str.empty()) {
@@ -106,7 +107,7 @@ std::vector<const SpacePoint*> readFile(std::string filename, std::string type) 
                 if (!isFloat(token)) { std::getline(htFile, token); continue; }
                 z = std::stof(token);
                 std::getline(htFile, token);
-                layer = getTrackMLLayer(volId, layId);
+                //layer = getTrackMLLayer(volId, layId);
 
                 // Parse truth file
                 unsigned long trHid, pid;
@@ -119,11 +120,16 @@ std::vector<const SpacePoint*> readFile(std::string filename, std::string type) 
                 std::getline(trFile, token);
 
                 // Construct spacepoint
-                if (trHid == htHid && layer != -1) {
+                if (trHid == htHid) {
                     sp = new SpacePoint{x, y, z,  layer};
                     tr = new Truth{trHid, pid};
+                    vl = new Volumes{volId, layId};
                     sp->ids = tr;
+                    sp->vols = vl;
                     readSP.push_back(sp);
+                } else {
+                  std::cerr << "Error while reading input file: hit id from hit file does not match hit id from truth file" << std::endl;
+                  exit(EXIT_FAILURE);
                 }
             }
         }
@@ -328,7 +334,7 @@ int main(int argc, char** argv) {
     auto start_acts = std::chrono::system_clock::now();
 
     Acts::SeedfinderConfig<SpacePoint> config;
-    // silicon detector max
+    // silicon detector max               // Default parameters
     config.rMax = 600.;                   //   160.
     config.deltaRMin = 5.;                //     5.
     config.deltaRMax = 400.;              //   160.
