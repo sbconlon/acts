@@ -59,7 +59,7 @@ namespace Acts {
 
         // Split SpacePoint vector into hit and truth arrays
         int nHitColumns;
-	if (hasVolumes) nHitColumns = 7; else nHitColumns = 5;
+	      if (hasVolumes) nHitColumns = 7; else nHitColumns = 5;
         int nTruthColumns = 2;
         hitData = (float *) malloc(sizeof(float) * nhits * nHitColumns);
         if (hasPrtID) { truthData = (unsigned long *) malloc(sizeof(unsigned long) * nhits * nTruthColumns); }
@@ -81,12 +81,12 @@ namespace Acts {
 
             // Fill in volume id info
             if(hasVolumes) {
-                hitData[nHitColumns*i + 6] = (float) (*current)->vols->volId();
-                hitData[nHitColumns*i + 7] = (float) (*current)->vols->layerId();
+                hitData[nHitColumns*i + 5] = (float) (*current)->vols->volId();
+                hitData[nHitColumns*i + 6] = (float) (*current)->vols->layerId();
             } else {
                 hitData[nHitColumns*i + 6] = 0;
-		hitData[nHitColumns*i + 7] = 0;
-	    }
+		            hitData[nHitColumns*i + 7] = 0;
+	          }
 
             hitData[nHitColumns * i + 1] = (*current)->x();
             hitData[nHitColumns * i + 2] = (*current)->y();
@@ -121,7 +121,6 @@ namespace Acts {
                 if (hasPrtID) {
                     pTruth = (PyArrayObject *) PyArray_SimpleNewFromData(2, trDims, PyArray_ULONG, (void *) truthData);
                 }
-
                 // Convert keyword args to python objects
                 pConfigPath = PyUnicode_FromString(config_path);
                 pFilename = PyUnicode_FromString(filename);

@@ -35,7 +35,7 @@ namespace Acts {
         const int* edgeIdxs = NULL;
         int nEdges=0;
         std::vector<Acts::Seed<external_spacepoint_t>> edges;
-        bool hasHitID, hasPrtID;
+        bool hasHitID, hasPrtID, hasVolumes;
 
         // Determine if SpacePoint obj has valid truth info
         if((*first)->ids == NULL){
@@ -49,9 +49,12 @@ namespace Acts {
                 hasHitID = false;
             }
         }
+        // Determine if SpacePoint obj has valid truth info
+        hasVolumes = (*first)->vols = NULL;
 
         // Split SpacePoint vector into hit and truth arrays
-        int nHitColumns = 6;
+        int nHitColumns;
+        if (hasVolumes) nHitColumns = 7; else nHitColumns = 5;
         int nTruthColumns = 2;
         hitData = (float *) malloc(sizeof(float) * nhits * nHitColumns);
         if (hasPrtID) { truthData = (unsigned long *) malloc(sizeof(unsigned long) * nhits * nTruthColumns); }
@@ -63,7 +66,6 @@ namespace Acts {
                 truthData[nTruthColumns*i] = (*current)->ids->hid();
                 truthData[nTruthColumns*i + 1] = (*current)->ids->pid();
 
-
             } else if(hasHitID && !hasPrtID) {
                 hitData[nHitColumns * i] = (float) (*current)->ids->hid();
 
@@ -71,11 +73,19 @@ namespace Acts {
                 hitData[nHitColumns * i] = (float) i;
             }
 
-            //hitData[nHitColumns * i + 1] = (*current)->layer();
-            hitData[nHitColumns * i + 2] = (*current)->x();
-            hitData[nHitColumns * i + 3] = (*current)->y();
-            hitData[nHitColumns * i + 4] = (*current)->z();
-            hitData[nHitColumns * i + 5] = (*current)->r();
+            // Fill in volume id info
+            if(hasVolumes) {
+              hitData[nHitColumns*i + 6] = (float) (*current)->vols->volId();
+              hitData[nHitColumns*i + 7] = (float) (*current)->vols->layerId();
+            } else {
+              hitData[nHitColumns*i + 6] = 0;
+              hitData[nHitColumns*i + 7] = 0;
+            }
+
+            hitData[nHitColumns * i + 1] = (*current)->x();
+            hitData[nHitColumns * i + 2] = (*current)->y();
+            hitData[nHitColumns * i + 3] = (*current)->z();
+            hitData[nHitColumns * i + 4] = (*current)->r();
             ++i;
         }
 
@@ -98,7 +108,6 @@ namespace Acts {
             // Import python wrapper function
             pFunc = PyObject_GetAttrString(pModule, "wrap_prepare_triplets");
             if (pFunc && PyCallable_Check(pFunc)) {
-
                 // Convert C Arrays to Numpy Arrays
                 npy_intp htDims[2] = {nhits, nHitColumns};
                 npy_intp trDims[2] = {nhits, nTruthColumns};
@@ -106,7 +115,6 @@ namespace Acts {
                 if (hasPrtID) {
                     pTruth = (PyArrayObject *) PyArray_SimpleNewFromData(2, trDims, PyArray_ULONG, (void *) truthData);
                 }
-
                 // Convert keyword args to python objects
                 pConfigPath = PyUnicode_FromString(config_path);
                 pFilename = PyUnicode_FromString(filename);
