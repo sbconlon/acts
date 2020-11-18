@@ -4,13 +4,21 @@
 
   1) Load modules
     ```sh
+    
     module load gcc/8.3.0
+    
     module load cuda/10.2.89
+    
     module load tbb
+    
     module load boost
+    
     module load eigen3
+    
     module load cmake
+    
     export CMAKE_PREFIX_PATH=$EIGEN3_DIR:$CMAKE_PREFIX_PATH
+    
     ```
   
   2) Build and Load Root Module
