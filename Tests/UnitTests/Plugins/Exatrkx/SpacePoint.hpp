@@ -35,7 +35,7 @@ struct Volumes {
     int m_layerId;
 
     // Constructors
-    Volumes(int layerId, int volId){
+    Volumes(int volId, int layerId){
       m_layerId = layerId;
       m_volId = volId;
     }

@@ -50,15 +50,15 @@ namespace Acts {
             }
         }
         // Determine if SpacePoint obj has valid truth info
-        hasVolumes = (*first)->vols = NULL;
+        hasVolumes = (*first)->vols != NULL;
 
         // Split SpacePoint vector into hit and truth arrays
         int nHitColumns;
         if (hasVolumes) nHitColumns = 7; else nHitColumns = 5;
         int nTruthColumns = 2;
         hitData = (float *) malloc(sizeof(float) * nhits * nHitColumns);
-        if (hasPrtID) { truthData = (unsigned long *) malloc(sizeof(unsigned long) * nhits * nTruthColumns); }
-        auto current = first;
+        if (hasPrtID) truthData = (unsigned long *) malloc(sizeof(unsigned long) * nhits * nTruthColumns);
+	auto current = first;
         int i=0;
         for (; current != last; current++) {
             if (hasHitID && hasPrtID) {
@@ -75,11 +75,11 @@ namespace Acts {
 
             // Fill in volume id info
             if(hasVolumes) {
-              hitData[nHitColumns*i + 6] = (float) (*current)->vols->volId();
-              hitData[nHitColumns*i + 7] = (float) (*current)->vols->layerId();
+              hitData[nHitColumns*i + 5] = (float) (*current)->vols->volId();
+              hitData[nHitColumns*i + 6] = (float) (*current)->vols->layerId();
             } else {
+              hitData[nHitColumns*i + 5] = 0;
               hitData[nHitColumns*i + 6] = 0;
-              hitData[nHitColumns*i + 7] = 0;
             }
 
             hitData[nHitColumns * i + 1] = (*current)->x();
