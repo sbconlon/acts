@@ -19,7 +19,7 @@
   mkdir modulefiles && cd modulefiles
   mkdir root && cd root
   ```
-  Create a file called "6.14.08" and copy and paste the following:
+  Create a file called "8.14.08" and copy and paste the following:
   ```
   #%Module2.0
 
@@ -54,7 +54,7 @@
   then do
   ```sh
   export MODULEPATH=~/modulefiles:$MODULEPATH
-  module load root/6.14.08
+  module load root/8.14.08
   ```
   
   3) Build ACTS
