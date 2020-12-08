@@ -21,259 +21,17 @@
 #include "ATLASCuts.hpp"
 #include "SpacePoint.hpp"
 #include "helper.hpp"
-
-/*
-int getTrackMLLayer(int volId, int layId){
-    // Maps volume and layer id pairs onto 0-9 integer space
-    // and returns -1 if hit is in a endcap
-    switch(volId){
-        case 8:
-            if(layId == 2){return 0;}
-            if(layId == 4){return 1;}
-            if(layId == 6){return 2;}
-            if(layId == 8){return 3;}
-            break;
-        case 13:
-            if(layId == 2){return 4;}
-            if(layId == 4){return 5;}
-            if(layId == 6){return 6;}
-            if(layId == 8){return 7;}
-            break;
-        case 17:
-            if(layId == 2){return 8;}
-            if(layId == 4){return 9;}
-            break;
-        default:
-            return -1;
-            break;
-    }
-}*/
-
-bool isInt(std::string str) {
-    if (str.empty()) {
-        return false;
-    }
-    return str.find_first_not_of("0123456789") == std::string::npos;
-}
-
-bool isFloat(std::string str) {
-    if (str.empty()) {
-        return false;
-    }
-    return str.find_first_not_of("0123456789.-") == std::string::npos;
-}
-
-std::vector<const SpacePoint*> readFile(std::string filename, std::string type) {
-
-    std::vector<const SpacePoint *> readSP;
-    int layer;
-    float x, y, z;
-    SpacePoint* sp;
-    Truth* tr;
-    Volumes* vl;
-
-    if(type == "TrackML") {
-        // Filename is treated as "/path/to/eventID"
-        std::string hitFilename = filename + "-hits.csv";
-        std::cout << hitFilename << std::endl;
-        std::string truthFilename = filename + "-truth.csv";
-        std::ifstream htFile(hitFilename);
-        std::ifstream trFile(truthFilename);
-        if(htFile.is_open() && trFile.is_open() && htFile.good() && trFile.good()) {
-            std::string token;
-            std::getline(htFile, token);  // discard column labels of csv file
-            std::getline(trFile, token);  // discard column labels of csv file
-            while(!htFile.eof() && !trFile.eof()) {
-                // Parse hit file
-                unsigned long htHid;
-                int volId, layId;
-                std::getline(htFile, token, ',');
-                if (!isInt(token)) { std::getline(htFile, token); continue; }
-                htHid = std::stol(token);
-                std::getline(htFile, token, ',');
-                std::getline(htFile, token, ',');
-                if (!isInt(token)) { std::getline(htFile, token); continue; }
-                volId = std::stoi(token);
-                std::getline(htFile, token, ',');
-                if (!isInt(token)) { std::getline(htFile, token); continue; }
-                layId = std::stoi(token);
-                std::getline(htFile, token, ',');
-                std::getline(htFile, token, ',');
-                if (!isFloat(token)) { std::getline(htFile, token); continue; }
-                x = std::stof(token);
-                std::getline(htFile, token, ',');
-                if (!isFloat(token)) { std::getline(htFile, token); continue; }
-                y = std::stof(token);
-                std::getline(htFile, token, ',');
-                if (!isFloat(token)) { std::getline(htFile, token); continue; }
-                z = std::stof(token);
-                std::getline(htFile, token);
-                //layer = getTrackMLLayer(volId, layId);
-
-                // Parse truth file
-                unsigned long trHid, pid;
-                std::getline(trFile, token, ',');
-                if (!isInt(token)) { std::getline(trFile, token); continue; }
-                trHid = std::stol(token);
-                std::getline(trFile, token, ',');
-                if (!isInt(token)) { std::getline(trFile, token); continue; }
-                pid = std::stol(token);
-                std::getline(trFile, token);
-
-                // Construct spacepoint
-                if (trHid == htHid) {
-                    sp = new SpacePoint{x, y, z};
-                    tr = new Truth{trHid, pid};
-                    vl = new Volumes{volId, layId};
-                    sp->ids = tr;
-                    sp->vols = vl;
-                    readSP.push_back(sp);
-                } else {
-                  std::cerr << "Error while reading input file: hit id from hit file does not match hit id from truth file" << std::endl;
-                  exit(EXIT_FAILURE);
-                }
-            }
-        }
-
-    } else if(type == "lxyz") {
-        std::ifstream spFile(filename);
-        if(spFile.is_open()) {
-            while(!spFile.eof()) {
-                std::string line;
-                std::getline(spFile, line);
-                std::stringstream ss(line);
-                std::string linetype;
-                ss >> linetype;
-                float varR, varZ;
-                if (linetype == "lxyz") {
-                    ss >> layer >> x >> y >> z >> varR >> varZ;
-                    float f22 = varR;
-                    float wid = varZ;
-                    float cov = wid * wid * .08333;
-                    if (cov < f22)
-                        cov = f22;
-                    if (std::abs(z) > 450.) {
-                        varZ = 9. * cov;
-                        varR = .06;
-                    } else {
-                        varR = 9. * cov;
-                        varZ = .06;
-                    }
-                    sp = new SpacePoint{x, y, z};
-                    sp->varianceR = varR;
-                    sp->varianceZ = varZ;
-                    readSP.push_back(sp);
-                }
-            }
-        }
-
-    } else {
-        std::cerr << "Error: " << type << "file type not found.\n";
-        exit(EXIT_FAILURE);
-    }
-
-    return readSP;
-}
-
-std::vector<std::vector<const SpacePoint*>> truth_to_tracks(std::vector<const SpacePoint*> hits) {
-
-    std::vector<std::vector<const SpacePoint *>> tracks;
-    for (auto hitIter=hits.begin(); hitIter!=hits.end(); ++hitIter) {
-        auto trkIter=tracks.begin();
-        for ( ; trkIter!=tracks.end(); ++trkIter) {
-            if (((*trkIter)[0])->ids->pid() == (*hitIter)->ids->pid()) {
-                auto it=(*trkIter).begin();
-                for ( ; it!=(*trkIter).end(); ++it) {
-                    if ((*it)->r() > (*hitIter)->r()) {
-                        (*trkIter).insert(it, (*hitIter));
-                        break;
-                    }
-                }
-                if (it==(*trkIter).end()) {
-                    (*trkIter).push_back((*hitIter));
-                }
-                break;
-            }
-        }
-        if (trkIter==tracks.end()) {
-            std::vector<const SpacePoint*> new_track;
-            new_track.push_back(*hitIter);
-            tracks.push_back(new_track);
-        }
-    }
-    return tracks;
-}
-
-/***
-void print_track(std::vector<std::vector<const SpacePoint*>> tracks, int idx) {
-    std::vector <const SpacePoint*> trk = tracks[idx];
-    std::cout << "Example Size: " << trk.size() << std::endl;
-    std::cout << " HID     " << " PID            " << "  layer " << "   R   "<< std::endl;
-    for (auto ex=trk.begin(); ex!=trk.end(); ++ex) {
-        std::cout << (*ex)->ids->hid() << "  " << (*ex)->ids->pid() << "    " << (*ex)->layer() << "        " <<  (*ex)->r() << std::endl;
-    }
-}
-***/
-
-std::vector<Acts::Seed<SpacePoint>> tracks_to_dplet_seeds(std::vector<std::vector<const SpacePoint *>> tracks) {
-
-    std::vector<Acts::Seed<SpacePoint>> seeds;
-    const SpacePoint &mSp = *(new SpacePoint{0, 0, 0});                                           // Dummy spacepoint to fill middle point in the seed
-    for (auto trkIter=tracks.begin(); trkIter!=tracks.end(); ++trkIter) {
-        for (auto hit1=(*trkIter).begin(); hit1!=(*trkIter).end(); ++hit1) {
-            auto hit2 = hit1 + 1;
-            while(hit2!=(*trkIter).end() && (*hit1)->vols == (*hit2)->vols) { ++hit2; }             // Screen for duplicate hits
-            Volumes* next_vols = (*hit2)->vols;
-	    while(hit2!=(*trkIter).end() && (*hit2)->vols == next_vols) {                           // Use all hits in the next layer as a seed
-                const SpacePoint &bSp = **hit1;
-                const SpacePoint &tSp = **hit2;
-                seeds.push_back(Acts::Seed<SpacePoint>(bSp, mSp, tSp, 0));
-                ++hit2;
-            }
-        }
-    }
-    return seeds;
-}
-
-std::vector<Acts::Seed<SpacePoint>> tracks_to_tplet_seeds(std::vector<std::vector<const SpacePoint *>> tracks) {
-
-    std::vector<Acts::Seed<SpacePoint>> seeds;
-    for (auto trkIter=tracks.begin(); trkIter!=tracks.end(); ++trkIter) {
-        for (auto hit1=(*trkIter).begin(); hit1!=(*trkIter).end(); ++hit1) {                      // bottom hit loop
-            auto hit2 = hit1 + 1;
-            while (hit2!=(*trkIter).end() && (*hit1)->vols == (*hit2)->vols) { ++hit2; }          // screen for duplicate bottom hits
-            Volumes* second_vols = (*hit2)->vols;
-            for (; hit2!=(*trkIter).end() && (*hit2)->vols == second_vols; ++hit2) {              // middle hit loop (use all hits in 2nd layer)
-                auto hit3 = hit2 + 1;
-                while (hit3!=(*trkIter).end() && (*hit2)->vols >= (*hit3)->vols) { ++hit3; }       // screen for duplicate middle hits
-                Volumes* third_vols = (*hit3)->vols;
-                for (; hit3!=(*trkIter).end() && (*hit3)->vols == third_vols; ++hit3) {            // top hit loop (use all hits in 3rd layer)
-                    const SpacePoint &bSp = **hit1;
-                    const SpacePoint &mSp = **hit2;
-                    const SpacePoint &tSp = **hit3;
-                    seeds.push_back(Acts::Seed<SpacePoint>(bSp, mSp, tSp, 0));
-                }
-            }
-        }
-    }
-    return seeds;
-}
+#include "ioFileHelper.hpp"
+#include "trackHelpler.hpp"
 
 int main(int argc, char** argv) {
 
     // --> Command line options
-
     std::string file{"sp.txt"};
     std::string type{"lxyz"};
     std::string save{""};
-    //bool help(false);
-    //bool quiet(false);
-    //bool allgroup(false);
-    //bool do_cpu(true);
-
 
     // --> Parse command line
-
     int opt;
     while((opt = getopt(argc, argv, "f:t:s:h")) != -1){
         switch (opt) {
@@ -291,15 +49,6 @@ int main(int argc, char** argv) {
                 exit(EXIT_FAILURE);
         }
     }
-
-    // --> Read File
-
-    //std::ifstream f(file);
-    //if (!f.good()) {
-    //    std::cerr << "input file \"" << file << "\" does not exist\n";
-    //    exit(EXIT_FAILURE);
-    //}
-
     std::vector<const SpacePoint*> spVect = readFile(file, type);
     std::cout << std::endl;
     std::cout << "--> Loaded " << spVect.size() << " hits" << std::endl;
@@ -418,7 +167,6 @@ int main(int argc, char** argv) {
         }
     }
     int acts_correct = 0;
-    //tit = truth_tplet_seedVect.begin();
     for (auto ait=acts_seedVect.begin(); ait!=acts_seedVect.end(); ++ait) {
         for (tit=truth_tplet_seedVect.begin(); tit!=truth_tplet_seedVect.end(); ++tit) {
             if(*(ait->sp()[0]) == *(tit->sp()[0]) && *(ait->sp()[1]) == *(tit->sp()[1]) && *(ait->sp()[2]) == *(tit->sp()[2])) {

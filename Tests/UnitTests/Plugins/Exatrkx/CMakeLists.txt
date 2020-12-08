@@ -1,2 +1,3 @@
 set(unittest_extra_libraries ActsExatrkxPlugin)
 add_unittest(ExatrkxSeeding SeedfinderExatrkxTest.cpp)
+add_unittest(ExatrkxInference ExatrkxInferenceTest.cpp)
