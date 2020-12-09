@@ -31,9 +31,9 @@ std::vector<std::vector<const SpacePoint*>> truth_to_tracks(std::vector<const Sp
 void print_track(std::vector<std::vector<const SpacePoint*>> tracks, int idx) {
     std::vector <const SpacePoint*> trk = tracks[idx];
     std::cout << "Example Size: " << trk.size() << std::endl;
-    std::cout << " HID     " << " PID            " << "  layer " << "   R   "<< std::endl;
+    std::cout << " HID     " << " PID            " << "   R   "<< std::endl;
     for (auto ex=trk.begin(); ex!=trk.end(); ++ex) {
-        std::cout << (*ex)->ids->hid() << "  " << (*ex)->ids->pid() << "    " << (*ex)->layer() << "        " <<  (*ex)->r() << std::endl;
+        std::cout << (*ex)->ids->hid() << "  " << (*ex)->ids->pid() << "    " << "        " <<  (*ex)->r() << std::endl;
     }
 }
 
