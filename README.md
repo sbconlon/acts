@@ -80,7 +80,7 @@
 
 ## Running Exatrkx Seeding Tests
 
-  1) Add the location of `exatrkx-work/gnn_pytorch` directory to the `PYTHONPATH` environent variable.
+  1) Add the location of `exatrkx-work/gnn_pytorch` directory to the `PYTHONPATH` environment variable.
 ```sh
 export PYTHONPATH=/path/to/exatrkx-work/gnn_pytorch:$PYTHONPATH
 ```
