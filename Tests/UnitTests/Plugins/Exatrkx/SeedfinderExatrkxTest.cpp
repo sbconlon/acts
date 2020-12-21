@@ -1,3 +1,11 @@
+#include<iostream>
+
+int main(int argc, char** argv) {
+  std::cout << "Hello, World!" << std::endl;
+} 
+
+
+/*
 #include <fstream>
 #include<iomanip>
 #include <iostream>
@@ -43,7 +51,7 @@ int main(int argc, char** argv) {
                 break;
             case 's':
                 save = optarg;
-		break;
+                break;
             default:
                 std::cerr << "Usage: " << argv[0] << " [-f-t-sh] [-f FILENAME] [-t FILETYPE] [-s SAVEPATH]\n";
                 exit(EXIT_FAILURE);
@@ -147,7 +155,7 @@ int main(int argc, char** argv) {
 
     std::vector<Acts::Seed<SpacePoint>> acts_seedVect;
     for (auto it=acts_2DseedVect.begin(); it!=acts_2DseedVect.end(); ++it){
-	for (auto jt=(*it).begin(); jt!=(*it).end(); ++jt) {
+	    for (auto jt=(*it).begin(); jt!=(*it).end(); ++jt) {
             acts_seedVect.push_back(*jt);
         }
     }
@@ -204,3 +212,5 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+*/
+

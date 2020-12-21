@@ -59,7 +59,7 @@ namespace Acts {
 
         // Split SpacePoint vector into hit and truth arrays
         int nHitColumns;
-	      if (hasVolumes) nHitColumns = 7; else nHitColumns = 5;
+        if (hasVolumes) nHitColumns = 7; else nHitColumns = 5;
         int nTruthColumns = 2;
         hitData = (float *) malloc(sizeof(float) * nhits * nHitColumns);
         if (hasPrtID) { truthData = (unsigned long *) malloc(sizeof(unsigned long) * nhits * nTruthColumns); }

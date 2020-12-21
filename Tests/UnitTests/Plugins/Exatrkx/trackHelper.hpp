@@ -1,3 +1,4 @@
+/*
 std::vector<std::vector<const SpacePoint*>> truth_to_tracks(std::vector<const SpacePoint*> hits) {
 
     std::vector<std::vector<const SpacePoint *>> tracks;
@@ -81,3 +82,4 @@ std::vector<Acts::Seed<SpacePoint>> tracks_to_tplet_seeds(std::vector<std::vecto
     }
     return seeds;
 }
+*/
