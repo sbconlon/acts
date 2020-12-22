@@ -77,7 +77,7 @@ namespace Acts {
 	  PyObject* phid;
 	  external_track_t* track = new external_track_t;
 	  for(Py_ssize_t j=0; j<PyList_Size(ptrack); ++j){
-	    phid = PyList_GET_ITEM(phid, j);
+	    phid = PyList_GET_ITEM(ptrack, j);
 	    if(!PyLong_Check(phid)){
 	      throw std::runtime_error("The elements of the sub-lists must be integers");
 	    }
@@ -85,13 +85,13 @@ namespace Acts {
 	    track->add(hid);
 	  }
 	  tracks->push_back(track);
-	}	
+       	}	
       }
-
-      } else {
-        PyErr_Print();
-        throw std::runtime_error("Failed to load Exatrkx module");
-      }
+      
+    }else {
+      PyErr_Print();
+      throw std::runtime_error("Failed to load Exatrkx module");
+    }
 
       Py_Finalize();
     }

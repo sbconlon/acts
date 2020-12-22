@@ -52,5 +52,18 @@ int main(int argc, char** argv) {
   std::vector<Track*> tracks;
   Acts::inferTracks(&hits, &truths, &cells, &particles, &tracks);
   
+  // --> Print Tracks
+  std::cout << std::endl;
+  std::cout << "Tracks: " << std::endl;
+  for(int i=0; i<tracks.size(); ++i){
+    Track* t = tracks[i];
+    std::cout << "  Track " << i << ": ";
+    for(int j=0; j<t->nhits(); ++j){
+      std::cout << t->hids[j];
+      if(j!=t->nhits()-1){ std::cout << ","; }
+    }
+    std::cout << std::endl;
+  }
+
   return 0;
 }
