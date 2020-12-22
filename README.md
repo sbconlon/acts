@@ -78,27 +78,18 @@
   - `Acts::inferTracks<T>`
     TODO: Watch this space
 
-## Running Exatrkx Seeding Tests
+## Running Exatrkx Inference Test
 
   1) Add the location of `exatrkx-work/gnn_pytorch` directory to the `PYTHONPATH` environent variable.
 ```sh
-export PYTHONPATH=/path/to/exatrkx-work/gnn_pytorch:$PYTHONPATH
+export PYTHONPATH=/path/to/inference_dir:$PYTHONPATH
 ```
-  
-  2) Add the config file to the same directory as the `ActsUnitTestExatrkxSeeding` executable
-  
-  3) Run
+
+  2) Run
   
   For TrackML data format:
 ```sh
-./ActsUnitTestExatrkxSeeding -f /path/to/data/event000000000 -t TrackML
+./ActsUnitTestExatrkxSeeding -f /path/to/data/event000000000
 ```
   
-  For lxyz data format:
-```sh
-./ActsUnitTestExatrkxSeeding -f /path/to/data/file -t lxyz
-```
-  
-- `-f`: path to file containing data. If using the TrackML, append `event<EVENT ID>` to the end of the path.
-- `-t`: specifies the format of the data, either TrackML or lxyz
-- `-s`: path to save directory. Saves the triplets as three hit id lists in csv format.
+- `-f`: path to file containing data
