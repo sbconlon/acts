@@ -8,7 +8,7 @@
 
 #include "ActsExamples/Geant4/GeantinoRecording.hpp"
 
-#include "ACTFW/Framework/WhiteBoard.hpp"
+#include "ActsExamples/Framework/WhiteBoard.hpp"
 
 #include <iostream>
 #include <stdexcept>
@@ -18,7 +18,6 @@
 #include <G4VUserDetectorConstruction.hh>
 
 #include "EventAction.hpp"
-#include "PrimaryGeneratorAction.hpp"
 #include "RunAction.hpp"
 #include "SteppingAction.hpp"
 
@@ -36,12 +35,15 @@ GeantinoRecording::GeantinoRecording(GeantinoRecording::Config&& cfg,
     throw std::invalid_argument("Missing detector construction object");
   }
 
+  m_cfg.generationConfig.particleName = "geantino";
+  m_cfg.generationConfig.energy = 1000.;
+
   m_runManager->SetUserInitialization(m_cfg.detectorConstruction.release());
   m_runManager->SetUserInitialization(new FTFP_BERT);
   m_runManager->SetUserAction(new RunAction());
   m_runManager->SetUserAction(new EventAction());
   m_runManager->SetUserAction(
-      new PrimaryGeneratorAction("geantino", 1000., m_cfg.seed1, m_cfg.seed2));
+      new PrimaryGeneratorAction(m_cfg.generationConfig));
   m_runManager->SetUserAction(new SteppingAction());
   m_runManager->Initialize();
 }
@@ -49,8 +51,8 @@ GeantinoRecording::GeantinoRecording(GeantinoRecording::Config&& cfg,
 // needed to allow std::unique_ptr<G4RunManager> with forward-declared class.
 GeantinoRecording::~GeantinoRecording() {}
 
-FW::ProcessCode GeantinoRecording::execute(
-    const FW::AlgorithmContext& ctx) const {
+ActsExamples::ProcessCode GeantinoRecording::execute(
+    const ActsExamples::AlgorithmContext& ctx) const {
   // ensure exclusive access to the geant run manager
   std::lock_guard<std::mutex> guard(m_runManagerLock);
 
@@ -64,5 +66,5 @@ FW::ProcessCode GeantinoRecording::execute(
   // Write the recorded material to the event store
   ctx.eventStore.add(m_cfg.outputMaterialTracks, move(materialTracks));
 
-  return FW::ProcessCode::SUCCESS;
+  return ActsExamples::ProcessCode::SUCCESS;
 }

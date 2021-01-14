@@ -6,7 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Plugins/BField/BFieldUtils.hpp"
+#include "ActsExamples/Plugins/BField/BFieldUtils.hpp"
 
 #include "Acts/MagneticField/BFieldMapUtils.hpp"
 #include "Acts/Utilities/detail/Axis.hpp"
@@ -19,9 +19,9 @@
 #include "TTree.h"
 
 Acts::InterpolatedBFieldMapper<
-    Acts::detail::Grid<Acts::Vector2D, Acts::detail::EquidistantAxis,
+    Acts::detail::Grid<Acts::Vector2, Acts::detail::EquidistantAxis,
                        Acts::detail::EquidistantAxis>>
-FW::BField::txt::fieldMapperRZ(
+ActsExamples::BField::txt::fieldMapperRZ(
     std::function<size_t(std::array<size_t, 2> binsRZ,
                          std::array<size_t, 2> nBinsRZ)>
         localToGlobalBin,
@@ -32,7 +32,7 @@ FW::BField::txt::fieldMapperRZ(
   std::vector<double> rPos;
   std::vector<double> zPos;
   // components of magnetic field on grid points
-  std::vector<Acts::Vector2D> bField;
+  std::vector<Acts::Vector2> bField;
   // reserve estimated size
   rPos.reserve(nPoints);
   zPos.reserve(nPoints);
@@ -51,7 +51,7 @@ FW::BField::txt::fieldMapperRZ(
     tmp >> r >> z >> br >> bz;
     rPos.push_back(r);
     zPos.push_back(z);
-    bField.push_back(Acts::Vector2D(br, bz));
+    bField.push_back(Acts::Vector2(br, bz));
   }
   map_file.close();
   /// [2] use helper function in core
@@ -60,9 +60,9 @@ FW::BField::txt::fieldMapperRZ(
 }
 
 Acts::InterpolatedBFieldMapper<Acts::detail::Grid<
-    Acts::Vector3D, Acts::detail::EquidistantAxis,
-    Acts::detail::EquidistantAxis, Acts::detail::EquidistantAxis>>
-FW::BField::txt::fieldMapperXYZ(
+    Acts::Vector3, Acts::detail::EquidistantAxis, Acts::detail::EquidistantAxis,
+    Acts::detail::EquidistantAxis>>
+ActsExamples::BField::txt::fieldMapperXYZ(
     std::function<size_t(std::array<size_t, 3> binsXYZ,
                          std::array<size_t, 3> nBinsXYZ)>
         localToGlobalBin,
@@ -74,7 +74,7 @@ FW::BField::txt::fieldMapperXYZ(
   std::vector<double> yPos;
   std::vector<double> zPos;
   // components of magnetic field on grid points
-  std::vector<Acts::Vector3D> bField;
+  std::vector<Acts::Vector3> bField;
   // reserve estimated size
   xPos.reserve(nPoints);
   yPos.reserve(nPoints);
@@ -95,7 +95,7 @@ FW::BField::txt::fieldMapperXYZ(
     xPos.push_back(x);
     yPos.push_back(y);
     zPos.push_back(z);
-    bField.push_back(Acts::Vector3D(bx, by, bz));
+    bField.push_back(Acts::Vector3(bx, by, bz));
   }
   map_file.close();
 
@@ -104,9 +104,9 @@ FW::BField::txt::fieldMapperXYZ(
 }
 
 Acts::InterpolatedBFieldMapper<
-    Acts::detail::Grid<Acts::Vector2D, Acts::detail::EquidistantAxis,
+    Acts::detail::Grid<Acts::Vector2, Acts::detail::EquidistantAxis,
                        Acts::detail::EquidistantAxis>>
-FW::BField::root::fieldMapperRZ(
+ActsExamples::BField::root::fieldMapperRZ(
     std::function<size_t(std::array<size_t, 2> binsRZ,
                          std::array<size_t, 2> nBinsRZ)>
         localToGlobalBin,
@@ -117,7 +117,7 @@ FW::BField::root::fieldMapperRZ(
   std::vector<double> rPos;
   std::vector<double> zPos;
   // components of magnetic field on grid points
-  std::vector<Acts::Vector2D> bField;
+  std::vector<Acts::Vector2> bField;
   // [1] Read in file and fill values
   TFile* inputFile = TFile::Open(fieldMapFile.c_str());
   TTree* tree = (TTree*)inputFile->Get(treeName.c_str());
@@ -141,7 +141,7 @@ FW::BField::root::fieldMapperRZ(
     tree->GetEvent(i);
     rPos.push_back(r);
     zPos.push_back(z);
-    bField.push_back(Acts::Vector2D(Br, Bz));
+    bField.push_back(Acts::Vector2(Br, Bz));
   }
   inputFile->Close();
   /// [2] use helper function in core
@@ -150,9 +150,9 @@ FW::BField::root::fieldMapperRZ(
 }
 
 Acts::InterpolatedBFieldMapper<Acts::detail::Grid<
-    Acts::Vector3D, Acts::detail::EquidistantAxis,
-    Acts::detail::EquidistantAxis, Acts::detail::EquidistantAxis>>
-FW::BField::root::fieldMapperXYZ(
+    Acts::Vector3, Acts::detail::EquidistantAxis, Acts::detail::EquidistantAxis,
+    Acts::detail::EquidistantAxis>>
+ActsExamples::BField::root::fieldMapperXYZ(
     std::function<size_t(std::array<size_t, 3> binsXYZ,
                          std::array<size_t, 3> nBinsXYZ)>
         localToGlobalBin,
@@ -164,7 +164,7 @@ FW::BField::root::fieldMapperXYZ(
   std::vector<double> yPos;
   std::vector<double> zPos;
   // components of magnetic field on grid points
-  std::vector<Acts::Vector3D> bField;
+  std::vector<Acts::Vector3> bField;
   // [1] Read in file and fill values
   TFile* inputFile = TFile::Open(fieldMapFile.c_str());
   TTree* tree = (TTree*)inputFile->Get(treeName.c_str());
@@ -192,7 +192,7 @@ FW::BField::root::fieldMapperXYZ(
     xPos.push_back(x);
     yPos.push_back(y);
     zPos.push_back(z);
-    bField.push_back(Acts::Vector3D(Bx, By, Bz));
+    bField.push_back(Acts::Vector3(Bx, By, Bz));
   }
   inputFile->Close();
 

@@ -7,9 +7,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Tests/CommonHelpers/DataDirectory.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
 
 #include <fstream>
@@ -30,9 +30,9 @@ enum VertexCsvData { BeamSpotData, VerticesData, TracksData };
 /// @brief Helper struct to store reference vertex related information
 struct VertexInfo {
   // The position
-  Vector3D position;
+  Vector3 position;
   // The covariance
-  ActsSymMatrixD<3> covariance;
+  SymMatrix3 covariance;
   // Number of tracks
   int nTracks;
   // Weight of first track
@@ -43,13 +43,10 @@ struct VertexInfo {
   double trk1Chi2;
 };
 
-std::tuple<
-    Vertex<BoundParameters>, std::vector<VertexInfo>,
-    std::vector<
-        BoundParameters>> inline readTracksAndVertexCSV(std::string toolString,
-                                                        std::string fileBase =
-                                                            "vertexing_event_"
-                                                            "mu20") {
+inline std::tuple<Vertex<BoundTrackParameters>, std::vector<VertexInfo>,
+                  std::vector<BoundTrackParameters>>
+readTracksAndVertexCSV(std::string toolString,
+                       std::string fileBase = "vertexing_event_mu20") {
   const auto beamspotDataPath =
       Acts::Test::getDataPath(fileBase + "_beamspot.csv");
   const auto tracksDataPath = Acts::Test::getDataPath(fileBase + "_tracks.csv");
@@ -67,9 +64,9 @@ std::tuple<
   std::string line{};
 
   std::shared_ptr<PerigeeSurface> perigeeSurface;
-  std::vector<BoundParameters> tracks;
+  std::vector<BoundTrackParameters> tracks;
   std::vector<VertexInfo> vertices;
-  Vertex<BoundParameters> beamspotConstraint;
+  Vertex<BoundTrackParameters> beamspotConstraint;
 
   // Read in beamspot data
   std::getline(beamspotData, line);  // skip header
@@ -79,8 +76,8 @@ std::tuple<
         std::sregex_token_iterator(line.begin(), line.end(), comma, -1),
         std::sregex_token_iterator()};
 
-    Vector3D beamspotPos;
-    ActsSymMatrixD<3> beamspotCov;
+    Vector3 beamspotPos;
+    SymMatrix3 beamspotCov;
     beamspotPos << std::stod(row[0]) * (1_mm), std::stod(row[1]) * (1_mm),
         std::stod(row[2]) * (1_mm);
     beamspotCov << std::stod(row[3]), 0, 0, 0, std::stod(row[4]), 0, 0, 0,
@@ -119,9 +116,7 @@ std::tuple<
         std::stod(row[16]), std::stod(row[20]), std::stod(row[23]),
         std::stod(row[25]) * 1. / (1_MeV), std::stod(row[26]);
 
-    auto boundParams =
-        BoundParameters(geoCtx, std::move(covMat), params, perigeeSurface);
-    tracks.push_back(boundParams);
+    tracks.emplace_back(perigeeSurface, params, std::move(covMat));
   }
 
   // Read in reference vertex data
@@ -132,10 +127,10 @@ std::tuple<
         std::sregex_token_iterator(line.begin(), line.end(), comma, -1),
         std::sregex_token_iterator()};
 
-    Vector3D pos;
+    Vector3 pos;
     pos << std::stod(row[0]) * (1_mm), std::stod(row[1]) * (1_mm),
         std::stod(row[2]) * (1_mm);
-    ActsSymMatrixD<3> cov;
+    SymMatrix3 cov;
     cov << std::stod(row[3]), std::stod(row[4]), std::stod(row[5]),
         std::stod(row[6]), std::stod(row[7]), std::stod(row[8]),
         std::stod(row[9]), std::stod(row[10]), std::stod(row[11]);

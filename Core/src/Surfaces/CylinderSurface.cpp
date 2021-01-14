@@ -8,15 +8,14 @@
 
 #include "Acts/Surfaces/CylinderSurface.hpp"
 
+#include "Acts/Surfaces/SurfaceError.hpp"
 #include "Acts/Surfaces/detail/FacesHelper.hpp"
 #include "Acts/Surfaces/detail/VerticesHelper.hpp"
 #include "Acts/Utilities/ThrowAssert.hpp"
 
 #include <cassert>
 #include <cmath>
-#include <iomanip>
-#include <iostream>
-#include <utility>
+#include <system_error>
 
 using Acts::VectorHelpers::perp;
 using Acts::VectorHelpers::phi;
@@ -26,15 +25,13 @@ Acts::CylinderSurface::CylinderSurface(const CylinderSurface& other)
 
 Acts::CylinderSurface::CylinderSurface(const GeometryContext& gctx,
                                        const CylinderSurface& other,
-                                       const Transform3D& transf)
-    : GeometryObject(),
-      Surface(gctx, other, transf),
-      m_bounds(other.m_bounds) {}
+                                       const Transform3& shift)
+    : GeometryObject(), Surface(gctx, other, shift), m_bounds(other.m_bounds) {}
 
-Acts::CylinderSurface::CylinderSurface(
-    std::shared_ptr<const Transform3D> htrans, double radius, double halfz,
-    double halfphi, double avphi)
-    : Surface(std::move(htrans)),
+Acts::CylinderSurface::CylinderSurface(const Transform3& transform,
+                                       double radius, double halfz,
+                                       double halfphi, double avphi)
+    : Surface(transform),
       m_bounds(std::make_shared<const CylinderBounds>(radius, halfz, halfphi,
                                                       avphi)) {}
 
@@ -47,9 +44,9 @@ Acts::CylinderSurface::CylinderSurface(
 }
 
 Acts::CylinderSurface::CylinderSurface(
-    std::shared_ptr<const Transform3D> htrans,
+    const Transform3& transform,
     const std::shared_ptr<const CylinderBounds>& cbounds)
-    : Surface(std::move(htrans)), m_bounds(cbounds) {
+    : Surface(transform), m_bounds(cbounds) {
   throw_assert(cbounds, "CylinderBounds must not be nullptr");
 }
 
@@ -63,15 +60,15 @@ Acts::CylinderSurface& Acts::CylinderSurface::operator=(
 }
 
 // return the binning position for ordering in the BinnedArray
-const Acts::Vector3D Acts::CylinderSurface::binningPosition(
+Acts::Vector3 Acts::CylinderSurface::binningPosition(
     const GeometryContext& gctx, BinningValue bValue) const {
-  const Acts::Vector3D& sfCenter = center(gctx);
+  const Acts::Vector3& sfCenter = center(gctx);
   // special binning type for R-type methods
   if (bValue == Acts::binR || bValue == Acts::binRPhi) {
     double R = bounds().get(CylinderBounds::eR);
     double phi = bounds().get(CylinderBounds::eAveragePhi);
-    return Vector3D(sfCenter.x() + R * cos(phi), sfCenter.y() + R * sin(phi),
-                    sfCenter.z());
+    return Vector3(sfCenter.x() + R * cos(phi), sfCenter.y() + R * sin(phi),
+                   sfCenter.z());
   }
   // give the center as default for all of these binning types
   // binX, binY, binZ, binR, binPhi, binRPhi, binH, binEta
@@ -79,17 +76,17 @@ const Acts::Vector3D Acts::CylinderSurface::binningPosition(
 }
 
 // return the measurement frame: it's the tangential plane
-const Acts::RotationMatrix3D Acts::CylinderSurface::referenceFrame(
-    const GeometryContext& gctx, const Vector3D& position,
-    const Vector3D& /*unused*/) const {
-  RotationMatrix3D mFrame;
+Acts::RotationMatrix3 Acts::CylinderSurface::referenceFrame(
+    const GeometryContext& gctx, const Vector3& position,
+    const Vector3& /*unused*/) const {
+  RotationMatrix3 mFrame;
   // construct the measurement frame
   // measured Y is the z axis
-  Vector3D measY = rotSymmetryAxis(gctx);
+  Vector3 measY = rotSymmetryAxis(gctx);
   // measured z is the position normalized transverse (in local)
-  Vector3D measDepth = normal(gctx, position);
+  Vector3 measDepth = normal(gctx, position);
   // measured X is what comoes out of it
-  Vector3D measX(measY.cross(measDepth).normalized());
+  Vector3 measX(measY.cross(measDepth).normalized());
   // assign the columnes
   mFrame.col(0) = measX;
   mFrame.col(1) = measY;
@@ -102,59 +99,54 @@ Acts::Surface::SurfaceType Acts::CylinderSurface::type() const {
   return Surface::Cylinder;
 }
 
-void Acts::CylinderSurface::localToGlobal(const GeometryContext& gctx,
-                                          const Vector2D& lposition,
-                                          const Vector3D& /*unused*/,
-                                          Vector3D& position) const {
+Acts::Vector3 Acts::CylinderSurface::localToGlobal(
+    const GeometryContext& gctx, const Vector2& lposition,
+    const Vector3& /*unused*/) const {
   // create the position in the local 3d frame
   double r = bounds().get(CylinderBounds::eR);
-  double phi = lposition[Acts::eLOC_RPHI] / r;
-  position = Vector3D(r * cos(phi), r * sin(phi), lposition[Acts::eLOC_Z]);
-  position = transform(gctx) * position;
+  double phi = lposition[Acts::eBoundLoc0] / r;
+  Vector3 position(r * cos(phi), r * sin(phi), lposition[Acts::eBoundLoc1]);
+  return transform(gctx) * position;
 }
 
-bool Acts::CylinderSurface::globalToLocal(const GeometryContext& gctx,
-                                          const Vector3D& position,
-                                          const Vector3D& /*unused*/,
-                                          Vector2D& lposition) const {
-  // get the transform & transform global position into cylinder frame
-  // @todo clean up intolerance parameters
-  // transform it to the globalframe: CylinderSurfaces are allowed to have 0
-  // pointer transform
-  double radius = 0.;
-  double inttol = bounds().get(CylinderBounds::eR) * 0.0001;
+Acts::Result<Acts::Vector2> Acts::CylinderSurface::globalToLocal(
+    const GeometryContext& gctx, const Vector3& position,
+    const Vector3& /*unused*/, double tolerance) const {
+  double inttol = tolerance;
+  if (tolerance == s_onSurfaceTolerance) {
+    // transform default value!
+    // @TODO: check if s_onSurfaceTolerance would do here
+    inttol = bounds().get(CylinderBounds::eR) * 0.0001;
+  }
   if (inttol < 0.01) {
     inttol = 0.01;
   }
-
-  const Transform3D& sfTransform = transform(gctx);
-  Transform3D inverseTrans(sfTransform.inverse());
-  Vector3D loc3Dframe(inverseTrans * position);
-  lposition = Vector2D(bounds().get(CylinderBounds::eR) * phi(loc3Dframe),
-                       loc3Dframe.z());
-  radius = perp(loc3Dframe);
-  // return true or false
-  return ((std::abs(radius - bounds().get(CylinderBounds::eR)) > inttol)
-              ? false
-              : true);
+  const Transform3& sfTransform = transform(gctx);
+  Transform3 inverseTrans(sfTransform.inverse());
+  Vector3 loc3Dframe(inverseTrans * position);
+  if (std::abs(perp(loc3Dframe) - bounds().get(CylinderBounds::eR)) > inttol) {
+    return Result<Vector2>::failure(SurfaceError::GlobalPositionNotOnSurface);
+  }
+  return Result<Vector2>::success(
+      {bounds().get(CylinderBounds::eR) * phi(loc3Dframe), loc3Dframe.z()});
 }
 
 std::string Acts::CylinderSurface::name() const {
   return "Acts::CylinderSurface";
 }
 
-const Acts::Vector3D Acts::CylinderSurface::normal(
-    const GeometryContext& gctx, const Acts::Vector2D& lposition) const {
-  double phi = lposition[Acts::eLOC_RPHI] / m_bounds->get(CylinderBounds::eR);
-  Vector3D localNormal(cos(phi), sin(phi), 0.);
-  return Vector3D(transform(gctx).matrix().block<3, 3>(0, 0) * localNormal);
+Acts::Vector3 Acts::CylinderSurface::normal(
+    const GeometryContext& gctx, const Acts::Vector2& lposition) const {
+  double phi = lposition[Acts::eBoundLoc0] / m_bounds->get(CylinderBounds::eR);
+  Vector3 localNormal(cos(phi), sin(phi), 0.);
+  return Vector3(transform(gctx).matrix().block<3, 3>(0, 0) * localNormal);
 }
 
-const Acts::Vector3D Acts::CylinderSurface::normal(
-    const GeometryContext& gctx, const Acts::Vector3D& position) const {
-  const Transform3D& sfTransform = transform(gctx);
+Acts::Vector3 Acts::CylinderSurface::normal(
+    const GeometryContext& gctx, const Acts::Vector3& position) const {
+  const Transform3& sfTransform = transform(gctx);
   // get it into the cylinder frame
-  Vector3D pos3D = sfTransform.inverse() * position;
+  Vector3 pos3D = sfTransform.inverse() * position;
   // set the z coordinate to 0
   pos3D.z() = 0.;
   // normalize and rotate back into global if needed
@@ -162,9 +154,9 @@ const Acts::Vector3D Acts::CylinderSurface::normal(
 }
 
 double Acts::CylinderSurface::pathCorrection(
-    const GeometryContext& gctx, const Acts::Vector3D& position,
-    const Acts::Vector3D& direction) const {
-  Vector3D normalT = normal(gctx, position);
+    const GeometryContext& gctx, const Acts::Vector3& position,
+    const Acts::Vector3& direction) const {
+  Vector3 normalT = normal(gctx, position);
   double cosAlpha = normalT.dot(direction);
   return std::fabs(1. / cosAlpha);
 }
@@ -176,7 +168,7 @@ const Acts::CylinderBounds& Acts::CylinderSurface::bounds() const {
 Acts::Polyhedron Acts::CylinderSurface::polyhedronRepresentation(
     const GeometryContext& gctx, size_t lseg) const {
   // Prepare vertices and faces
-  std::vector<Vector3D> vertices;
+  std::vector<Vector3> vertices;
   std::vector<Polyhedron::FaceType> faces;
   std::vector<Polyhedron::FaceType> triangularMesh;
 
@@ -187,10 +179,10 @@ Acts::Polyhedron Acts::CylinderSurface::polyhedronRepresentation(
   double halfPhi = bounds().get(CylinderBounds::eHalfPhiSector);
 
   // Get the phi segments from the helper - ensures extra points
-  auto phiSegs = fullCylinder
-                     ? detail::VerticesHelper::phiSegments()
-                     : detail::VerticesHelper::phiSegments(
-                           avgPhi - halfPhi, avgPhi + halfPhi, {avgPhi});
+  auto phiSegs = fullCylinder ? detail::VerticesHelper::phiSegments()
+                              : detail::VerticesHelper::phiSegments(
+                                    avgPhi - halfPhi, avgPhi + halfPhi,
+                                    {static_cast<ActsScalar>(avgPhi)});
 
   // Write the two bows/circles on either side
   std::vector<int> sides = {-1, 1};
@@ -202,7 +194,7 @@ Acts::Polyhedron Acts::CylinderSurface::polyhedronRepresentation(
           vertices,
           {bounds().get(CylinderBounds::eR), bounds().get(CylinderBounds::eR)},
           phiSegs[iseg], phiSegs[iseg + 1], lseg, addon,
-          Vector3D(0., 0., side * bounds().get(CylinderBounds::eHalfLengthZ)),
+          Vector3(0., 0., side * bounds().get(CylinderBounds::eHalfLengthZ)),
           ctrans);
     }
   }

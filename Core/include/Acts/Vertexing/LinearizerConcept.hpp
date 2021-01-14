@@ -8,32 +8,32 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Utilities/TypeTraits.hpp"
 #include "Acts/Vertexing/LinearizedTrack.hpp"
 
 namespace Acts {
 
-namespace concept {
-  namespace Linearizer {
+namespace Concepts {
+namespace Linearizer {
 
-  template <typename T>
-  using propagator_t = typename T::Propagator_t;
-  template <typename T>
-  using state_t = typename T::State;
+template <typename T>
+using propagator_t = typename T::Propagator_t;
+template <typename T>
+using state_t = typename T::State;
 
-  METHOD_TRAIT(linTrack_t, linearizeTrack);
+METHOD_TRAIT(linTrack_t, linearizeTrack);
 
-  // clang-format off
+// clang-format off
     template <typename S>
       struct LinearizerConcept {
 
          constexpr static bool linTrack_exists = has_method<const S, Result<LinearizedTrack>,
-         linTrack_t, const BoundParameters&,
-                     const Vector4D&,
+         linTrack_t, const BoundTrackParameters&,
+                     const Vector4&,
                      const Acts::GeometryContext&,
                      const Acts::MagneticFieldContext&,
                      typename S::State&>;
@@ -50,12 +50,12 @@ namespace concept {
                                               propagator_exists,
                                               state_exists>;
       };
-  // clang-format on
-  }  // namespace Linearizer
-}  // namespace concept
+// clang-format on
+}  // namespace Linearizer
+}  // namespace Concepts
 
 template <typename fitter>
 constexpr bool LinearizerConcept =
-    Acts::concept ::Linearizer::LinearizerConcept<fitter>::value;
+    Acts::Concepts ::Linearizer::LinearizerConcept<fitter>::value;
 
 }  // namespace Acts

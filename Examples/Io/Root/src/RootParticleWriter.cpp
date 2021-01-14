@@ -6,10 +6,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Io/Root/RootParticleWriter.hpp"
+#include "ActsExamples/Io/Root/RootParticleWriter.hpp"
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Utilities/Helpers.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <ios>
 #include <stdexcept>
@@ -17,8 +17,9 @@
 #include <TFile.h>
 #include <TTree.h>
 
-FW::RootParticleWriter::RootParticleWriter(
-    const FW::RootParticleWriter::Config& cfg, Acts::Logging::Level lvl)
+ActsExamples::RootParticleWriter::RootParticleWriter(
+    const ActsExamples::RootParticleWriter::Config& cfg,
+    Acts::Logging::Level lvl)
     : WriterT(cfg.inputParticles, "RootParticleWriter", lvl), m_cfg(cfg) {
   // inputParticles is already checked by base constructor
   if (m_cfg.filePath.empty()) {
@@ -63,13 +64,13 @@ FW::RootParticleWriter::RootParticleWriter(
   m_outputTree->Branch("sub_particle", &m_subParticle);
 }
 
-FW::RootParticleWriter::~RootParticleWriter() {
+ActsExamples::RootParticleWriter::~RootParticleWriter() {
   if (m_outputFile) {
     m_outputFile->Close();
   }
 }
 
-FW::ProcessCode FW::RootParticleWriter::endRun() {
+ActsExamples::ProcessCode ActsExamples::RootParticleWriter::endRun() {
   if (m_outputFile) {
     m_outputFile->cd();
     m_outputTree->Write();
@@ -79,7 +80,7 @@ FW::ProcessCode FW::RootParticleWriter::endRun() {
   return ProcessCode::SUCCESS;
 }
 
-FW::ProcessCode FW::RootParticleWriter::writeT(
+ActsExamples::ProcessCode ActsExamples::RootParticleWriter::writeT(
     const AlgorithmContext& ctx, const SimParticleContainer& particles) {
   if (not m_outputFile) {
     ACTS_ERROR("Missing output file");
@@ -95,12 +96,12 @@ FW::ProcessCode FW::RootParticleWriter::writeT(
     m_particleType = particle.pdg();
     m_process = static_cast<decltype(m_process)>(particle.process());
     // position
-    m_vx = particle.position4().x() / Acts::UnitConstants::mm;
-    m_vy = particle.position4().y() / Acts::UnitConstants::mm;
-    m_vz = particle.position4().z() / Acts::UnitConstants::mm;
-    m_vt = particle.position4().w() / Acts::UnitConstants::ns;
+    m_vx = particle.fourPosition().x() / Acts::UnitConstants::mm;
+    m_vy = particle.fourPosition().y() / Acts::UnitConstants::mm;
+    m_vz = particle.fourPosition().z() / Acts::UnitConstants::mm;
+    m_vt = particle.fourPosition().w() / Acts::UnitConstants::ns;
     // momentum
-    const auto p = particle.absMomentum() / Acts::UnitConstants::GeV;
+    const auto p = particle.absoluteMomentum() / Acts::UnitConstants::GeV;
     m_px = p * particle.unitDirection().x();
     m_py = p * particle.unitDirection().y();
     m_pz = p * particle.unitDirection().z();

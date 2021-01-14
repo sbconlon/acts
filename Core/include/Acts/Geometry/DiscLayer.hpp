@@ -8,17 +8,17 @@
 
 #pragma once
 
-#include "Acts/Geometry/GeometryContext.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Geometry/ApproachDescriptor.hpp"
 #include "Acts/Geometry/Layer.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Surfaces/SurfaceArray.hpp"
 
-#include <algorithm>
+#include <memory>
 
 namespace Acts {
 
 class DiscBounds;
-class ApproachDescriptor;
 
 /// @class DiscLayer
 ///
@@ -41,7 +41,7 @@ class DiscLayer : virtual public DiscSurface, public Layer {
   ///
   /// @return a sharted pointer to the new layer
   static MutableLayerPtr create(
-      const std::shared_ptr<const Transform3D>& transform,
+      const Transform3& transform,
       const std::shared_ptr<const DiscBounds>& dbounds,
       std::unique_ptr<SurfaceArray> surfaceArray = nullptr,
       double thickness = 0., std::unique_ptr<ApproachDescriptor> ad = nullptr,
@@ -51,17 +51,10 @@ class DiscLayer : virtual public DiscSurface, public Layer {
                                          std::move(ad), laytyp));
   }
 
-  /// Default Constructor
   DiscLayer() = delete;
-
-  /// Copy constructor of DiscLayer - deleted
   DiscLayer(const DiscLayer& cla) = delete;
-
-  /// Assignment operator for DiscLayers - deleted
-  DiscLayer& operator=(const DiscLayer&) = delete;
-
-  /// Destructor
   ~DiscLayer() override = default;
+  DiscLayer& operator=(const DiscLayer&) = delete;
 
   /// Transforms the layer into a Surface representation for extrapolation
   /// @return This method returns a surface reference
@@ -83,7 +76,7 @@ class DiscLayer : virtual public DiscSurface, public Layer {
   /// @param thickness is the layer thickness (along the normal vector)
   /// @param ad is the approach descriptor that provides the approach surface
   /// @param laytyp is the layer taype
-  DiscLayer(const std::shared_ptr<const Transform3D>& transform,
+  DiscLayer(const Transform3& transform,
             const std::shared_ptr<const DiscBounds>& dbounds,
             std::unique_ptr<SurfaceArray> surfaceArray = nullptr,
             double thickness = 0.,
@@ -91,7 +84,7 @@ class DiscLayer : virtual public DiscSurface, public Layer {
             LayerType laytyp = Acts::active);
 
   /// Copy constructor with shift
-  DiscLayer(const DiscLayer& cla, const Transform3D& tr);
+  DiscLayer(const DiscLayer& cla, const Transform3& tr);
 };
 
 }  // namespace Acts

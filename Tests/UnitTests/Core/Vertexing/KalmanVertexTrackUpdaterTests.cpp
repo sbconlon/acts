@@ -10,13 +10,13 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
 #include "Acts/Vertexing/ImpactPointEstimator.hpp"
 #include "Acts/Vertexing/KalmanVertexTrackUpdater.hpp"
@@ -82,20 +82,20 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_TrackUpdater) {
   auto propagator = std::make_shared<Propagator>(stepper);
 
   // Set up ImpactPointEstimator, used for comparisons later
-  using IPEstimator = ImpactPointEstimator<BoundParameters, Propagator>;
+  using IPEstimator = ImpactPointEstimator<BoundTrackParameters, Propagator>;
   IPEstimator::Config ip3dEstConfig(bField, propagator);
   IPEstimator ip3dEst(ip3dEstConfig);
   IPEstimator::State state(magFieldContext);
 
   // Set up HelicalTrackLinearizer, needed for linearizing the tracks
-  // Linearizer for BoundParameters type test
+  // Linearizer for BoundTrackParameters type test
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
   Linearizer::State linState(magFieldContext);
 
   // Create perigee surface at origin
   std::shared_ptr<PerigeeSurface> perigeeSurface =
-      Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+      Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
   // Create random tracks around origin and a random vertex.
   // Update tracks with the assumption that they originate from
@@ -106,7 +106,7 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_TrackUpdater) {
     double q = qDist(gen) < 0 ? -1. : 1.;
 
     // Construct random track parameters
-    BoundParameters::ParametersVector paramVec;
+    BoundTrackParameters::ParametersVector paramVec;
 
     paramVec << d0Dist(gen), z0Dist(gen), phiDist(gen), thetaDist(gen),
         q / pTDist(gen), 0.;
@@ -129,18 +129,17 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_TrackUpdater) {
         0., 0., 0., 0., res_ph * res_ph, 0., 0., 0., 0., 0., 0.,
         res_th * res_th, 0., 0., 0., 0., 0., 0., res_qp * res_qp, 0., 0., 0.,
         0., 0., 0., 1.;
-    BoundParameters params(geoContext, std::move(covMat), paramVec,
-                           perigeeSurface);
+    BoundTrackParameters params(perigeeSurface, paramVec, std::move(covMat));
 
     // Linearized state of the track
     LinearizedTrack linTrack =
         linearizer
-            .linearizeTrack(params, Vector4D::Zero(), geoContext,
+            .linearizeTrack(params, Vector4::Zero(), geoContext,
                             magFieldContext, linState)
             .value();
 
     // Create TrackAtVertex
-    TrackAtVertex<BoundParameters> trkAtVtx(0., params, &params);
+    TrackAtVertex<BoundTrackParameters> trkAtVtx(0., params, &params);
 
     // Set linearized state of trackAtVertex
     trkAtVtx.linearizedState = linTrack;
@@ -149,12 +148,11 @@ BOOST_AUTO_TEST_CASE(Kalman_Vertex_TrackUpdater) {
     auto fittedParamsCopy = trkAtVtx.fittedParams;
 
     // Create a vertex
-    Vector3D vtxPos(vXYDist(gen), vXYDist(gen), vZDist(gen));
-    Vertex<BoundParameters> vtx(vtxPos);
+    Vector3 vtxPos(vXYDist(gen), vXYDist(gen), vZDist(gen));
+    Vertex<BoundTrackParameters> vtx(vtxPos);
 
     // Update trkAtVertex with assumption of originating from vtx
-    KalmanVertexTrackUpdater::update<BoundParameters>(geoContext, trkAtVtx,
-                                                      vtx);
+    KalmanVertexTrackUpdater::update<BoundTrackParameters>(trkAtVtx, vtx);
 
     // The old distance
     double oldDistance =

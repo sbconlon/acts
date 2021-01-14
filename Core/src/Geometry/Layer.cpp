@@ -6,13 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-///////////////////////////////////////////////////////////////////
-// Layer.cpp, Acts project
-///////////////////////////////////////////////////////////////////
-
-// Geometry module
 #include "Acts/Geometry/Layer.hpp"
 
+#include "Acts/Material/IMaterialDecorator.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
@@ -46,9 +42,9 @@ Acts::ApproachDescriptor* Acts::Layer::approachDescriptor() {
 }
 
 void Acts::Layer::closeGeometry(const IMaterialDecorator* materialDecorator,
-                                const GeometryID& layerID) {
+                                const GeometryIdentifier& layerID) {
   // set the volumeID of this
-  assignGeoID(layerID);
+  assignGeometryId(layerID);
   // assign to the representing surface
   Surface* rSurface = const_cast<Surface*>(&surfaceRepresentation());
   if (materialDecorator != nullptr) {
@@ -64,11 +60,11 @@ void Acts::Layer::closeGeometry(const IMaterialDecorator* materialDecorator,
     // indicates the existance of approach surfaces
     m_ssApproachSurfaces = 1;
     // loop through the approachSurfaces and assign unique GeomeryID
-    GeometryID::Value iasurface = 0;
+    GeometryIdentifier::Value iasurface = 0;
     for (auto& aSurface : m_approachDescriptor->containedSurfaces()) {
-      auto asurfaceID = GeometryID(layerID).setApproach(++iasurface);
+      auto asurfaceID = GeometryIdentifier(layerID).setApproach(++iasurface);
       auto mutableASurface = const_cast<Surface*>(aSurface);
-      mutableASurface->assignGeoID(asurfaceID);
+      mutableASurface->assignGeometryId(asurfaceID);
       if (materialDecorator != nullptr) {
         materialDecorator->decorate(*mutableASurface);
       }
@@ -82,12 +78,12 @@ void Acts::Layer::closeGeometry(const IMaterialDecorator* materialDecorator,
   if (m_surfaceArray) {
     // indicates the existance of sensitive surfaces
     m_ssSensitiveSurfaces = 1;
-    // loop sensitive surfaces and assign unique GeometryID
-    GeometryID::Value issurface = 0;
+    // loop sensitive surfaces and assign unique GeometryIdentifier
+    GeometryIdentifier::Value issurface = 0;
     for (auto& sSurface : m_surfaceArray->surfaces()) {
-      auto ssurfaceID = GeometryID(layerID).setSensitive(++issurface);
+      auto ssurfaceID = GeometryIdentifier(layerID).setSensitive(++issurface);
       auto mutableSSurface = const_cast<Surface*>(sSurface);
-      mutableSSurface->assignGeoID(ssurfaceID);
+      mutableSSurface->assignGeometryId(ssurfaceID);
       if (materialDecorator != nullptr) {
         materialDecorator->decorate(*mutableSSurface);
       }

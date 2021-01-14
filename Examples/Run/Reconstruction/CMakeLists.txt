@@ -1,41 +1,29 @@
+# shared code 
+add_subdirectory(Common)
+
 add_executable(
-  ActsRecTruthTracks
-  RecTruthTracks.cpp)
+  ActsExampleTruthTracksGeneric
+  GenericRecTruthTracks.cpp)
 
 target_link_libraries(
-  ActsRecTruthTracks
+  ActsExampleTruthTracksGeneric
   PRIVATE
-    ActsExamplesFramework
-    ActsExamplesCommon
-    ActsExamplesDigitization
-    ActsExamplesFitting
-    ActsExamplesDetectorGeneric
-    ActsExamplesMagneticField
-    ActsExamplesTruthTracking
-    ActsExamplesIoCsv
-    ActsExamplesIoPerformance)
-
-install(
-  TARGETS ActsRecTruthTracks
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    ActsExamplesRecTracksCommon 
+    ActsExamplesDetectorGeneric)
 
 add_executable(
-    ActsRecCKFTracks
-    RecCKFTracks.cpp)
+  ActsExampleCKFTracksGeneric
+  GenericRecCKFTracks.cpp)
 target_link_libraries(
-    ActsRecCKFTracks
-    PRIVATE
-    ActsExamplesFramework
-    ActsExamplesCommon
-    ActsExamplesDigitization
-    ActsExamplesTrackFinding
-    ActsExamplesDetectorGeneric
-    ActsExamplesMagneticField
-    ActsExamplesIoCsv
-    ActsExamplesIoPerformance)
+  ActsExampleCKFTracksGeneric
+  PRIVATE
+    ActsExamplesRecTracksCommon 
+    ActsExamplesDetectorGeneric)
 
 install(
   TARGETS
-  ActsRecCKFTracks
+    ActsExampleTruthTracksGeneric
+    ActsExampleCKFTracksGeneric
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+add_subdirectory_if(DD4hep ACTS_BUILD_EXAMPLES_DD4HEP)

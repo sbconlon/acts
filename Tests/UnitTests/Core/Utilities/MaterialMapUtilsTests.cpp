@@ -9,6 +9,7 @@
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/SingleCurvilinearTrackParameters.hpp"
 #include "Acts/Geometry/CuboidVolumeBuilder.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
@@ -18,7 +19,6 @@
 #include "Acts/Material/MaterialMapUtils.hpp"
 #include "Acts/Propagator/Navigator.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/detail/Axis.hpp"
 #include "Acts/Utilities/detail/Grid.hpp"
@@ -44,7 +44,7 @@ BOOST_AUTO_TEST_CASE(materialmap_creation) {
   // Create material association in rz
   std::vector<Material> material_rz;
   for (int i = 0; i < 9; i++) {
-    material_rz.push_back(Material(i, i, i, i, i));
+    material_rz.push_back(Material::fromMolarDensity(i, i, i, i, i));
   }
 
   auto localToGlobalBin_rz = [](std::array<size_t, 2> binsRZ,
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(materialmap_creation) {
   // Create map in xyz
   std::vector<Material> material_xyz;
   for (int i = 0; i < 27; i++) {
-    material_xyz.push_back(Material(i, i, i, i, i));
+    material_xyz.push_back(Material::fromMolarDensity(i, i, i, i, i));
   }
 
   auto localToGlobalBin_xyz = [](std::array<size_t, 3> binsXYZ,
@@ -94,9 +94,9 @@ BOOST_AUTO_TEST_CASE(materialmap_creation) {
   BOOST_CHECK(mapper_xyz.getMax() == maxima_xyz);
 
   // Check if filled value is expected value in rz
-  Vector3D pos0_rz(0., 0., 0.);
-  Vector3D pos1_rz(1., 0., 1.);
-  Vector3D pos2_rz(0., 2., 2.);
+  Vector3 pos0_rz(0., 0., 0.);
+  Vector3 pos1_rz(1., 0., 1.);
+  Vector3 pos2_rz(0., 2., 2.);
   auto value0_rz = mapper_rz.getMaterial(pos0_rz);
   auto value1_rz = mapper_rz.getMaterial(pos1_rz);
   auto value2_rz = mapper_rz.getMaterial(pos2_rz);
@@ -110,17 +110,14 @@ BOOST_AUTO_TEST_CASE(materialmap_creation) {
 
   // Check the value
   // in rz case material is phi symmetric (check radius)
-  CHECK_CLOSE_ABS(value0_rz.classificationNumbers(),
-                  mat0_rz.classificationNumbers(), 1e-9);
-  CHECK_CLOSE_ABS(value1_rz.classificationNumbers(),
-                  mat1_rz.classificationNumbers(), 1e-9);
-  CHECK_CLOSE_ABS(value2_rz.classificationNumbers(),
-                  mat2_rz.classificationNumbers(), 1e-9);
+  CHECK_CLOSE_ABS(value0_rz.parameters(), mat0_rz.parameters(), 1e-9);
+  CHECK_CLOSE_ABS(value1_rz.parameters(), mat1_rz.parameters(), 1e-9);
+  CHECK_CLOSE_ABS(value2_rz.parameters(), mat2_rz.parameters(), 1e-9);
 
   // Check if filled value is expected value in xyz
-  Vector3D pos0_xyz(0., 0., 0.);
-  Vector3D pos1_xyz(1., 1., 1.);
-  Vector3D pos2_xyz(2., 2., 2.);
+  Vector3 pos0_xyz(0., 0., 0.);
+  Vector3 pos1_xyz(1., 1., 1.);
+  Vector3 pos2_xyz(2., 2., 2.);
   auto value0_xyz = mapper_xyz.getMaterial(pos0_xyz);
   auto value1_xyz = mapper_xyz.getMaterial(pos1_xyz);
   auto value2_xyz = mapper_xyz.getMaterial(pos2_xyz);
@@ -134,12 +131,9 @@ BOOST_AUTO_TEST_CASE(materialmap_creation) {
 
   // Check the value
   // in xyz case material is phi symmetric (check radius)
-  CHECK_CLOSE_ABS(value0_xyz.classificationNumbers(),
-                  mat0_xyz.classificationNumbers(), 1e-9);
-  CHECK_CLOSE_ABS(value1_xyz.classificationNumbers(),
-                  mat1_xyz.classificationNumbers(), 1e-9);
-  CHECK_CLOSE_ABS(value2_xyz.classificationNumbers(),
-                  mat2_xyz.classificationNumbers(), 1e-9);
+  CHECK_CLOSE_ABS(value0_xyz.parameters(), mat0_xyz.parameters(), 1e-9);
+  CHECK_CLOSE_ABS(value1_xyz.parameters(), mat1_xyz.parameters(), 1e-9);
+  CHECK_CLOSE_ABS(value2_xyz.parameters(), mat2_xyz.parameters(), 1e-9);
 }
 }  // namespace Test
 }  // namespace Acts

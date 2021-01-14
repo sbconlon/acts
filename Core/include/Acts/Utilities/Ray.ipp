@@ -6,8 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "Acts/Utilities/Definitions.hpp"
-
+#include "Acts/Definitions/Algebra.hpp"
 template <typename value_t, size_t DIM>
 Acts::Ray<value_t, DIM>::Ray(const VertexType& origin, const VertexType& dir)
     : m_origin(origin), m_dir(dir.normalized()), m_idir(1 / m_dir.array()) {}
@@ -40,7 +39,7 @@ Acts::Ray<value_t, DIM> Acts::Ray<value_t, DIM>::transformed(
 
 template <typename value_t, size_t DIM>
 template <size_t D, std::enable_if_t<D == 3, int>>
-void Acts::Ray<value_t, DIM>::draw(IVisualization& helper,
+void Acts::Ray<value_t, DIM>::draw(IVisualization3D& helper,
                                    value_type far_distance) const {
   static_assert(DIM == 3, "OBJ is only supported in 3D");
 

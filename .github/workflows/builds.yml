@@ -11,42 +11,80 @@ env:
   CTEST_OUTPUT_ON_FAILURE: 1
 
 jobs:
-  ubuntu2004:
+  linux:
     runs-on: ubuntu-latest
-    container: gitlab-registry.cern.ch/acts/machines/ubuntu2004:v3
+    container: ghcr.io/acts-project/${{ matrix.image }}:v9
+    strategy:
+      matrix:
+        image:
+          - centos7-lcg97apython3-gcc9
+          - centos7-lcg98python3-gcc10
+          - ubuntu2004
+    env:
+      SETUP: true
+      SETUP_LCG: source /opt/lcg_view/setup.sh
+      INSTALL_DIR: ${{ github.workspace }}/install
     steps:
       - uses: actions/checkout@v2
+      - name: Define setup script
+        if: contains(matrix.image, 'lcg')
+        run: echo "SETUP=${SETUP_LCG}" >> $GITHUB_ENV
       - name: Configure
         run: >
+          ${SETUP} &&
           cmake -B build -S .
           -GNinja
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_CXX_FLAGS=-Werror
+          -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}"
           -DACTS_BUILD_EVERYTHING=on
       - name: Build
-        run: cmake --build build --
+        run: ${SETUP} && cmake --build build -- 
       - name: Unit tests
-        run: cmake --build build -- test
+        run: ${SETUP} && cmake --build build -- test
       - name: Integration tests
-        run: cmake --build build -- integrationtests
+        run: ${SETUP} && cmake --build build -- integrationtests
+      - name: Install
+        run: ${SETUP} && cmake --build build -- install
+      - uses: actions/upload-artifact@v2
+        with:
+          name: acts-${{ matrix.image }}
+          path: ${{ env.INSTALL_DIR }}
+      - name: Downstream configure
+        run: >
+          ${SETUP} &&
+          cmake -B build-downstream -S Tests/DownstreamProject
+          -GNinja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CXX_FLAGS=-Werror
+          -DCMAKE_PREFIX_PATH="${INSTALL_DIR}"
+      - name: Downstream build
+        run: ${SETUP} && cmake --build build-downstream --
+      - name: Downstream run
+        run: ${SETUP} && ./build-downstream/bin/ShowActsVersion
   macos:
     runs-on: macos-10.15
+    env:
+      INSTALL_DIR: ${{ github.workspace }}/install
     steps:
       - uses: actions/checkout@v2
-        with:
-          path: src
       - name: Install dependencies
         run: >
           brew install cmake eigen ninja
           && sudo mkdir /usr/local/acts
           && sudo chown $USER /usr/local/acts
-          && curl -SL https://acts.web.cern.ch/ACTS/ci/macOS/deps.43e0201.tar.gz | tar -xzC /usr/local/acts
+          && curl -SL https://acts.web.cern.ch/ci/macOS/deps.43e0201.tar.gz | tar -xzC /usr/local/acts
       - name: Configure
+        # setting CMAKE_CXX_STANDARD=17 is a workaround for a bug in the
+        # dd4hep CMake configuration that gets triggered on recent CMake
+        # versions such as the one installed via homebrew
         run: >
-          cmake -B build -S src
+          cmake -B build -S .
           -GNinja
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_CXX_FLAGS=-Werror
+          -DCMAKE_CXX_STANDARD=17
+          -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}"
           -DCMAKE_PREFIX_PATH=/usr/local/acts
           -DACTS_BUILD_EVERYTHING=on
       - name: Build
@@ -55,39 +93,65 @@ jobs:
         run: cmake --build build -- test
       - name: Integration tests
         run: cmake --build build -- integrationtests
-  lcg:
-    runs-on: ubuntu-latest
-    container: gitlab-registry.cern.ch/acts/machines/${{ matrix.os }}-lcg${{ matrix.lcg }}:v3
-    strategy:
-      matrix:
-        os:
-          - centos7
-        lcg:
-          - 95apython3
-          - 96
-    env:
-      SETUP: /opt/lcg_view/setup.sh
-    steps:
-      - uses: actions/checkout@v1
-      - name: Configure
+      - name: Install
+        run: cmake --build build -- install
+      - uses: actions/upload-artifact@v2
+        with:
+          name: acts-macos
+          path: ${{ env.INSTALL_DIR }}
+      - name: Downstream configure
         run: >
-          source ${SETUP}
-          && mkdir build
-          && cd build
-          && cmake ..
+          cmake -B build-downstream -S Tests/DownstreamProject
           -GNinja
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_CXX_FLAGS=-Werror
-          -DACTS_BUILD_EVERYTHING=on
+          -DCMAKE_CXX_STANDARD=17
+          -DCMAKE_PREFIX_PATH="${INSTALL_DIR};/usr/local/acts"
+      - name: Downstream build
+        run: cmake --build build-downstream --
+      - name: Downstream run
+        run: ./build-downstream/bin/ShowActsVersion
+  cuda:
+    runs-on: ubuntu-latest
+    container: ghcr.io/acts-project/ubuntu1804_cuda:v9
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure
+        run: >
+          cmake -B build -S .
+          -GNinja
+          -DCMAKE_CXX_COMPILER=/usr/bin/g++-8
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CXX_FLAGS=-Werror
+          -DACTS_BUILD_PLUGIN_CUDA=ON
+          -DACTS_BUILD_UNITTESTS=ON
       - name: Build
-        run: source ${SETUP} && cmake --build build --
-      - name: Unit tests
-        run: source ${SETUP} && cmake --build build -- test
-      - name: Integration tests
-        run: source ${SETUP} && cmake --build build -- integrationtests
+        run: cmake --build build --
+  sycl:
+    runs-on: ubuntu-latest
+    container: ghcr.io/acts-project/ubuntu2004_oneapi:v9
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure
+        run: >
+          source /opt/intel/oneapi/setvars.sh
+          && cmake -B build -S .
+          -GNinja
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CXX_FLAGS=-Werror
+          -DACTS_BUILD_PLUGIN_SYCL=ON
+          -DACTS_BUILD_UNITTESTS=ON
+      - name: Build
+        run: >
+          source /opt/intel/oneapi/setvars.sh
+          && cmake --build build --
   docs:
     runs-on: ubuntu-latest
-    container: gitlab-registry.cern.ch/acts/machines/ubuntu2004:v3
+    container: ghcr.io/acts-project/ubuntu2004:v9
     steps:
       - uses: actions/checkout@v2
       - name: Install dependencies
@@ -102,32 +166,3 @@ jobs:
         with:
           name: acts-docs
           path: docs/_build/html/
-  downstream:
-    runs-on: ubuntu-latest
-    container: gitlab-registry.cern.ch/acts/machines/ubuntu2004:v3
-    steps:
-      - uses: actions/checkout@v2
-      - name: Configure Acts
-        run: >
-          cmake -B build-acts -S .
-          -GNinja
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_CXX_FLAGS=-Werror
-          -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install-acts
-          -DACTS_BUILD_JSON_PLUGIN=on
-          -DACTS_BUILD_FATRAS=on
-      - name: Build Acts
-        run: cmake --build build-acts --
-      - name: Install Acts
-        run: cmake --build build-acts -- install
-      - name: Configure Downstream
-        run: >
-          cmake -B build-downstream -S Tests/DownstreamProject
-          -GNinja
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_CXX_FLAGS=-Werror
-          -DCMAKE_PREFIX_PATH=${{ github.workspace }}/install-acts
-      - name: Build Downstream
-        run: cmake --build build-downstream --
-      - name: Run Downstream
-        run: ./build-downstream/bin/ShowActsVersion

@@ -8,9 +8,9 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "Acts/Material/MaterialProperties.hpp"
+#include "Acts/Definitions/Units.hpp"
+#include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Tests/CommonHelpers/PredefinedMaterials.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "ActsFatras/EventData/Particle.hpp"
 #include "ActsFatras/Kernel/Process.hpp"
 
@@ -25,15 +25,15 @@ namespace {
 /// with momenta 1,2,3,4 GeV.
 struct MakeChildren {
   template <typename generator_t>
-  std::array<ActsFatras::Particle, 4> operator()(
-      generator_t &, const Acts::MaterialProperties &,
-      ActsFatras::Particle &) const {
+  std::array<ActsFatras::Particle, 4> operator()(generator_t &,
+                                                 const Acts::MaterialSlab &,
+                                                 ActsFatras::Particle &) const {
     // create daughter particles
     return {
-        Particle().setAbsMomentum(1_GeV),
-        Particle().setAbsMomentum(2_GeV),
-        Particle().setAbsMomentum(3_GeV),
-        Particle().setAbsMomentum(4_GeV),
+        Particle().setAbsoluteMomentum(1_GeV),
+        Particle().setAbsoluteMomentum(2_GeV),
+        Particle().setAbsoluteMomentum(3_GeV),
+        Particle().setAbsoluteMomentum(4_GeV),
     };
   }
 };
@@ -43,14 +43,14 @@ struct HighP {
   double minP = 10_GeV;
 
   bool operator()(const ActsFatras::Particle &particle) const {
-    return (minP <= particle.absMomentum());
+    return (minP <= particle.absoluteMomentum());
   }
 };
 
 struct Fixture {
   std::default_random_engine generator;
-  Acts::MaterialProperties slab{Acts::Test::makeBeryllium(), 1_mm};
-  Particle parent = Particle().setAbsMomentum(10_GeV);
+  Acts::MaterialSlab slab{Acts::Test::makeBeryllium(), 1_mm};
+  Particle parent = Particle().setAbsoluteMomentum(10_GeV);
   std::vector<Particle> children;
 };
 }  // namespace
@@ -62,8 +62,8 @@ BOOST_AUTO_TEST_CASE(NoSelectors) {
   Process<MakeChildren> process;
 
   // process should not abort
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
-  BOOST_TEST(f.children.size() == 4u);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
+  BOOST_CHECK_EQUAL(f.children.size(), 4u);
 }
 
 BOOST_AUTO_TEST_CASE(WithInputSelector) {
@@ -72,18 +72,18 @@ BOOST_AUTO_TEST_CASE(WithInputSelector) {
   process.selectInput.minP = 10_GeV;
 
   // above threshold should not abort
-  f.parent.setAbsMomentum(20_GeV);
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
-  BOOST_TEST(f.children.size() == 4u);
+  f.parent.setAbsoluteMomentum(20_GeV);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
+  BOOST_CHECK_EQUAL(f.children.size(), 4u);
   // on threshold should still not abort
-  f.parent.setAbsMomentum(10_GeV);
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
-  BOOST_TEST(f.children.size() == 8u);
+  f.parent.setAbsoluteMomentum(10_GeV);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
+  BOOST_CHECK_EQUAL(f.children.size(), 8u);
   // below threshold should abort and not run the process at all
-  f.parent.setAbsMomentum(2_GeV);
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
+  f.parent.setAbsoluteMomentum(2_GeV);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
   // process did not run -> no new children
-  BOOST_TEST(f.children.size() == 8u);
+  BOOST_CHECK_EQUAL(f.children.size(), 8u);
 }
 
 BOOST_AUTO_TEST_CASE(WithOutputSelector) {
@@ -92,18 +92,18 @@ BOOST_AUTO_TEST_CASE(WithOutputSelector) {
   process.selectOutputParticle.minP = 10_GeV;
 
   // above threshold should not abort
-  f.parent.setAbsMomentum(20_GeV);
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
-  BOOST_TEST(f.children.size() == 4u);
+  f.parent.setAbsoluteMomentum(20_GeV);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
+  BOOST_CHECK_EQUAL(f.children.size(), 4u);
   // on threshold should still not abort
-  f.parent.setAbsMomentum(10_GeV);
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
-  BOOST_TEST(f.children.size() == 8u);
+  f.parent.setAbsoluteMomentum(10_GeV);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
+  BOOST_CHECK_EQUAL(f.children.size(), 8u);
   // below threshold should abort but only after running the process
-  f.parent.setAbsMomentum(2_GeV);
-  BOOST_TEST(process(f.generator, f.slab, f.parent, f.children));
+  f.parent.setAbsoluteMomentum(2_GeV);
+  BOOST_CHECK(process(f.generator, f.slab, f.parent, f.children));
   // process did still run -> new children
-  BOOST_TEST(f.children.size() == 12u);
+  BOOST_CHECK_EQUAL(f.children.size(), 12u);
 }
 
 BOOST_AUTO_TEST_CASE(WithChildSelector) {
@@ -114,20 +114,20 @@ BOOST_AUTO_TEST_CASE(WithChildSelector) {
   // all process should not abort regardless of child selection
   // select no daughters
   process.selectChildParticle.minP = 5_GeV;
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
-  BOOST_TEST(f.children.size() == 0u);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
+  BOOST_CHECK_EQUAL(f.children.size(), 0u);
   // select highest daughter
   process.selectChildParticle.minP = 3.5_GeV;
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
-  BOOST_TEST(f.children.size() == 1u);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
+  BOOST_CHECK_EQUAL(f.children.size(), 1u);
   // select all but the lowest daughter
   process.selectChildParticle.minP = 1.5_GeV;
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
-  BOOST_TEST(f.children.size() == 4u);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
+  BOOST_CHECK_EQUAL(f.children.size(), 4u);
   // select all daughters
   process.selectChildParticle.minP = 0.5_GeV;
-  BOOST_TEST(not process(f.generator, f.slab, f.parent, f.children));
-  BOOST_TEST(f.children.size() == 8u);
+  BOOST_CHECK(not process(f.generator, f.slab, f.parent, f.children));
+  BOOST_CHECK_EQUAL(f.children.size(), 8u);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

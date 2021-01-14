@@ -8,13 +8,13 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/MagneticField/NullBField.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Vertexing/LinearizedTrack.hpp"
 
@@ -89,7 +89,7 @@ class HelicalTrackLinearizer {
   /// @param config Configuration object
   HelicalTrackLinearizer(const Config& config) : m_cfg(config) {}
 
-  /// @brief Function that linearizes BoundParameters at
+  /// @brief Function that linearizes BoundTrackParameters at
   /// given linearization point
   ///
   /// @param params Parameters to linearize
@@ -99,8 +99,8 @@ class HelicalTrackLinearizer {
   /// @param state The state object
   ///
   /// @return Linearized track
-  Result<LinearizedTrack> linearizeTrack(const BoundParameters& params,
-                                         const Vector4D& linPoint,
+  Result<LinearizedTrack> linearizeTrack(const BoundTrackParameters& params,
+                                         const Vector4& linPoint,
                                          const Acts::GeometryContext& gctx,
                                          const Acts::MagneticFieldContext& mctx,
                                          State& state) const;

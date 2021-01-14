@@ -6,9 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Io/Root/RootSimHitWriter.hpp"
+#include "ActsExamples/Io/Root/RootSimHitWriter.hpp"
 
-#include "Acts/Utilities/Units.hpp"
+#include "Acts/Definitions/Units.hpp"
 
 #include <ios>
 #include <stdexcept>
@@ -16,9 +16,9 @@
 #include <TFile.h>
 #include <TTree.h>
 
-FW::RootSimHitWriter::RootSimHitWriter(const FW::RootSimHitWriter::Config& cfg,
-                                       Acts::Logging::Level lvl)
-    : WriterT(cfg.inputSimulatedHits, "RootSimHitWriter", lvl), m_cfg(cfg) {
+ActsExamples::RootSimHitWriter::RootSimHitWriter(
+    const ActsExamples::RootSimHitWriter::Config& cfg, Acts::Logging::Level lvl)
+    : WriterT(cfg.inputSimHits, "RootSimHitWriter", lvl), m_cfg(cfg) {
   // inputParticles is already checked by base constructor
   if (m_cfg.filePath.empty()) {
     throw std::invalid_argument("Missing file path");
@@ -62,13 +62,13 @@ FW::RootSimHitWriter::RootSimHitWriter(const FW::RootSimHitWriter::Config& cfg,
   m_outputTree->Branch("sensitive_id", &m_sensitiveId);
 }
 
-FW::RootSimHitWriter::~RootSimHitWriter() {
+ActsExamples::RootSimHitWriter::~RootSimHitWriter() {
   if (m_outputFile) {
     m_outputFile->Close();
   }
 }
 
-FW::ProcessCode FW::RootSimHitWriter::endRun() {
+ActsExamples::ProcessCode ActsExamples::RootSimHitWriter::endRun() {
   if (m_outputFile) {
     m_outputFile->cd();
     m_outputTree->Write();
@@ -78,8 +78,8 @@ FW::ProcessCode FW::RootSimHitWriter::endRun() {
   return ProcessCode::SUCCESS;
 }
 
-FW::ProcessCode FW::RootSimHitWriter::writeT(const AlgorithmContext& ctx,
-                                             const FW::SimHitContainer& hits) {
+ActsExamples::ProcessCode ActsExamples::RootSimHitWriter::writeT(
+    const AlgorithmContext& ctx, const ActsExamples::SimHitContainer& hits) {
   if (not m_outputFile) {
     ACTS_ERROR("Missing output file");
     return ProcessCode::ABORT;
@@ -94,10 +94,10 @@ FW::ProcessCode FW::RootSimHitWriter::writeT(const AlgorithmContext& ctx,
     m_particleId = hit.particleId().value();
     m_geometryId = hit.geometryId().value();
     // write hit position
-    m_tx = hit.position4().x() / Acts::UnitConstants::mm;
-    m_ty = hit.position4().y() / Acts::UnitConstants::mm;
-    m_tz = hit.position4().z() / Acts::UnitConstants::mm;
-    m_tt = hit.position4().w() / Acts::UnitConstants::ns;
+    m_tx = hit.fourPosition().x() / Acts::UnitConstants::mm;
+    m_ty = hit.fourPosition().y() / Acts::UnitConstants::mm;
+    m_tz = hit.fourPosition().z() / Acts::UnitConstants::mm;
+    m_tt = hit.fourPosition().w() / Acts::UnitConstants::ns;
     // write four-momentum before interaction
     m_tpx = hit.momentum4Before().x() / Acts::UnitConstants::GeV;
     m_tpy = hit.momentum4Before().y() / Acts::UnitConstants::GeV;
@@ -120,5 +120,5 @@ FW::ProcessCode FW::RootSimHitWriter::writeT(const AlgorithmContext& ctx,
     // Fill the tree
     m_outputTree->Fill();
   }
-  return FW::ProcessCode::SUCCESS;
+  return ActsExamples::ProcessCode::SUCCESS;
 }

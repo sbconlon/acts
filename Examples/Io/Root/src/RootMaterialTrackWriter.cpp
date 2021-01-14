@@ -6,9 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Io/Root/RootMaterialTrackWriter.hpp"
+#include "ActsExamples/Io/Root/RootMaterialTrackWriter.hpp"
 
-#include <Acts/Geometry/GeometryID.hpp>
+#include <Acts/Geometry/GeometryIdentifier.hpp>
 #include <Acts/Surfaces/CylinderBounds.hpp>
 #include <Acts/Surfaces/RadialBounds.hpp>
 #include <Acts/Utilities/Helpers.hpp>
@@ -24,8 +24,9 @@ using Acts::VectorHelpers::eta;
 using Acts::VectorHelpers::perp;
 using Acts::VectorHelpers::phi;
 
-FW::RootMaterialTrackWriter::RootMaterialTrackWriter(
-    const FW::RootMaterialTrackWriter::Config& cfg, Acts::Logging::Level level)
+ActsExamples::RootMaterialTrackWriter::RootMaterialTrackWriter(
+    const ActsExamples::RootMaterialTrackWriter::Config& cfg,
+    Acts::Logging::Level level)
     : WriterT(cfg.collection, "RootMaterialTrackWriter", level),
       m_cfg(cfg),
       m_outputFile(cfg.rootFile) {
@@ -81,7 +82,7 @@ FW::RootMaterialTrackWriter::RootMaterialTrackWriter(
     m_outputTree->Branch("mat_ey", &m_step_ey);
     m_outputTree->Branch("mat_ez", &m_step_ez);
   }
-  if (m_cfg.storesurface) {
+  if (m_cfg.storeSurface) {
     m_outputTree->Branch("sur_id", &m_sur_id);
     m_outputTree->Branch("sur_type", &m_sur_type);
     m_outputTree->Branch("sur_x", &m_sur_x);
@@ -90,21 +91,24 @@ FW::RootMaterialTrackWriter::RootMaterialTrackWriter(
     m_outputTree->Branch("sur_range_min", &m_sur_range_min);
     m_outputTree->Branch("sur_range_max", &m_sur_range_max);
   }
+  if (m_cfg.storeVolume) {
+    m_outputTree->Branch("vol_id", &m_vol_id);
+  }
 }
 
-FW::RootMaterialTrackWriter::~RootMaterialTrackWriter() {
+ActsExamples::RootMaterialTrackWriter::~RootMaterialTrackWriter() {
   m_outputFile->Close();
 }
 
-FW::ProcessCode FW::RootMaterialTrackWriter::endRun() {
+ActsExamples::ProcessCode ActsExamples::RootMaterialTrackWriter::endRun() {
   // write the tree and close the file
   ACTS_INFO("Writing ROOT output File : " << m_cfg.filePath);
   m_outputFile->cd();
   m_outputTree->Write();
-  return FW::ProcessCode::SUCCESS;
+  return ActsExamples::ProcessCode::SUCCESS;
 }
 
-FW::ProcessCode FW::RootMaterialTrackWriter::writeT(
+ActsExamples::ProcessCode ActsExamples::RootMaterialTrackWriter::writeT(
     const AlgorithmContext& ctx,
     const std::vector<Acts::RecordedMaterialTrack>& materialTracks) {
   // Exclusive access to the tree while writing
@@ -140,6 +144,8 @@ FW::ProcessCode FW::RootMaterialTrackWriter::writeT(
     m_sur_range_min.clear();
     m_sur_range_max.clear();
 
+    m_vol_id.clear();
+
     // Reserve the vector then
     size_t mints = mtrack.second.materialInteractions.size();
     m_step_sx.reserve(mints);
@@ -168,6 +174,8 @@ FW::ProcessCode FW::RootMaterialTrackWriter::writeT(
     m_sur_z.reserve(mints);
     m_sur_range_min.reserve(mints);
     m_sur_range_max.reserve(mints);
+
+    m_vol_id.reserve(mints);
 
     // reset the global counter
     if (m_cfg.recalculateTotals) {
@@ -199,9 +207,9 @@ FW::ProcessCode FW::RootMaterialTrackWriter::writeT(
       m_step_dz.push_back(mint.direction.z());
 
       if (m_cfg.prePostStep) {
-        Acts::Vector3D prePos =
+        Acts::Vector3 prePos =
             mint.position - 0.5 * mint.pathCorrection * mint.direction;
-        Acts::Vector3D posPos =
+        Acts::Vector3 posPos =
             mint.position + 0.5 * mint.pathCorrection * mint.direction;
         m_step_sx.push_back(prePos.x());
         m_step_sy.push_back(prePos.y());
@@ -211,14 +219,15 @@ FW::ProcessCode FW::RootMaterialTrackWriter::writeT(
         m_step_ez.push_back(posPos.z());
       }
 
-      if (m_cfg.storesurface) {
+      // Store surface information
+      if (m_cfg.storeSurface) {
         const Acts::Surface* surface = mint.surface;
-        Acts::GeometryID layerID;
+        Acts::GeometryIdentifier slayerID;
         if (surface) {
           auto sfIntersection = surface->intersect(
               ctx.geoContext, mint.position, mint.direction, true);
-          layerID = surface->geoID();
-          m_sur_id.push_back(layerID.value());
+          slayerID = surface->geometryId();
+          m_sur_id.push_back(slayerID.value());
           m_sur_type.push_back(surface->type());
           m_sur_x.push_back(sfIntersection.intersection.position.x());
           m_sur_y.push_back(sfIntersection.intersection.position.y());
@@ -243,12 +252,12 @@ FW::ProcessCode FW::RootMaterialTrackWriter::writeT(
             m_sur_range_max.push_back(0);
           }
         } else {
-          layerID.setVolume(0);
-          layerID.setBoundary(0);
-          layerID.setLayer(0);
-          layerID.setApproach(0);
-          layerID.setSensitive(0);
-          m_sur_id.push_back(layerID.value());
+          slayerID.setVolume(0);
+          slayerID.setBoundary(0);
+          slayerID.setLayer(0);
+          slayerID.setApproach(0);
+          slayerID.setSensitive(0);
+          m_sur_id.push_back(slayerID.value());
           m_sur_type.push_back(-1);
 
           m_sur_x.push_back(0);
@@ -259,8 +268,25 @@ FW::ProcessCode FW::RootMaterialTrackWriter::writeT(
         }
       }
 
+      // store volume information
+      if (m_cfg.storeVolume) {
+        const Acts::Volume* volume = mint.volume;
+        Acts::GeometryIdentifier vlayerID;
+        if (volume) {
+          vlayerID = volume->geometryId();
+          m_vol_id.push_back(vlayerID.value());
+        } else {
+          vlayerID.setVolume(0);
+          vlayerID.setBoundary(0);
+          vlayerID.setLayer(0);
+          vlayerID.setApproach(0);
+          vlayerID.setSensitive(0);
+          m_vol_id.push_back(vlayerID.value());
+        }
+      }
+
       // the material information
-      const auto& mprops = mint.materialProperties;
+      const auto& mprops = mint.materialSlab;
       m_step_length.push_back(mprops.thickness());
       m_step_X0.push_back(mprops.material().X0());
       m_step_L0.push_back(mprops.material().L0());
@@ -278,5 +304,5 @@ FW::ProcessCode FW::RootMaterialTrackWriter::writeT(
   }
 
   // return success
-  return FW::ProcessCode::SUCCESS;
+  return ActsExamples::ProcessCode::SUCCESS;
 }

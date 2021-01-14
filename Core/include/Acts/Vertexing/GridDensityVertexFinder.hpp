@@ -8,8 +8,8 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Vertexing/GaussianGridTrackDensity.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
@@ -42,6 +42,9 @@ class GridDensityVertexFinder {
   using GridDensity = GaussianGridTrackDensity<mainGridSize, trkGridSize>;
 
  public:
+  using MainGridVector = typename GridDensity::MainGridVector;
+  using TrackGridVector = typename GridDensity::TrackGridVector;
+
   /// @brief The Config struct
   struct Config {
     ///@param zMinMax min and max z value of big z-axis grid
@@ -76,10 +79,10 @@ class GridDensityVertexFinder {
   /// Only needed if cacheGridStateForTrackRemoval == true
   struct State {
     // The main density grid
-    ActsVectorF<mainGridSize> mainGrid = ActsVectorF<mainGridSize>::Zero();
+    MainGridVector mainGrid = MainGridVector::Zero();
     // Map to store z-bin and track grid (i.e. the density contribution of
     // a single track to the main grid) for every single track
-    std::map<const InputTrack_t*, std::pair<int, ActsVectorF<trkGridSize>>>
+    std::map<const InputTrack_t*, std::pair<int, TrackGridVector>>
         binAndTrackGridMap;
 
     // Map to store bool if track has passed track selection or not
@@ -107,35 +110,41 @@ class GridDensityVertexFinder {
       const VertexingOptions<InputTrack_t>& vertexingOptions,
       State& state) const;
 
-  /// @brief Constructor used if InputTrack_t type == BoundParameters
+  /// @brief Constructor used if InputTrack_t type == BoundTrackParameters
   ///
   /// @param cfg Configuration object
-  template <typename T = InputTrack_t,
-            std::enable_if_t<std::is_same<T, BoundParameters>::value, int> = 0>
+  template <
+      typename T = InputTrack_t,
+      std::enable_if_t<std::is_same<T, BoundTrackParameters>::value, int> = 0>
   GridDensityVertexFinder(const Config& cfg)
       : m_cfg(cfg), m_extractParameters([](T params) { return params; }) {}
 
-  /// @brief Default constructor used if InputTrack_t type == BoundParameters
-  template <typename T = InputTrack_t,
-            std::enable_if_t<std::is_same<T, BoundParameters>::value, int> = 0>
+  /// @brief Default constructor used if InputTrack_t type ==
+  /// BoundTrackParameters
+  template <
+      typename T = InputTrack_t,
+      std::enable_if_t<std::is_same<T, BoundTrackParameters>::value, int> = 0>
   GridDensityVertexFinder()
       : m_extractParameters([](T params) { return params; }) {}
 
-  /// @brief Constructor for user-defined InputTrack_t type =! BoundParameters
+  /// @brief Constructor for user-defined InputTrack_t type =!
+  /// BoundTrackParameters
   ///
   /// @param cfg Configuration object
-  /// @param func Function extracting BoundParameters from InputTrack_t object
+  /// @param func Function extracting BoundTrackParameters from InputTrack_t
+  /// object
   GridDensityVertexFinder(
       const Config& cfg,
-      const std::function<BoundParameters(InputTrack_t)>& func)
+      const std::function<BoundTrackParameters(InputTrack_t)>& func)
       : m_cfg(cfg), m_extractParameters(func) {}
 
-  /// @brief Constructor for user-defined InputTrack_t type =! BoundParameters
-  /// with default Config object
+  /// @brief Constructor for user-defined InputTrack_t type =!
+  /// BoundTrackParameters with default Config object
   ///
-  /// @param func Function extracting BoundParameters from InputTrack_t object
+  /// @param func Function extracting BoundTrackParameters from InputTrack_t
+  /// object
   GridDensityVertexFinder(
-      const std::function<BoundParameters(InputTrack_t)>& func)
+      const std::function<BoundTrackParameters(InputTrack_t)>& func)
       : m_extractParameters(func) {}
 
  private:
@@ -144,17 +153,17 @@ class GridDensityVertexFinder {
   /// @param trk The track
   ///
   /// @return Bool track passes selection
-  bool doesPassTrackSelection(const BoundParameters& trk) const;
+  bool doesPassTrackSelection(const BoundTrackParameters& trk) const;
 
   // The configuration object
   const Config m_cfg;
 
   /// @brief Function to extract track parameters,
-  /// InputTrack_t objects are BoundParameters by default, function to be
-  /// overwritten to return BoundParameters for other InputTrack_t objects.
+  /// InputTrack_t objects are BoundTrackParameters by default, function to be
+  /// overwritten to return BoundTrackParameters for other InputTrack_t objects.
   ///
   /// @param InputTrack_t object to extract track parameters from
-  std::function<BoundParameters(InputTrack_t)> m_extractParameters;
+  std::function<BoundTrackParameters(InputTrack_t)> m_extractParameters;
 };
 
 }  // namespace Acts

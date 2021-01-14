@@ -6,20 +6,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Vertexing/AdaptiveMultiVertexFinderAlgorithm.hpp"
+#include "ActsExamples/Vertexing/AdaptiveMultiVertexFinderAlgorithm.hpp"
 
-#include "ACTFW/Framework/RandomNumbers.hpp"
-#include "ACTFW/TruthTracking/VertexAndTracks.hpp"
-#include "Acts/EventData/TrackParameters.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Helpers.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/AdaptiveMultiVertexFinder.hpp"
 #include "Acts/Vertexing/AdaptiveMultiVertexFitter.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
@@ -27,42 +24,50 @@
 #include "Acts/Vertexing/LinearizedTrack.hpp"
 #include "Acts/Vertexing/TrackDensityVertexFinder.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
-#include "Acts/Vertexing/VertexFinderConcept.hpp"
 #include "Acts/Vertexing/VertexingOptions.hpp"
+#include "ActsExamples/EventData/ProtoVertex.hpp"
+#include "ActsExamples/EventData/Track.hpp"
+#include "ActsExamples/Framework/WhiteBoard.hpp"
 
-FWE::AdaptiveMultiVertexFinderAlgorithm::AdaptiveMultiVertexFinderAlgorithm(
-    const Config& cfg, Acts::Logging::Level level)
-    : FW::BareAlgorithm("AMVF Algorithm", level), m_cfg(cfg) {}
+#include "VertexingHelpers.hpp"
 
-/// @brief Algorithm that receives all selected tracks from an event
-/// and finds and fits its vertices
-FW::ProcessCode FWE::AdaptiveMultiVertexFinderAlgorithm::execute(
-    const FW::AlgorithmContext& ctx) const {
+ActsExamples::AdaptiveMultiVertexFinderAlgorithm::
+    AdaptiveMultiVertexFinderAlgorithm(const Config& cfg,
+                                       Acts::Logging::Level lvl)
+    : ActsExamples::BareAlgorithm("AdaptiveMultiVertexFinder", lvl),
+      m_cfg(cfg) {
+  if (m_cfg.inputTrackParameters.empty()) {
+    throw std::invalid_argument("Missing input track parameters collection");
+  }
+  if (m_cfg.outputProtoVertices.empty()) {
+    throw std::invalid_argument("Missing output proto vertices collection");
+  }
+}
+
+ActsExamples::ProcessCode
+ActsExamples::AdaptiveMultiVertexFinderAlgorithm::execute(
+    const ActsExamples::AlgorithmContext& ctx) const {
+  // retrieve input tracks and convert into the expected format
+  const auto& inputTrackParameters =
+      ctx.eventStore.get<TrackParametersContainer>(m_cfg.inputTrackParameters);
+  const auto& inputTrackPointers =
+      makeTrackParametersPointerContainer(inputTrackParameters);
+
   //////////////////////////////////////////////
   /* Full tutorial example code for reference */
   //////////////////////////////////////////////
 
-  using namespace Acts::UnitLiterals;
-  // Get the input track collection
-  auto allTracks = getInputTrackCollection(ctx);
-  // Create vector of track pointers for vertexing
-  std::vector<const Acts::BoundParameters*> inputTrackPtrCollection;
-  for (const auto& trk : allTracks) {
-    inputTrackPtrCollection.push_back(&trk);
-  }
-
-  // Set up the magnetic field
-  Acts::ConstantBField bField(Acts::Vector3D(0., 0., 2_T));
-
   // Set up EigenStepper
+  Acts::ConstantBField bField(m_cfg.bField);
   Acts::EigenStepper<Acts::ConstantBField> stepper(bField);
+
   // Set up the propagator
   using Propagator = Acts::Propagator<Acts::EigenStepper<Acts::ConstantBField>>;
   auto propagator = std::make_shared<Propagator>(stepper);
 
   // Set up ImpactPointEstimator
   using IPEstimator =
-      Acts::ImpactPointEstimator<Acts::BoundParameters, Propagator>;
+      Acts::ImpactPointEstimator<Acts::BoundTrackParameters, Propagator>;
   IPEstimator::Config ipEstimatorCfg(bField, propagator);
   IPEstimator ipEstimator(ipEstimatorCfg);
 
@@ -78,14 +83,14 @@ FW::ProcessCode FWE::AdaptiveMultiVertexFinderAlgorithm::execute(
 
   // Set up the vertex fitter with user-defined annealing
   using Fitter =
-      Acts::AdaptiveMultiVertexFitter<Acts::BoundParameters, Linearizer>;
+      Acts::AdaptiveMultiVertexFitter<Acts::BoundTrackParameters, Linearizer>;
   Fitter::Config fitterCfg(ipEstimator);
   fitterCfg.annealingTool = annealingUtility;
   Fitter fitter(fitterCfg);
 
   // Set up the vertex seed finder
   using SeedFinder = Acts::TrackDensityVertexFinder<
-      Fitter, Acts::GaussianTrackDensity<Acts::BoundParameters>>;
+      Fitter, Acts::GaussianTrackDensity<Acts::BoundTrackParameters>>;
   SeedFinder seedFinder;
 
   // The vertex finder type
@@ -102,44 +107,27 @@ FW::ProcessCode FWE::AdaptiveMultiVertexFinderAlgorithm::execute(
   Finder::State state;
 
   // Default vertexing options, this is where e.g. a constraint could be set
-  using VertexingOptions = Acts::VertexingOptions<Acts::BoundParameters>;
+  using VertexingOptions = Acts::VertexingOptions<Acts::BoundTrackParameters>;
   VertexingOptions finderOpts(ctx.geoContext, ctx.magFieldContext);
 
-  // Find vertices
-  auto res = finder.find(inputTrackPtrCollection, finderOpts, state);
+  // find vertices
+  auto result = finder.find(inputTrackPointers, finderOpts, state);
+  if (not result.ok()) {
+    ACTS_ERROR("Error in vertex finder: " << result.error().message());
+    return ProcessCode::ABORT;
+  }
+  auto vertices = *result;
 
-  if (res.ok()) {
-    // Retrieve vertices found by vertex finder
-    auto vertexCollection = *res;
-    ACTS_INFO("Found " << vertexCollection.size() << " vertices in event.");
-
-    unsigned int count = 0;
-    for (const auto& vtx : vertexCollection) {
-      ACTS_INFO("\t" << ++count << ". vertex at "
-                     << "(" << vtx.position().x() << "," << vtx.position().y()
-                     << "," << vtx.position().z() << ") with "
-                     << vtx.tracks().size() << " tracks.");
-    }
-  } else {
-    ACTS_ERROR("Error in vertex finder: " << res.error().message());
+  // show some debug output
+  ACTS_INFO("Found " << vertices.size() << " vertices in event");
+  for (const auto& vtx : vertices) {
+    ACTS_INFO("Found vertex at " << vtx.fullPosition().transpose() << " with "
+                                 << vtx.tracks().size() << " tracks.");
   }
 
-  return FW::ProcessCode::SUCCESS;
-}
+  // store proto vertices extracted from the found vertices
+  ctx.eventStore.add(m_cfg.outputProtoVertices,
+                     makeProtoVertices(inputTrackParameters, vertices));
 
-std::vector<Acts::BoundParameters>
-FWE::AdaptiveMultiVertexFinderAlgorithm::getInputTrackCollection(
-    const FW::AlgorithmContext& ctx) const {
-  // Setup containers
-  const auto& input = ctx.eventStore.get<std::vector<FW::VertexAndTracks>>(
-      m_cfg.trackCollection);
-  std::vector<Acts::BoundParameters> inputTrackCollection;
-
-  for (auto& vertexAndTracks : input) {
-    inputTrackCollection.insert(inputTrackCollection.end(),
-                                vertexAndTracks.tracks.begin(),
-                                vertexAndTracks.tracks.end());
-  }
-
-  return inputTrackCollection;
+  return ActsExamples::ProcessCode::SUCCESS;
 }

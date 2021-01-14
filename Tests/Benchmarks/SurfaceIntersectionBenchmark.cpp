@@ -10,6 +10,7 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
@@ -19,7 +20,6 @@
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/StrawSurface.hpp"
 #include "Acts/Tests/CommonHelpers/BenchmarkTools.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <cmath>
 
@@ -44,33 +44,29 @@ GeometryContext tgContext = GeometryContext();
 
 // Create a test plane in 10 m distance
 // Some random transform
-Transform3D at = Transform3D::Identity() * Translation3D(0_m, 0_m, 10_m) *
-                 AngleAxis3D(0.15, Vector3D(1.2, 1.2, 0.12).normalized());
+Transform3 at = Transform3::Identity() * Translation3(0_m, 0_m, 10_m) *
+                AngleAxis3(0.15, Vector3(1.2, 1.2, 0.12).normalized());
 
 // Define the Plane surface
 auto rb = std::make_shared<RectangleBounds>(1_m, 1_m);
-auto aPlane = Surface::makeShared<PlaneSurface>(
-    std::make_shared<Transform3D>(at), std::move(rb));
+auto aPlane = Surface::makeShared<PlaneSurface>(at, std::move(rb));
 
 // Define the Disc surface
 auto db = std::make_shared<RadialBounds>(0.2_m, 1.2_m);
-auto aDisc = Surface::makeShared<DiscSurface>(std::make_shared<Transform3D>(at),
-                                              std::move(db));
+auto aDisc = Surface::makeShared<DiscSurface>(at, std::move(db));
 
 // Define a Cylinder surface
 auto cb = std::make_shared<CylinderBounds>(10_m, 100_m);
-auto aCylinder = Surface::makeShared<CylinderSurface>(
-    std::make_shared<Transform3D>(at), std::move(cb));
+auto aCylinder = Surface::makeShared<CylinderSurface>(at, std::move(cb));
 
 // Define a Straw surface
-auto aStraw = Surface::makeShared<StrawSurface>(
-    std::make_shared<Transform3D>(at), 50_cm, 2_m);
+auto aStraw = Surface::makeShared<StrawSurface>(at, 50_cm, 2_m);
 
 // The orgin of our attempts for plane, disc and cylinder
-Vector3D origin(0., 0., 0.);
+Vector3 origin(0., 0., 0.);
 
 // The origin for straw/line attempts
-Vector3D originStraw(0.3_m, -0.2_m, 11_m);
+Vector3 originStraw(0.3_m, -0.2_m, 11_m);
 
 template <typename surface_t>
 MicroBenchmarkResult intersectionTest(const surface_t& surface, double phi,
@@ -81,7 +77,7 @@ MicroBenchmarkResult intersectionTest(const surface_t& surface, double phi,
   double cosTheta = std::cos(theta);
   double sinTheta = std::sin(theta);
 
-  Vector3D direction(cosPhi * sinTheta, sinPhi * sinTheta, cosTheta);
+  Vector3 direction(cosPhi * sinTheta, sinPhi * sinTheta, cosTheta);
 
   return Acts::Test::microBenchmark(
       [&] {

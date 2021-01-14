@@ -15,8 +15,8 @@
 #include "Acts/Geometry/SurfaceArrayCreator.hpp"
 #include "Acts/Plugins/TGeo/TGeoLayerBuilder.hpp"
 #include "Acts/Tests/CommonHelpers/DataDirectory.hpp"
-#include "Acts/Visualization/GeometryView.hpp"
-#include "Acts/Visualization/ObjVisualization.hpp"
+#include "Acts/Visualization/GeometryView3D.hpp"
+#include "Acts/Visualization/ObjVisualization3D.hpp"
 
 #include "TGeoManager.h"
 
@@ -82,22 +82,22 @@ BOOST_AUTO_TEST_CASE(TGeoLayerBuilderTests) {
   TGeoLayerBuilder tglb(tglbConfig,
                         getDefaultLogger("TGeoLayerBuilder", Logging::VERBOSE));
 
-  ObjVisualization objVis;
+  ObjVisualization3D objVis;
 
   auto centralLayers = tglb.centralLayers(tgContext);
-  BOOST_TEST(centralLayers.size() = 1u);
-  BOOST_TEST(tglb.detectorElements().size() == 14u);
+  BOOST_CHECK_EQUAL(centralLayers.size(), 1u);
+  BOOST_CHECK_EQUAL(tglb.detectorElements().size(), 14u);
 
   auto positiveLayers = tglb.positiveLayers(tgContext);
   // Check that it's split into two layers
   size_t ipl = 0;
-  BOOST_TEST(positiveLayers.size() = 2u);
-  BOOST_TEST(tglb.detectorElements().size() == 14u + 16u);
+  BOOST_CHECK_EQUAL(positiveLayers.size(), 2u);
+  BOOST_CHECK_EQUAL(tglb.detectorElements().size(), 14u + 16u);
   for (const auto& pLayer : positiveLayers) {
     auto sArray = pLayer->surfaceArray();
     if (sArray) {
       for (auto& surface : sArray->surfaces()) {
-        GeometryView::drawSurface(objVis, *surface, tgContext);
+        GeometryView3D::drawSurface(objVis, *surface, tgContext);
       }
     }
     objVis.write("PositiveLayer_" + std::to_string(ipl++));

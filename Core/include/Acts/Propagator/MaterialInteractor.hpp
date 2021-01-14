@@ -8,12 +8,12 @@
 
 #pragma once
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
-#include "Acts/Material/MaterialProperties.hpp"
+#include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Propagator/detail/PointwiseMaterialInteraction.hpp"
 #include "Acts/Propagator/detail/VolumeMaterialInteraction.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <sstream>
 
@@ -24,11 +24,11 @@ namespace Acts {
 /// This is only nessecary recorded when configured
 struct MaterialInteraction {
   /// The particle position at the interaction.
-  Vector3D position = Vector3D(0., 0., 0);
+  Vector3 position = Vector3(0., 0., 0);
   /// The particle time at the interaction.
   double time = 0.0;
   /// The particle direction at the interaction.
-  Vector3D direction = Vector3D(0., 0., 0);
+  Vector3 direction = Vector3(0., 0., 0);
   /// The momentum change due to the interaction.
   double deltaP = 0.0;
   /// Expected phi variance due to the interactions.
@@ -46,7 +46,7 @@ struct MaterialInteraction {
   /// The path correction factor due to non-zero incidence on the surface.
   double pathCorrection = 1.;
   /// The effective, passed material properties including the path correction.
-  MaterialProperties materialProperties;
+  MaterialSlab materialSlab;
 };
 
 /// Material interactor propagator action.
@@ -90,6 +90,7 @@ struct MaterialInteractor {
   template <typename propagator_state_t, typename stepper_t>
   void operator()(propagator_state_t& state, const stepper_t& stepper,
                   result_type& result) const {
+    const auto& logger = state.options.logger;
     // In case of Volume material update the result of the previous step
     if (recordInteractions && !result.materialInteractions.empty() &&
         result.materialInteractions.back().volume != nullptr &&
@@ -120,7 +121,7 @@ struct MaterialInteractor {
 
       // Determine the effective traversed material and its properties
       // Material exists but it's not real, i.e. vacuum; there is nothing to do
-      if (not d.evaluateMaterialProperties(state)) {
+      if (not d.evaluateMaterialSlab(state)) {
         return;
       }
 
@@ -128,16 +129,11 @@ struct MaterialInteractor {
       d.evaluatePointwiseMaterialInteraction(multipleScattering, energyLoss);
 
       if (energyLoss) {
-        debugLog(state, [=] {
-          using namespace UnitLiterals;
-          std::stringstream dstream;
-          dstream << d.slab;
-          dstream << " pdg=" << d.pdg;
-          dstream << " mass=" << d.mass / 1_MeV << "MeV";
-          dstream << " momentum=" << d.momentum / 1_GeV << "GeV";
-          dstream << " energyloss=" << d.Eloss / 1_MeV << "MeV";
-          return dstream.str();
-        });
+        using namespace UnitLiterals;
+        ACTS_VERBOSE(d.slab << " pdg=" << d.pdg << " mass=" << d.mass / 1_MeV
+                            << "MeV"
+                            << " momentum=" << d.momentum / 1_GeV << "GeV"
+                            << " energyloss=" << d.Eloss / 1_MeV << "MeV");
       }
 
       // To integrate process noise, we need to transport
@@ -154,7 +150,7 @@ struct MaterialInteractor {
       detail::VolumeMaterialInteraction d(volume, state, stepper);
       // Determine the effective traversed material and its properties
       // Material exists but it's not real, i.e. vacuum; there is nothing to do
-      if (not d.evaluateMaterialProperties(state)) {
+      if (not d.evaluateMaterialSlab(state)) {
         return;
       }
       // Record the result
@@ -188,7 +184,7 @@ struct MaterialInteractor {
       mi.surface = d.surface;
       mi.volume = nullptr;
       mi.pathCorrection = d.pathCorrection;
-      mi.materialProperties = d.slab;
+      mi.materialSlab = d.slab;
       result.materialInteractions.push_back(std::move(mi));
     }
   }
@@ -207,7 +203,7 @@ struct MaterialInteractor {
     mi.surface = nullptr;
     mi.volume = d.volume;
     mi.pathCorrection = d.pathCorrection;
-    mi.materialProperties = d.slab;
+    mi.materialSlab = d.slab;
     result.materialInteractions.push_back(std::move(mi));
   }
 
@@ -219,44 +215,20 @@ struct MaterialInteractor {
   void UpdateResult(propagator_state_t& state, const stepper_t& stepper,
                     result_type& result) const {
     // Update the previous interaction
-    Vector3D shift = stepper.position(state.stepping) -
-                     result.materialInteractions.back().position;
+    Vector3 shift = stepper.position(state.stepping) -
+                    result.materialInteractions.back().position;
     double momentum = stepper.direction(state.stepping).norm();
     result.materialInteractions.back().deltaP =
         momentum - result.materialInteractions.back().direction.norm();
-    result.materialInteractions.back().materialProperties.scaleThickness(
+    result.materialInteractions.back().materialSlab.scaleThickness(
         shift.norm());
     result.materialInteractions.back().updatedVolumeStep = true;
     result.materialInX0 +=
-        result.materialInteractions.back().materialProperties.thicknessInX0();
+        result.materialInteractions.back().materialSlab.thicknessInX0();
     result.materialInL0 +=
-        result.materialInteractions.back().materialProperties.thicknessInL0();
+        result.materialInteractions.back().materialSlab.thicknessInL0();
   }
-
-  /// The private propagation debug logging
-  ///
-  /// It needs to be fed by a lambda function that returns a string,
-  /// that guarantees that the lambda is only called in the state.debug ==
-  /// true case in order not to spend time when not needed.
-  ///
-  /// @tparam propagator_state_t Type of the propagator state
-  ///
-  /// @param state the propagator state for the debug flag, prefix and
-  /// length
-  /// @param logAction is a callable function that returns a streamable object
-  template <typename propagator_state_t>
-  void debugLog(propagator_state_t& state,
-                const std::function<std::string()>& logAction) const {
-    if (state.options.debug) {
-      std::stringstream dstream;
-      dstream << "   " << std::setw(state.options.debugPfxWidth);
-      dstream << "material interaction"
-              << " | ";
-      dstream << std::setw(state.options.debugMsgWidth) << logAction() << '\n';
-      state.options.debugString += dstream.str();
-    }
-  }
-};
+};  // namespace Acts
 
 /// Using some short hands for Recorded Material
 using RecordedMaterial = MaterialInteractor::Result;
@@ -265,6 +237,6 @@ using RecordedMaterial = MaterialInteractor::Result;
 /// - this is start:  position, start momentum
 ///   and the Recorded material
 using RecordedMaterialTrack =
-    std::pair<std::pair<Acts::Vector3D, Acts::Vector3D>, RecordedMaterial>;
+    std::pair<std::pair<Acts::Vector3, Acts::Vector3>, RecordedMaterial>;
 
 }  // namespace Acts

@@ -1,13 +1,14 @@
 add_library(
   ActsExamplesPrinters SHARED
-  ACTFW/Printers/PrintHits.cpp
-  ACTFW/Printers/PrintParticles.cpp)
+  ActsExamples/Printers/HitsPrinter.cpp
+  ActsExamples/Printers/ParticlesPrinter.cpp
+  ActsExamples/Printers/TrackParametersPrinter.cpp)
 target_include_directories(
   ActsExamplesPrinters
   PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_link_libraries(
   ActsExamplesPrinters
-  PUBLIC ActsCore ActsFatras ActsDigitizationPlugin ActsExamplesFramework)
+  PUBLIC ActsCore ActsFatras ActsPluginDigitization ActsExamplesFramework)
 
 install(
   TARGETS ActsExamplesPrinters

@@ -8,16 +8,16 @@
 
 #include "Acts/Geometry/SurfaceArrayCreator.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Surfaces/SurfaceArray.hpp"
-#include "Acts/Utilities/BinUtility.hpp"
-#include "Acts/Utilities/BinnedArrayXD.hpp"
+#include "Acts/Surfaces/SurfaceBounds.hpp"
 #include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Helpers.hpp"
-#include "Acts/Utilities/Units.hpp"
-#include "Acts/Utilities/detail/Axis.hpp"
+#include "Acts/Utilities/IAxis.hpp"
+#include "Acts/Utilities/detail/grid_helper.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -31,7 +31,7 @@ Acts::SurfaceArrayCreator::surfaceArrayOnCylinder(
     const GeometryContext& gctx,
     std::vector<std::shared_ptr<const Surface>> surfaces, size_t binsPhi,
     size_t binsZ, std::optional<ProtoLayer> protoLayerOpt,
-    const std::shared_ptr<const Transform3D>& transformOpt) const {
+    const Transform3& transform) const {
   std::vector<const Surface*> surfacesRaw = unpack_shared_vector(surfaces);
   // Check if we have proto layer, else build it
   ProtoLayer protoLayer =
@@ -42,25 +42,23 @@ Acts::SurfaceArrayCreator::surfaceArrayOnCylinder(
   ACTS_VERBOSE(" -- with phi x z  = " << binsPhi << " x " << binsZ << " = "
                                       << binsPhi * binsZ << " bins.");
 
-  Transform3D transform =
-      transformOpt != nullptr ? *transformOpt : Transform3D::Identity();
-
+  Transform3 ftransform = transform;
   ProtoAxis pAxisPhi = createEquidistantAxis(gctx, surfacesRaw, binPhi,
-                                             protoLayer, transform, binsPhi);
+                                             protoLayer, ftransform, binsPhi);
   ProtoAxis pAxisZ = createEquidistantAxis(gctx, surfacesRaw, binZ, protoLayer,
-                                           transform, binsZ);
+                                           ftransform, binsZ);
 
   double R = protoLayer.medium(binR, true);
 
-  Transform3D itransform = transform.inverse();
+  Transform3 itransform = ftransform.inverse();
   // Transform lambda captures the transform matrix
-  auto globalToLocal = [transform](const Vector3D& pos) {
-    Vector3D loc = transform * pos;
-    return Vector2D(phi(loc), loc.z());
+  auto globalToLocal = [ftransform](const Vector3& pos) {
+    Vector3 loc = ftransform * pos;
+    return Vector2(phi(loc), loc.z());
   };
-  auto localToGlobal = [itransform, R](const Vector2D& loc) {
+  auto localToGlobal = [itransform, R](const Vector2& loc) {
     return itransform *
-           Vector3D(R * std::cos(loc[0]), R * std::sin(loc[0]), loc[1]);
+           Vector3(R * std::cos(loc[0]), R * std::sin(loc[0]), loc[1]);
   };
 
   std::unique_ptr<SurfaceArray::ISurfaceGridLookup> sl =
@@ -71,9 +69,8 @@ Acts::SurfaceArrayCreator::surfaceArrayOnCylinder(
   sl->fill(gctx, surfacesRaw);
   completeBinning(gctx, *sl, surfacesRaw);
 
-  return std::make_unique<SurfaceArray>(
-      std::move(sl), std::move(surfaces),
-      std::make_shared<const Transform3D>(transform));
+  return std::make_unique<SurfaceArray>(std::move(sl), std::move(surfaces),
+                                        ftransform);
 }
 
 std::unique_ptr<Acts::SurfaceArray>
@@ -81,42 +78,43 @@ Acts::SurfaceArrayCreator::surfaceArrayOnCylinder(
     const GeometryContext& gctx,
     std::vector<std::shared_ptr<const Surface>> surfaces, BinningType bTypePhi,
     BinningType bTypeZ, std::optional<ProtoLayer> protoLayerOpt,
-    const std::shared_ptr<const Transform3D>& transformOpt) const {
+    const Transform3& transform) const {
   std::vector<const Surface*> surfacesRaw = unpack_shared_vector(surfaces);
   // check if we have proto layer, else build it
   ProtoLayer protoLayer =
       protoLayerOpt ? *protoLayerOpt : ProtoLayer(gctx, surfacesRaw);
 
   double R = protoLayer.medium(binR, true);
-  Transform3D transform =
-      transformOpt != nullptr ? *transformOpt : Transform3D::Identity();
 
   ProtoAxis pAxisPhi;
   ProtoAxis pAxisZ;
 
+  Transform3 ftransform = transform;
+
   if (bTypePhi == equidistant) {
     pAxisPhi = createEquidistantAxis(gctx, surfacesRaw, binPhi, protoLayer,
-                                     transform, 0);
+                                     ftransform, 0);
   } else {
     pAxisPhi =
-        createVariableAxis(gctx, surfacesRaw, binPhi, protoLayer, transform);
+        createVariableAxis(gctx, surfacesRaw, binPhi, protoLayer, ftransform);
   }
 
   if (bTypeZ == equidistant) {
     pAxisZ =
-        createEquidistantAxis(gctx, surfacesRaw, binZ, protoLayer, transform);
+        createEquidistantAxis(gctx, surfacesRaw, binZ, protoLayer, ftransform);
   } else {
-    pAxisZ = createVariableAxis(gctx, surfacesRaw, binZ, protoLayer, transform);
+    pAxisZ =
+        createVariableAxis(gctx, surfacesRaw, binZ, protoLayer, ftransform);
   }
 
-  Transform3D itransform = transform.inverse();
-  auto globalToLocal = [transform](const Vector3D& pos) {
-    Vector3D loc = transform * pos;
-    return Vector2D(phi(loc), loc.z());
+  Transform3 itransform = ftransform.inverse();
+  auto globalToLocal = [ftransform](const Vector3& pos) {
+    Vector3 loc = ftransform * pos;
+    return Vector2(phi(loc), loc.z());
   };
-  auto localToGlobal = [itransform, R](const Vector2D& loc) {
+  auto localToGlobal = [itransform, R](const Vector2& loc) {
     return itransform *
-           Vector3D(R * std::cos(loc[0]), R * std::sin(loc[0]), loc[1]);
+           Vector3(R * std::cos(loc[0]), R * std::sin(loc[0]), loc[1]);
   };
 
   std::unique_ptr<SurfaceArray::ISurfaceGridLookup> sl =
@@ -137,9 +135,8 @@ Acts::SurfaceArrayCreator::surfaceArrayOnCylinder(
   ACTS_VERBOSE(" -- with phi x z  = " << bins0 << " x " << bins1 << " = "
                                       << bins0 * bins1 << " bins.");
 
-  return std::make_unique<SurfaceArray>(
-      std::move(sl), std::move(surfaces),
-      std::make_shared<const Transform3D>(transform));
+  return std::make_unique<SurfaceArray>(std::move(sl), std::move(surfaces),
+                                        ftransform);
 }
 
 std::unique_ptr<Acts::SurfaceArray>
@@ -147,7 +144,7 @@ Acts::SurfaceArrayCreator::surfaceArrayOnDisc(
     const GeometryContext& gctx,
     std::vector<std::shared_ptr<const Surface>> surfaces, size_t binsR,
     size_t binsPhi, std::optional<ProtoLayer> protoLayerOpt,
-    const std::shared_ptr<const Transform3D>& transformOpt) const {
+    const Transform3& transform) const {
   std::vector<const Surface*> surfacesRaw = unpack_shared_vector(surfaces);
   // check if we have proto layer, else build it
   ProtoLayer protoLayer =
@@ -155,26 +152,24 @@ Acts::SurfaceArrayCreator::surfaceArrayOnDisc(
 
   ACTS_VERBOSE("Creating a SurfaceArray on a disc");
 
-  Transform3D transform =
-      transformOpt != nullptr ? *transformOpt : Transform3D::Identity();
-
+  Transform3 ftransform = transform;
   ProtoAxis pAxisR = createEquidistantAxis(gctx, surfacesRaw, binR, protoLayer,
-                                           transform, binsR);
+                                           ftransform, binsR);
   ProtoAxis pAxisPhi = createEquidistantAxis(gctx, surfacesRaw, binPhi,
-                                             protoLayer, transform, binsPhi);
+                                             protoLayer, ftransform, binsPhi);
 
   double Z = protoLayer.medium(binZ, true);
   ACTS_VERBOSE("- z-position of disk estimated as " << Z);
 
-  Transform3D itransform = transform.inverse();
+  Transform3 itransform = transform.inverse();
   // transform lambda captures the transform matrix
-  auto globalToLocal = [transform](const Vector3D& pos) {
-    Vector3D loc = transform * pos;
-    return Vector2D(perp(loc), phi(loc));
+  auto globalToLocal = [ftransform](const Vector3& pos) {
+    Vector3 loc = ftransform * pos;
+    return Vector2(perp(loc), phi(loc));
   };
-  auto localToGlobal = [itransform, Z](const Vector2D& loc) {
+  auto localToGlobal = [itransform, Z](const Vector2& loc) {
     return itransform *
-           Vector3D(loc[0] * std::cos(loc[1]), loc[0] * std::sin(loc[1]), Z);
+           Vector3(loc[0] * std::cos(loc[1]), loc[0] * std::sin(loc[1]), Z);
   };
 
   std::unique_ptr<SurfaceArray::ISurfaceGridLookup> sl =
@@ -193,9 +188,8 @@ Acts::SurfaceArrayCreator::surfaceArrayOnDisc(
   sl->fill(gctx, surfacesRaw);
   completeBinning(gctx, *sl, surfacesRaw);
 
-  return std::make_unique<SurfaceArray>(
-      std::move(sl), std::move(surfaces),
-      std::make_shared<const Transform3D>(transform));
+  return std::make_unique<SurfaceArray>(std::move(sl), std::move(surfaces),
+                                        ftransform);
 }
 
 std::unique_ptr<Acts::SurfaceArray>
@@ -203,7 +197,7 @@ Acts::SurfaceArrayCreator::surfaceArrayOnDisc(
     const GeometryContext& gctx,
     std::vector<std::shared_ptr<const Surface>> surfaces, BinningType bTypeR,
     BinningType bTypePhi, std::optional<ProtoLayer> protoLayerOpt,
-    const std::shared_ptr<const Transform3D>& transformOpt) const {
+    const Transform3& transform) const {
   std::vector<const Surface*> surfacesRaw = unpack_shared_vector(surfaces);
   // check if we have proto layer, else build it
   ProtoLayer protoLayer =
@@ -211,17 +205,17 @@ Acts::SurfaceArrayCreator::surfaceArrayOnDisc(
 
   ACTS_VERBOSE("Creating a SurfaceArray on a disc");
 
-  Transform3D transform =
-      transformOpt != nullptr ? *transformOpt : Transform3D::Identity();
-
   ProtoAxis pAxisPhi;
   ProtoAxis pAxisR;
 
+  Transform3 ftransform = transform;
+
   if (bTypeR == equidistant) {
     pAxisR =
-        createEquidistantAxis(gctx, surfacesRaw, binR, protoLayer, transform);
+        createEquidistantAxis(gctx, surfacesRaw, binR, protoLayer, ftransform);
   } else {
-    pAxisR = createVariableAxis(gctx, surfacesRaw, binR, protoLayer, transform);
+    pAxisR =
+        createVariableAxis(gctx, surfacesRaw, binR, protoLayer, ftransform);
   }
 
   // if we have more than one R ring, we need to figure out
@@ -231,7 +225,7 @@ Acts::SurfaceArrayCreator::surfaceArrayOnDisc(
     // this FORCES equidistant binning
     std::vector<std::vector<const Surface*>> phiModules(pAxisR.nBins);
     for (const auto& srf : surfacesRaw) {
-      Vector3D bpos = srf->binningPosition(gctx, binR);
+      Vector3 bpos = srf->binningPosition(gctx, binR);
       size_t bin = pAxisR.getBin(perp(bpos));
       phiModules.at(bin).push_back(srf);
     }
@@ -257,31 +251,31 @@ Acts::SurfaceArrayCreator::surfaceArrayOnDisc(
     size_t nBinsPhi =
         (*std::min_element(nPhiModules.begin(), nPhiModules.end()));
     pAxisPhi = createEquidistantAxis(gctx, surfacesRaw, binPhi, protoLayer,
-                                     transform, nBinsPhi);
+                                     ftransform, nBinsPhi);
 
   } else {
     // use regular determination
     if (bTypePhi == equidistant) {
       pAxisPhi = createEquidistantAxis(gctx, surfacesRaw, binPhi, protoLayer,
-                                       transform, 0);
+                                       ftransform, 0);
     } else {
       pAxisPhi =
-          createVariableAxis(gctx, surfacesRaw, binPhi, protoLayer, transform);
+          createVariableAxis(gctx, surfacesRaw, binPhi, protoLayer, ftransform);
     }
   }
 
   double Z = protoLayer.medium(binZ, true);
   ACTS_VERBOSE("- z-position of disk estimated as " << Z);
 
-  Transform3D itransform = transform.inverse();
+  Transform3 itransform = ftransform.inverse();
   // transform lambda captures the transform matrix
-  auto globalToLocal = [transform](const Vector3D& pos) {
-    Vector3D loc = transform * pos;
-    return Vector2D(perp(loc), phi(loc));
+  auto globalToLocal = [ftransform](const Vector3& pos) {
+    Vector3 loc = ftransform * pos;
+    return Vector2(perp(loc), phi(loc));
   };
-  auto localToGlobal = [itransform, Z](const Vector2D& loc) {
+  auto localToGlobal = [itransform, Z](const Vector2& loc) {
     return itransform *
-           Vector3D(loc[0] * std::cos(loc[1]), loc[0] * std::sin(loc[1]), Z);
+           Vector3(loc[0] * std::cos(loc[1]), loc[0] * std::sin(loc[1]), Z);
   };
 
   std::unique_ptr<SurfaceArray::ISurfaceGridLookup> sl =
@@ -301,9 +295,8 @@ Acts::SurfaceArrayCreator::surfaceArrayOnDisc(
   sl->fill(gctx, surfacesRaw);
   completeBinning(gctx, *sl, surfacesRaw);
 
-  return std::make_unique<SurfaceArray>(
-      std::move(sl), std::move(surfaces),
-      std::make_shared<const Transform3D>(transform));
+  return std::make_unique<SurfaceArray>(std::move(sl), std::move(surfaces),
+                                        ftransform);
 }
 
 /// SurfaceArrayCreator interface method - create an array on a plane
@@ -312,7 +305,7 @@ Acts::SurfaceArrayCreator::surfaceArrayOnPlane(
     const GeometryContext& gctx,
     std::vector<std::shared_ptr<const Surface>> surfaces, size_t bins1,
     size_t bins2, BinningValue bValue, std::optional<ProtoLayer> protoLayerOpt,
-    const std::shared_ptr<const Transform3D>& transformOpt) const {
+    const Transform3& transform) const {
   std::vector<const Surface*> surfacesRaw = unpack_shared_vector(surfaces);
   // check if we have proto layer, else build it
   ProtoLayer protoLayer =
@@ -322,18 +315,15 @@ Acts::SurfaceArrayCreator::surfaceArrayOnPlane(
   ACTS_VERBOSE(" -- with " << surfaces.size() << " surfaces.")
   ACTS_VERBOSE(" -- with " << bins1 << " x " << bins2 << " = " << bins1 * bins2
                            << " bins.");
-  // Transformation
-  Transform3D transform =
-      transformOpt != nullptr ? *transformOpt : Transform3D::Identity();
-
-  Transform3D itransform = transform.inverse();
+  Transform3 ftransform = transform;
+  Transform3 itransform = transform.inverse();
   // transform lambda captures the transform matrix
-  auto globalToLocal = [transform](const Vector3D& pos) {
-    Vector3D loc = transform * pos;
-    return Vector2D(loc.x(), loc.y());
+  auto globalToLocal = [ftransform](const Vector3& pos) {
+    Vector3 loc = ftransform * pos;
+    return Vector2(loc.x(), loc.y());
   };
-  auto localToGlobal = [itransform](const Vector2D& loc) {
-    return itransform * Vector3D(loc.x(), loc.y(), 0.);
+  auto localToGlobal = [itransform](const Vector2& loc) {
+    return itransform * Vector3(loc.x(), loc.y(), 0.);
   };
   // Build the grid
   std::unique_ptr<SurfaceArray::ISurfaceGridLookup> sl;
@@ -342,9 +332,9 @@ Acts::SurfaceArrayCreator::surfaceArrayOnPlane(
   switch (bValue) {
     case BinningValue::binX: {
       ProtoAxis pAxis1 = createEquidistantAxis(gctx, surfacesRaw, binY,
-                                               protoLayer, transform, bins1);
+                                               protoLayer, ftransform, bins1);
       ProtoAxis pAxis2 = createEquidistantAxis(gctx, surfacesRaw, binZ,
-                                               protoLayer, transform, bins2);
+                                               protoLayer, ftransform, bins2);
       sl = makeSurfaceGridLookup2D<detail::AxisBoundaryType::Bound,
                                    detail::AxisBoundaryType::Bound>(
           globalToLocal, localToGlobal, pAxis1, pAxis2);
@@ -352,9 +342,9 @@ Acts::SurfaceArrayCreator::surfaceArrayOnPlane(
     }
     case BinningValue::binY: {
       ProtoAxis pAxis1 = createEquidistantAxis(gctx, surfacesRaw, binX,
-                                               protoLayer, transform, bins1);
+                                               protoLayer, ftransform, bins1);
       ProtoAxis pAxis2 = createEquidistantAxis(gctx, surfacesRaw, binZ,
-                                               protoLayer, transform, bins2);
+                                               protoLayer, ftransform, bins2);
       sl = makeSurfaceGridLookup2D<detail::AxisBoundaryType::Bound,
                                    detail::AxisBoundaryType::Bound>(
           globalToLocal, localToGlobal, pAxis1, pAxis2);
@@ -362,9 +352,9 @@ Acts::SurfaceArrayCreator::surfaceArrayOnPlane(
     }
     case BinningValue::binZ: {
       ProtoAxis pAxis1 = createEquidistantAxis(gctx, surfacesRaw, binX,
-                                               protoLayer, transform, bins1);
+                                               protoLayer, ftransform, bins1);
       ProtoAxis pAxis2 = createEquidistantAxis(gctx, surfacesRaw, binY,
-                                               protoLayer, transform, bins2);
+                                               protoLayer, ftransform, bins2);
       sl = makeSurfaceGridLookup2D<detail::AxisBoundaryType::Bound,
                                    detail::AxisBoundaryType::Bound>(
           globalToLocal, localToGlobal, pAxis1, pAxis2);
@@ -381,9 +371,8 @@ Acts::SurfaceArrayCreator::surfaceArrayOnPlane(
   sl->fill(gctx, surfacesRaw);
   completeBinning(gctx, *sl, surfacesRaw);
 
-  return std::make_unique<SurfaceArray>(
-      std::move(sl), std::move(surfaces),
-      std::make_shared<const Transform3D>(transform));
+  return std::make_unique<SurfaceArray>(std::move(sl), std::move(surfaces),
+                                        ftransform);
   //!< @todo implement - take from ATLAS complex TRT builder
 }
 
@@ -422,7 +411,7 @@ size_t Acts::SurfaceArrayCreator::determineBinCount(
 Acts::SurfaceArrayCreator::ProtoAxis
 Acts::SurfaceArrayCreator::createVariableAxis(
     const GeometryContext& gctx, const std::vector<const Surface*>& surfaces,
-    BinningValue bValue, ProtoLayer protoLayer, Transform3D& transform) const {
+    BinningValue bValue, ProtoLayer protoLayer, Transform3& transform) const {
   if (surfaces.empty()) {
     throw std::logic_error(
         "No surfaces handed over for creating arbitrary bin utility!");
@@ -438,7 +427,7 @@ Acts::SurfaceArrayCreator::createVariableAxis(
   };
   std::vector<const Acts::Surface*> keys = findKeySurfaces(surfaces, equal);
 
-  std::vector<double> bValues;
+  std::vector<AxisScalar> bValues;
   if (bValue == Acts::binPhi) {
     std::stable_sort(keys.begin(), keys.end(),
                      [&gctx](const Acts::Surface* a, const Acts::Surface* b) {
@@ -446,24 +435,24 @@ Acts::SurfaceArrayCreator::createVariableAxis(
                                phi(b->binningPosition(gctx, binPhi)));
                      });
 
-    double maxPhi = 0.5 * (phi(keys.at(0)->binningPosition(gctx, binPhi)) +
-                           phi(keys.at(1)->binningPosition(gctx, binPhi)));
+    AxisScalar maxPhi = 0.5 * (phi(keys.at(0)->binningPosition(gctx, binPhi)) +
+                               phi(keys.at(1)->binningPosition(gctx, binPhi)));
 
     // create rotation, so that maxPhi is +pi
-    double angle = -(M_PI + maxPhi);
-    transform = (transform)*AngleAxis3D(angle, Vector3D::UnitZ());
+    AxisScalar angle = -(M_PI + maxPhi);
+    transform = (transform)*AngleAxis3(angle, Vector3::UnitZ());
 
     // iterate over all key surfaces, and use their mean position as bValues,
     // but
     // rotate using transform from before
-    double previous = phi(keys.at(0)->binningPosition(gctx, binPhi));
+    AxisScalar previous = phi(keys.at(0)->binningPosition(gctx, binPhi));
     // go through key surfaces
     for (size_t i = 1; i < keys.size(); i++) {
       const Surface* surface = keys.at(i);
       // create central binning values which is the mean of the center
       // positions in the binning direction of the current and previous
       // surface
-      double edge =
+      AxisScalar edge =
           0.5 * (previous + phi(surface->binningPosition(gctx, binPhi))) +
           angle;
       bValues.push_back(edge);
@@ -482,11 +471,11 @@ Acts::SurfaceArrayCreator::createVariableAxis(
           "Given SurfaceBounds are not planar - not implemented for "
           "other bounds yet! ");
     // get the global vertices
-    std::vector<Acts::Vector3D> backVertices =
+    std::vector<Acts::Vector3> backVertices =
         makeGlobalVertices(gctx, *backSurface, backBounds->vertices(segments));
-    double maxBValue = phi(
+    AxisScalar maxBValue = phi(
         *std::max_element(backVertices.begin(), backVertices.end(),
-                          [](const Acts::Vector3D& a, const Acts::Vector3D& b) {
+                          [](const Acts::Vector3& a, const Acts::Vector3& b) {
                             return phi(a) < phi(b);
                           }));
 
@@ -505,7 +494,7 @@ Acts::SurfaceArrayCreator::createVariableAxis(
     bValues.push_back(protoLayer.max(binZ));
 
     // the z-center position of the previous surface
-    double previous = keys.front()->binningPosition(gctx, binZ).z();
+    AxisScalar previous = keys.front()->binningPosition(gctx, binZ).z();
     // go through key surfaces
     for (auto surface = keys.begin() + 1; surface != keys.end(); surface++) {
       // create central binning values which is the mean of the center
@@ -526,7 +515,7 @@ Acts::SurfaceArrayCreator::createVariableAxis(
     bValues.push_back(protoLayer.max(binR));
 
     // the r-center position of the previous surface
-    double previous = perp(keys.front()->binningPosition(gctx, binR));
+    AxisScalar previous = perp(keys.front()->binningPosition(gctx, binR));
 
     // go through key surfaces
     for (auto surface = keys.begin() + 1; surface != keys.end(); surface++) {
@@ -560,7 +549,7 @@ Acts::SurfaceArrayCreator::createVariableAxis(
 Acts::SurfaceArrayCreator::ProtoAxis
 Acts::SurfaceArrayCreator::createEquidistantAxis(
     const GeometryContext& gctx, const std::vector<const Surface*>& surfaces,
-    BinningValue bValue, ProtoLayer protoLayer, Transform3D& transform,
+    BinningValue bValue, ProtoLayer protoLayer, Transform3& transform,
     size_t nBins) const {
   if (surfaces.empty()) {
     throw std::logic_error(
@@ -626,7 +615,7 @@ Acts::SurfaceArrayCreator::createEquidistantAxis(
         double angle = M_PI - (max + 0.5 * step);
 
         // replace given transform ref
-        transform = (transform)*AngleAxis3D(angle, Vector3D::UnitZ());
+        transform = (transform)*AngleAxis3(angle, Vector3::UnitZ());
 
       } else {
         minimum = protoLayer.min(binPhi, true);
@@ -661,13 +650,13 @@ Acts::SurfaceArrayCreator::createEquidistantAxis(
   return pAxis;
 }
 
-std::vector<Acts::Vector3D> Acts::SurfaceArrayCreator::makeGlobalVertices(
+std::vector<Acts::Vector3> Acts::SurfaceArrayCreator::makeGlobalVertices(
     const GeometryContext& gctx, const Acts::Surface& surface,
-    const std::vector<Acts::Vector2D>& locVertices) const {
-  std::vector<Acts::Vector3D> globVertices;
+    const std::vector<Acts::Vector2>& locVertices) const {
+  std::vector<Acts::Vector3> globVertices;
   for (auto& vertex : locVertices) {
-    Acts::Vector3D globVertex(0., 0., 0.);
-    surface.localToGlobal(gctx, vertex, Acts::Vector3D(), globVertex);
+    Acts::Vector3 globVertex =
+        surface.localToGlobal(gctx, vertex, Acts::Vector3());
     globVertices.push_back(globVertex);
   }
   return globVertices;

@@ -7,8 +7,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Surfaces/SurfaceBounds.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 namespace Acts {
 
@@ -34,16 +34,9 @@ class InfiniteBounds : public SurfaceBounds {
   /// ignores input parameters
   ///
   /// @return always true
-  bool inside(const Vector2D& /*lposition*/,
+  bool inside(const Vector2& /*lposition*/,
               const BoundaryCheck& /*bcheck*/) const final {
     return true;
-  }
-
-  /// Minimal distance calculation
-  /// ignores input parameter
-  /// @return always 0. (should be -NaN)
-  double distanceToBoundary(const Vector2D& /*position*/) const final {
-    return 0;
   }
 
   /// Output Method for std::ostream

@@ -39,33 +39,24 @@ Acts::SurfaceBounds::BoundsType Acts::ConeBounds::type() const {
 }
 
 /// Shift r-phi coordinate to be centered around the average phi.
-Acts::Vector2D Acts::ConeBounds::shifted(
-    const Acts::Vector2D& lposition) const {
+Acts::Vector2 Acts::ConeBounds::shifted(const Acts::Vector2& lposition) const {
   using Acts::detail::radian_sym;
 
-  auto x = r(lposition[eLOC_Z]);  // cone radius at the local position
-  Vector2D shifted;
-  shifted[eLOC_Z] = lposition[eLOC_Z];
-  shifted[eLOC_RPHI] =
+  auto x = r(lposition[eBoundLoc1]);  // cone radius at the local position
+  Vector2 shifted;
+  shifted[eBoundLoc1] = lposition[eBoundLoc1];
+  shifted[eBoundLoc0] =
       std::isnormal(x)
-          ? (x * radian_sym((lposition[eLOC_RPHI] / x) - get(eAveragePhi)))
-          : lposition[eLOC_RPHI];
+          ? (x * radian_sym((lposition[eBoundLoc0] / x) - get(eAveragePhi)))
+          : lposition[eBoundLoc0];
   return shifted;
 }
 
-bool Acts::ConeBounds::inside(const Acts::Vector2D& lposition,
+bool Acts::ConeBounds::inside(const Acts::Vector2& lposition,
                               const Acts::BoundaryCheck& bcheck) const {
-  auto rphiHalf = r(lposition[eLOC_Z]) * get(eHalfPhiSector);
-  return bcheck.isInside(shifted(lposition), Vector2D(-rphiHalf, get(eMinZ)),
-                         Vector2D(rphiHalf, get(eMaxZ)));
-}
-
-double Acts::ConeBounds::distanceToBoundary(
-    const Acts::Vector2D& lposition) const {
-  auto rphiHalf = r(lposition[eLOC_Z]) * get(eHalfPhiSector);
-  return BoundaryCheck(true).distance(shifted(lposition),
-                                      Vector2D(-rphiHalf, get(eMinZ)),
-                                      Vector2D(rphiHalf, get(eMaxZ)));
+  auto rphiHalf = r(lposition[eBoundLoc1]) * get(eHalfPhiSector);
+  return bcheck.isInside(shifted(lposition), Vector2(-rphiHalf, get(eMinZ)),
+                         Vector2(rphiHalf, get(eMaxZ)));
 }
 
 std::ostream& Acts::ConeBounds::toStream(std::ostream& sl) const {

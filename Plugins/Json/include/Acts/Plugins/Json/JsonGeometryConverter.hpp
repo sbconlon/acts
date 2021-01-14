@@ -8,12 +8,12 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Material/IVolumeMaterial.hpp"
-#include "Acts/Material/MaterialProperties.hpp"
+#include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Logger.hpp"
 #include <Acts/Geometry/TrackingVolume.hpp>
 #include <Acts/Surfaces/Surface.hpp>
@@ -30,10 +30,10 @@ namespace Acts {
 class JsonGeometryConverter {
  public:
   using SurfaceMaterialMap =
-      std::map<GeometryID, std::shared_ptr<const ISurfaceMaterial>>;
+      std::map<GeometryIdentifier, std::shared_ptr<const ISurfaceMaterial>>;
 
   using VolumeMaterialMap =
-      std::map<GeometryID, std::shared_ptr<const IVolumeMaterial>>;
+      std::map<GeometryIdentifier, std::shared_ptr<const IVolumeMaterial>>;
 
   using DetectorMaterialMaps = std::pair<SurfaceMaterialMap, VolumeMaterialMap>;
 
@@ -46,7 +46,7 @@ class JsonGeometryConverter {
   /// @brief Layer representation for Json writing
   struct LayerRep {
     // the layer id
-    GeometryID layerID;
+    GeometryIdentifier layerID;
 
     SurfaceMaterialRep sensitives;
     SurfaceRep sensitiveSurfaces;
@@ -65,7 +65,7 @@ class JsonGeometryConverter {
   /// @brief Volume representation for Json writing
   struct VolumeRep {
     // The geometry id
-    GeometryID volumeID;
+    GeometryIdentifier volumeID;
 
     /// The namne
     std::string volumeName;
@@ -87,7 +87,7 @@ class JsonGeometryConverter {
   };
 
   /// @class Config
-  /// Configuration of the Reader
+  /// Configuration of the Converter
   class Config {
    public:
     /// The geometry version
@@ -97,7 +97,7 @@ class JsonGeometryConverter {
     /// The volume identification string
     std::string volkey = "volumes";
     /// The name identification
-    std::string namekey = "Name";
+    std::string namekey = "name";
     /// The boundary surface string
     std::string boukey = "boundaries";
     /// The layer identification string
@@ -110,21 +110,23 @@ class JsonGeometryConverter {
     std::string senkey = "sensitive";
     /// The representing idntification string
     std::string repkey = "representing";
-    /// The bin keys
+    /// The bin0 key
     std::string bin0key = "bin0";
     /// The bin1 key
     std::string bin1key = "bin1";
     /// The bin2 key
     std::string bin2key = "bin2";
+    /// The local to global transformation key
+    std::string transfokeys = "transformation";
     /// The type key -> proto, else
     std::string typekey = "type";
     /// The data key
     std::string datakey = "data";
     /// The geoid key
-    std::string geoidkey = "Geoid";
+    std::string geometryidkey = "Geoid";
     /// The surface geoid key
-    std::string surfacegeoidkey = "SGeoid";
-    /// The mapping key, add surface to map if true
+    std::string surfacegeometryidkey = "SGeoid";
+    /// The mapping key, add surface to mapping procedure if true
     std::string mapkey = "mapMaterial";
     /// The surface type key
     std::string surfacetypekey = "stype";
@@ -134,6 +136,8 @@ class JsonGeometryConverter {
     std::string surfacerangekey = "srange";
     /// The default logger
     std::shared_ptr<const Logger> logger;
+    /// Default geometry context to extract surface tranforms
+    GeometryContext context = GeometryContext();
     /// The name of the writer
     std::string name = "";
 
@@ -150,7 +154,7 @@ class JsonGeometryConverter {
     /// Steering to handle volume data
     bool processDenseVolumes = false;
     /// Add proto material to all surfaces
-    bool processnonmaterial = false;
+    bool processNonMaterial = false;
     /// Write out data
     bool writeData = true;
 
@@ -174,8 +178,9 @@ class JsonGeometryConverter {
   /// Convert method
   ///
   /// @param surfaceMaterialMap The indexed material map collection
-  std::pair<std::map<GeometryID, std::shared_ptr<const ISurfaceMaterial>>,
-            std::map<GeometryID, std::shared_ptr<const IVolumeMaterial>>>
+  std::pair<
+      std::map<GeometryIdentifier, std::shared_ptr<const ISurfaceMaterial>>,
+      std::map<GeometryIdentifier, std::shared_ptr<const IVolumeMaterial>>>
   jsonToMaterialMaps(const nlohmann::json& materialmaps);
 
   /// Convert method
@@ -212,10 +217,13 @@ class JsonGeometryConverter {
   /// Create the Material Matrix from Json
   ///
   /// @param data is the json part representing a material data array
-  MaterialPropertiesMatrix jsonToMaterialMatrix(const nlohmann::json& data);
+  MaterialSlabMatrix jsonToMaterialMatrix(const nlohmann::json& data);
 
   /// Create the BinUtility for from Json
   BinUtility jsonToBinUtility(const nlohmann::json& bin);
+
+  /// Create the local to global transform for from Json
+  Transform3 jsonToTransform(const nlohmann::json& transfo);
 
   /// Create Json from a detector represenation
   nlohmann::json detectorRepToJson(const DetectorRep& detRep);

@@ -35,32 +35,30 @@ const GeometryContext geoCtx;
 
 void runTest(const Surface& surface, double l0, double l1, double phi,
              double theta) {
-  const Vector3D dir = makeDirectionUnitFromPhiTheta(phi, theta);
+  const Vector3 dir = makeDirectionUnitFromPhiTheta(phi, theta);
 
   // convert local-to-global
-  Vector3D sentinel = Vector3D::Random();
-  Vector3D pos = sentinel;
-  surface.localToGlobal(geoCtx, Vector2D(l0, l1), dir, pos);
-  BOOST_TEST(pos != sentinel, "Position was not changed");
-  BOOST_TEST(std::isfinite(pos[0]),
-             "Position " << pos.transpose() << " contains non-finite entries");
-  BOOST_TEST(std::isfinite(pos[1]),
-             "Position " << pos.transpose() << " contains non-finite entries");
-  BOOST_TEST(std::isfinite(pos[2]),
-             "Position " << pos.transpose() << " contains non-finite entries");
-  BOOST_TEST(surface.isOnSurface(geoCtx, pos, dir),
-             "Position " << pos.transpose() << " is not on the surface");
+  Vector3 sentinel = Vector3::Random();
+  Vector3 pos = surface.localToGlobal(geoCtx, Vector2(l0, l1), dir);
+  BOOST_CHECK_MESSAGE(pos != sentinel, "Position was not changed");
+  BOOST_CHECK_MESSAGE(
+      std::isfinite(pos[0]),
+      "Position " << pos.transpose() << " contains non-finite entries");
+  BOOST_CHECK_MESSAGE(
+      std::isfinite(pos[1]),
+      "Position " << pos.transpose() << " contains non-finite entries");
+  BOOST_CHECK_MESSAGE(
+      std::isfinite(pos[2]),
+      "Position " << pos.transpose() << " contains non-finite entries");
+  BOOST_CHECK_MESSAGE(
+      surface.isOnSurface(geoCtx, pos, dir),
+      "Position " << pos.transpose() << " is not on the surface");
 
   // convert global-to-local
-  Vector2D loc = Vector2D::Zero();
-  bool validTransform = surface.globalToLocal(geoCtx, pos, dir, loc);
-  BOOST_TEST(validTransform);
-  CHECK_CLOSE_OR_SMALL(loc[ePos0], l0, eps, eps);
-  CHECK_CLOSE_OR_SMALL(loc[ePos1], l1, eps, eps);
-}
-
-std::shared_ptr<Transform3D> makeTransformIdentity() {
-  return std::make_shared<Transform3D>(Transform3D::Identity());
+  auto lpResult = surface.globalToLocal(geoCtx, pos, dir);
+  BOOST_CHECK(lpResult.ok());
+  CHECK_CLOSE_OR_SMALL(lpResult.value()[ePos0], l0, eps, eps);
+  CHECK_CLOSE_OR_SMALL(lpResult.value()[ePos1], l1, eps, eps);
 }
 
 // test datasets
@@ -79,27 +77,27 @@ const auto thetas = bdata::make({0.0, M_PI}) + thetasNoForwardBackward;
 // parameters must be chosen such that all possible local positions (as defined
 // in the datasets above) represent valid points on the surface.
 const auto cones = bdata::make({
-    Surface::makeShared<ConeSurface>(makeTransformIdentity(),
+    Surface::makeShared<ConeSurface>(Transform3::Identity(),
                                      0.5 /* opening angle */),
 });
 const auto cylinders = bdata::make({
-    Surface::makeShared<CylinderSurface>(makeTransformIdentity(),
+    Surface::makeShared<CylinderSurface>(Transform3::Identity(),
                                          10.0 /* radius */, 100 /* half z */),
 });
 const auto discs = bdata::make({
-    Surface::makeShared<DiscSurface>(makeTransformIdentity(),
-                                     0 /* radius min */, 100 /* radius max */),
+    Surface::makeShared<DiscSurface>(Transform3::Identity(), 0 /* radius min */,
+                                     100 /* radius max */),
 });
 const auto perigees = bdata::make({
-    Surface::makeShared<PerigeeSurface>(Vector3D(0, 0, -1.5)),
+    Surface::makeShared<PerigeeSurface>(Vector3(0, 0, -1.5)),
 });
 const auto planes = bdata::make({
-    Surface::makeShared<PlaneSurface>(Vector3D(1, 2, 3), Vector3D::UnitX()),
-    Surface::makeShared<PlaneSurface>(Vector3D(-2, -3, -4), Vector3D::UnitY()),
-    Surface::makeShared<PlaneSurface>(Vector3D(3, -4, 5), Vector3D::UnitZ()),
+    Surface::makeShared<PlaneSurface>(Vector3(1, 2, 3), Vector3::UnitX()),
+    Surface::makeShared<PlaneSurface>(Vector3(-2, -3, -4), Vector3::UnitY()),
+    Surface::makeShared<PlaneSurface>(Vector3(3, -4, 5), Vector3::UnitZ()),
 });
 const auto straws = bdata::make({
-    Surface::makeShared<StrawSurface>(makeTransformIdentity(), 2.0 /* radius */,
+    Surface::makeShared<StrawSurface>(Transform3::Identity(), 2.0 /* radius */,
                                       200.0 /* half z */),
 });
 

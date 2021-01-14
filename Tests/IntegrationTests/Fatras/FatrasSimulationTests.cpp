@@ -21,6 +21,7 @@
 #include "ActsFatras/Kernel/Simulator.hpp"
 #include "ActsFatras/Physics/StandardPhysicsLists.hpp"
 #include "ActsFatras/Selectors/ChargeSelectors.hpp"
+#include "ActsFatras/Selectors/SurfaceSelectors.hpp"
 #include "ActsFatras/Utilities/ParticleData.hpp"
 
 #include <algorithm>
@@ -35,14 +36,15 @@ struct SplitEnergyLoss {
   double splitMomentumMin = 5_GeV;
 
   template <typename generator_t>
-  bool operator()(generator_t&, const Acts::MaterialProperties&,
+  bool operator()(generator_t&, const Acts::MaterialSlab&,
                   ActsFatras::Particle& particle,
                   std::vector<ActsFatras::Particle>& generated) const {
-    const auto p = particle.absMomentum();
+    const auto p = particle.absoluteMomentum();
     if (splitMomentumMin < p) {
-      particle.setAbsMomentum(0.5 * p);
+      particle.setAbsoluteMomentum(0.5 * p);
       const auto pid = particle.particleId().makeDescendant();
-      generated.push_back(particle.withParticleId(pid).setAbsMomentum(0.5 * p));
+      generated.push_back(
+          particle.withParticleId(pid).setAbsoluteMomentum(0.5 * p));
     }
     // never break
     return false;
@@ -181,39 +183,39 @@ BOOST_DATA_TEST_CASE(FatrasSimulation, dataset, pdg, phi, eta, p,
     const auto particle =
         ActsFatras::Particle(pid, pdg)
             .setDirection(Acts::makeDirectionUnitFromPhiEta(phi, eta))
-            .setAbsMomentum(p);
+            .setAbsoluteMomentum(p);
     input.push_back(std::move(particle));
   }
   BOOST_TEST_INFO(input.front());
-  BOOST_TEST(input.size() == numParticles);
+  BOOST_CHECK_EQUAL(input.size(), numParticles);
 
   // run the simulation
   auto result = simulator.simulate(geoCtx, magCtx, generator, input,
                                    simulatedInitial, simulatedFinal, hits);
 
   // should always succeed
-  BOOST_TEST(result.ok());
+  BOOST_CHECK(result.ok());
 
   // ensure simulated particle containers have consistent content
-  BOOST_TEST(simulatedInitial.size() == simulatedFinal.size());
+  BOOST_CHECK_EQUAL(simulatedInitial.size(), simulatedFinal.size());
   for (std::size_t i = 0; i < simulatedInitial.size(); ++i) {
     const auto& initialParticle = simulatedInitial[i];
     const auto& finalParticle = simulatedFinal[i];
     // particle identify should not change during simulation
-    BOOST_TEST(initialParticle.particleId() == finalParticle.particleId());
-    BOOST_TEST(initialParticle.process() == finalParticle.process());
-    BOOST_TEST(initialParticle.pdg() == finalParticle.pdg());
-    BOOST_TEST(initialParticle.charge() == finalParticle.charge());
-    BOOST_TEST(initialParticle.mass() == finalParticle.mass());
+    BOOST_CHECK_EQUAL(initialParticle.particleId(), finalParticle.particleId());
+    BOOST_CHECK_EQUAL(initialParticle.process(), finalParticle.process());
+    BOOST_CHECK_EQUAL(initialParticle.pdg(), finalParticle.pdg());
+    BOOST_CHECK_EQUAL(initialParticle.charge(), finalParticle.charge());
+    BOOST_CHECK_EQUAL(initialParticle.mass(), finalParticle.mass());
   }
 
   // we have no particle cuts and should not loose any particles.
   // might end up with more due to secondaries
-  BOOST_TEST(input.size() <= simulatedInitial.size());
-  BOOST_TEST(input.size() <= simulatedFinal.size());
+  BOOST_CHECK_LE(input.size(), simulatedInitial.size());
+  BOOST_CHECK_LE(input.size(), simulatedFinal.size());
   // there should be some hits if we started with a charged particle
   if (ActsFatras::findCharge(pdg) != 0) {
-    BOOST_TEST(0u < hits.size());
+    BOOST_CHECK_LT(0u, hits.size());
   }
 
   // sort all outputs by particle id to simply further tests
@@ -223,18 +225,18 @@ BOOST_DATA_TEST_CASE(FatrasSimulation, dataset, pdg, phi, eta, p,
   sortByParticleId(hits);
 
   // check that all particle ids are unique
-  BOOST_TEST(areParticleIdsUnique(input));
-  BOOST_TEST(areParticleIdsUnique(simulatedInitial));
-  BOOST_TEST(areParticleIdsUnique(simulatedFinal));
+  BOOST_CHECK(areParticleIdsUnique(input));
+  BOOST_CHECK(areParticleIdsUnique(simulatedInitial));
+  BOOST_CHECK(areParticleIdsUnique(simulatedFinal));
   // hits must necessarily contain particle id duplicates
   // check that every input particles is simulated
   for (const auto& particle : input) {
-    BOOST_TEST(containsParticleId(simulatedInitial, particle));
-    BOOST_TEST(containsParticleId(simulatedFinal, particle));
+    BOOST_CHECK(containsParticleId(simulatedInitial, particle));
+    BOOST_CHECK(containsParticleId(simulatedFinal, particle));
   }
   // check that all hits can be associated to a particle
   for (const auto& hit : hits) {
-    BOOST_TEST(containsParticleId(simulatedInitial, hit));
-    BOOST_TEST(containsParticleId(simulatedFinal, hit));
+    BOOST_CHECK(containsParticleId(simulatedInitial, hit));
+    BOOST_CHECK(containsParticleId(simulatedFinal, hit));
   }
 }

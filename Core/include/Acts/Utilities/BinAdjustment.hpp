@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
@@ -27,9 +28,11 @@ namespace Acts {
 /// @param rBounds the Radial bounds to adjust to
 ///
 /// @return new updated BinUtiltiy
-BinUtility adjustBinUtility(const BinUtility& bu, const RadialBounds& rBounds) {
+BinUtility adjustBinUtility(const BinUtility& bu, const RadialBounds& rBounds,
+                            const Transform3& transform) {
   // Default constructor
-  BinUtility uBinUtil;
+  BinUtility uBinUtil(transform);
+
   // The parameters from the cylinder bounds
   double minR = rBounds.get(RadialBounds::eMinR);
   double maxR = rBounds.get(RadialBounds::eMaxR);
@@ -73,10 +76,11 @@ BinUtility adjustBinUtility(const BinUtility& bu, const RadialBounds& rBounds) {
 /// @param cBounds the Cylinder bounds to adjust to
 ///
 /// @return new updated BinUtiltiy
-BinUtility adjustBinUtility(const BinUtility& bu,
-                            const CylinderBounds& cBounds) {
+BinUtility adjustBinUtility(const BinUtility& bu, const CylinderBounds& cBounds,
+                            const Transform3& transform) {
   // Default constructor
-  BinUtility uBinUtil;
+  BinUtility uBinUtil(transform);
+
   // The parameters from the cylinder bounds
   double cR = cBounds.get(CylinderBounds::eR);
   double cHz = cBounds.get(CylinderBounds::eHalfLengthZ);
@@ -84,7 +88,7 @@ BinUtility adjustBinUtility(const BinUtility& bu,
   double halfPhi = cBounds.get(CylinderBounds::eHalfPhiSector);
   double minPhi = avgPhi - halfPhi;
   double maxPhi = avgPhi + halfPhi;
-  ;
+
   // Retrieve the binning data
   const std::vector<BinningData>& bData = bu.binningData();
   // Loop over the binning data and adjust the dimensions
@@ -130,13 +134,13 @@ BinUtility adjustBinUtility(const BinUtility& bu, const Surface& surface) {
     // Cast to Cylinder bounds and return
     auto cBounds = dynamic_cast<const CylinderBounds*>(&(surface.bounds()));
     // Return specific adjustment
-    return adjustBinUtility(bu, *cBounds);
+    return adjustBinUtility(bu, *cBounds, surface.transform(GeometryContext()));
 
   } else if (surface.type() == Surface::Disc) {
     // Cast to Cylinder bounds and return
     auto rBounds = dynamic_cast<const RadialBounds*>(&(surface.bounds()));
     // Return specific adjustment
-    return adjustBinUtility(bu, *rBounds);
+    return adjustBinUtility(bu, *rBounds, surface.transform(GeometryContext()));
   }
 
   throw std::invalid_argument(

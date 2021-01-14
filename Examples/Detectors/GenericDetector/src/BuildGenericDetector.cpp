@@ -6,20 +6,20 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/GenericDetector/BuildGenericDetector.hpp"
+#include "ActsExamples/GenericDetector/BuildGenericDetector.hpp"
 
-namespace FW {
+namespace ActsExamples {
 
 namespace Generic {
 
 /// helper method for cylinder
-std::vector<Acts::Vector3D> modulePositionsCylinder(
+std::vector<Acts::Vector3> modulePositionsCylinder(
     double radius, double zStagger, double moduleHalfLength, double lOverlap,
     const std::pair<int, int>& binningSchema) {
   int nPhiBins = binningSchema.first;
   int nZbins = binningSchema.second;
   // prepare the return value
-  std::vector<Acts::Vector3D> mPositions;
+  std::vector<Acts::Vector3> mPositions;
   mPositions.reserve(nPhiBins * nZbins);
   // prep work
   double phiStep = 2 * M_PI / (nPhiBins);
@@ -35,15 +35,15 @@ std::vector<Acts::Vector3D> modulePositionsCylinder(
     for (size_t phiBin = 0; phiBin < size_t(nPhiBins); ++phiBin) {
       // calculate the current phi value
       double modulePhi = minPhi + phiBin * phiStep;
-      mPositions.push_back(Acts::Vector3D(moduleR * cos(modulePhi),
-                                          moduleR * sin(modulePhi), moduleZ));
+      mPositions.push_back(Acts::Vector3(moduleR * cos(modulePhi),
+                                         moduleR * sin(modulePhi), moduleZ));
     }
   }
   return mPositions;
 }
 
 /// helper method for disc
-std::vector<std::vector<Acts::Vector3D>> modulePositionsDisc(
+std::vector<std::vector<Acts::Vector3>> modulePositionsDisc(
     double z, double ringStagger, std::vector<double> phiStagger,
     std::vector<double> phiSubStagger, double innerRadius, double outerRadius,
     const std::vector<size_t>& discBinning,
@@ -83,7 +83,7 @@ std::vector<std::vector<Acts::Vector3D>> modulePositionsDisc(
     }
   }
   // now prepare the return method
-  std::vector<std::vector<Acts::Vector3D>> mPositions;
+  std::vector<std::vector<Acts::Vector3>> mPositions;
   for (size_t ir = 0; ir < radii.size(); ++ir) {
     // generate the z value
     // convention inner ring is closer to origin : makes sense
@@ -99,12 +99,12 @@ std::vector<std::vector<Acts::Vector3D>> modulePositionsDisc(
 }
 
 /// Helper method for positioning
-std::vector<Acts::Vector3D> modulePositionsRing(double z, double radius,
-                                                double phiStagger,
-                                                double phiSubStagger,
-                                                int nPhiBins) {
+std::vector<Acts::Vector3> modulePositionsRing(double z, double radius,
+                                               double phiStagger,
+                                               double phiSubStagger,
+                                               int nPhiBins) {
   // create and fill the positions
-  std::vector<Acts::Vector3D> rPositions;
+  std::vector<Acts::Vector3> rPositions;
   rPositions.reserve(nPhiBins);
   // prep work
   double phiStep = 2 * M_PI / (nPhiBins);
@@ -129,11 +129,11 @@ std::vector<Acts::Vector3D> modulePositionsRing(double z, double radius,
     // main z position depending on phi bin
     double rz = iphi % 2 ? z - 0.5 * phiStagger : z + 0.5 * phiStagger;
     rPositions.push_back(
-        Acts::Vector3D(radius * cos(phi), radius * sin(phi), rz + rzs));
+        Acts::Vector3(radius * cos(phi), radius * sin(phi), rz + rzs));
   }
   return rPositions;
 }
 
 }  // end of namespace Generic
 
-}  // end of namespace FW
+}  // end of namespace ActsExamples

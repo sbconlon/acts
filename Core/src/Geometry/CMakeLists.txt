@@ -1,8 +1,7 @@
-target_sources_local(
+target_sources(
   ActsCore
   PRIVATE
     AbstractVolume.cpp
-    BinUtility.cpp
     ConeLayer.cpp
     ConeVolumeBounds.cpp
     CuboidVolumeBounds.cpp
@@ -16,7 +15,7 @@ target_sources_local(
     DiscLayer.cpp
     GenericApproachDescriptor.cpp
     GenericCuboidVolumeBounds.cpp
-    GeometryID.cpp
+    GeometryIdentifier.cpp
     GlueVolumesDescriptor.cpp
     Layer.cpp
     LayerArrayCreator.cpp

@@ -12,6 +12,8 @@
 #include "Acts/Utilities/BinningData.hpp"
 #include "Acts/Utilities/BinningType.hpp"
 
+#include <cmath>
+
 namespace Acts {
 namespace Test {
 
@@ -19,8 +21,8 @@ namespace tt = boost::test_tools;
 
 // OPEN - equidistant binning tests
 BOOST_AUTO_TEST_CASE(BinUtility_equidistant_binning) {
-  Vector3D xyzPosition(1.5, 2.5, 3.5);
-  Vector3D edgePosition(0.5, 0.5, 0.5);
+  Vector3 xyzPosition(1.5, 2.5, 3.5);
+  Vector3 edgePosition(0.5, 0.5, 0.5);
 
   // | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
   BinUtility xUtil_eq(10, 0., 10., open, binX);
@@ -88,5 +90,48 @@ BOOST_AUTO_TEST_CASE(BinUtility_equidistant_binning) {
   BOOST_CHECK_EQUAL_COLLECTIONS(xEdgeRange.begin(), xEdgeRange.end(),
                                 xEdgeCheck.begin(), xEdgeCheck.end());
 }
+// OPEN - local to global transform test
+BOOST_AUTO_TEST_CASE(BinUtility_transform) {
+  Transform3 transform_LtoG = Transform3::Identity();
+  transform_LtoG = transform_LtoG * Translation3(0., 0., -50);
+  transform_LtoG = transform_LtoG * AngleAxis3(M_PI / 4, Vector3(0, 0, 1));
+  ;
+
+  Transform3 transform_GtoL = transform_LtoG.inverse();
+
+  BinUtility rUtil(10, 0., 100., open, binR);
+  BinUtility phiUtil(10, -M_PI, M_PI, closed, binPhi);
+  BinUtility zUtil(10, -100., 100., open, binZ);
+
+  BinUtility noTranform;
+  noTranform += rUtil;
+  noTranform += phiUtil;
+  noTranform += zUtil;
+
+  BinUtility withTranform(transform_LtoG);
+  withTranform += rUtil;
+  withTranform += phiUtil;
+  withTranform += zUtil;
+
+  Vector3 pos1(0, 0, 0);
+  Vector3 pos2(60, 0, 0);
+  Vector3 pos3(34, M_PI / 2, 0);
+  Vector3 pos4(0, 0, -80);
+  Vector3 pos5(80, -M_PI / 4, 50);
+
+  for (int i = 0; i < 3; i++) {
+    BOOST_CHECK_EQUAL(withTranform.bin(pos1, i),
+                      noTranform.bin(transform_GtoL * pos1, i));
+    BOOST_CHECK_EQUAL(withTranform.bin(pos2, i),
+                      noTranform.bin(transform_GtoL * pos2, i));
+    BOOST_CHECK_EQUAL(withTranform.bin(pos3, i),
+                      noTranform.bin(transform_GtoL * pos3, i));
+    BOOST_CHECK_EQUAL(withTranform.bin(pos4, i),
+                      noTranform.bin(transform_GtoL * pos4, i));
+    BOOST_CHECK_EQUAL(withTranform.bin(pos5, i),
+                      noTranform.bin(transform_GtoL * pos5, i));
+  }
+}
+
 }  // namespace Test
 }  // namespace Acts

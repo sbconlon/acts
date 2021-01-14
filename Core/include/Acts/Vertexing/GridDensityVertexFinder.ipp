@@ -35,10 +35,10 @@ auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::find(
       return seedVec;
     }
   } else {
-    state.mainGrid = ActsVectorF<mainGridSize>::Zero();
+    state.mainGrid = MainGridVector::Zero();
     // Fill with track densities
     for (auto trk : trackVector) {
-      const BoundParameters& trkParams = m_extractParameters(*trk);
+      const BoundTrackParameters& trkParams = m_extractParameters(*trk);
       // Take only tracks that fulfill selection criteria
       if (not doesPassTrackSelection(trkParams)) {
         if (m_cfg.cacheGridStateForTrackRemoval) {
@@ -59,7 +59,7 @@ auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::find(
 
   double z = 0;
   double width = 0;
-  if (state.mainGrid != ActsVectorF<mainGridSize>::Zero()) {
+  if (state.mainGrid != MainGridVector::Zero()) {
     if (not m_cfg.estimateSeedWidth) {
       // Get z value of highest density bin
       auto maxZres = m_cfg.gridDensity.getMaxZPosition(state.mainGrid);
@@ -81,13 +81,12 @@ auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::find(
   }
 
   // Construct output vertex
-  Vector3D seedPos =
-      vertexingOptions.vertexConstraint.position() + Vector3D(0., 0., z);
+  Vector3 seedPos =
+      vertexingOptions.vertexConstraint.position() + Vector3(0., 0., z);
 
   Vertex<InputTrack_t> returnVertex = Vertex<InputTrack_t>(seedPos);
 
-  ActsSymMatrixD<4> seedCov =
-      vertexingOptions.vertexConstraint.fullCovariance();
+  SymMatrix4 seedCov = vertexingOptions.vertexConstraint.fullCovariance();
 
   if (width != 0.) {
     // Use z-constraint from seed width
@@ -103,15 +102,18 @@ auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::find(
 
 template <int mainGridSize, int trkGridSize, typename vfitter_t>
 auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::
-    doesPassTrackSelection(const BoundParameters& trk) const -> bool {
+    doesPassTrackSelection(const BoundTrackParameters& trk) const -> bool {
   // Get required track parameters
-  const double d0 = trk.parameters()[ParID_t::eLOC_D0];
-  const double z0 = trk.parameters()[ParID_t::eLOC_Z0];
+  const double d0 = trk.parameters()[BoundIndices::eBoundLoc0];
+  const double z0 = trk.parameters()[BoundIndices::eBoundLoc1];
   // Get track covariance
   const auto perigeeCov = *(trk.covariance());
-  const double covDD = perigeeCov(ParID_t::eLOC_D0, ParID_t::eLOC_D0);
-  const double covZZ = perigeeCov(ParID_t::eLOC_Z0, ParID_t::eLOC_Z0);
-  const double covDZ = perigeeCov(ParID_t::eLOC_D0, ParID_t::eLOC_Z0);
+  const double covDD =
+      perigeeCov(BoundIndices::eBoundLoc0, BoundIndices::eBoundLoc0);
+  const double covZZ =
+      perigeeCov(BoundIndices::eBoundLoc1, BoundIndices::eBoundLoc1);
+  const double covDZ =
+      perigeeCov(BoundIndices::eBoundLoc0, BoundIndices::eBoundLoc1);
   const double covDeterminant = covDD * covZZ - covDZ * covDZ;
 
   // Do track selection based on track cov matrix and d0SignificanceCut

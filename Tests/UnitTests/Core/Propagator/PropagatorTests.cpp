@@ -10,6 +10,8 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
@@ -21,12 +23,11 @@
 #include "Acts/Propagator/StandardAborters.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 namespace bdata = boost::unit_test::data;
 namespace tt = boost::test_tools;
 using namespace Acts::UnitLiterals;
+using Acts::VectorHelpers::makeVector4;
 using Acts::VectorHelpers::perp;
 
 namespace Acts {
@@ -119,16 +120,18 @@ EigenStepperType estepper(bField);
 EigenPropagatorType epropagator(std::move(estepper));
 
 auto mCylinder = std::make_shared<CylinderBounds>(10_mm, 1000_mm);
-auto mSurface = Surface::makeShared<CylinderSurface>(nullptr, mCylinder);
+auto mSurface =
+    Surface::makeShared<CylinderSurface>(Transform3::Identity(), mCylinder);
 auto cCylinder = std::make_shared<CylinderBounds>(150_mm, 1000_mm);
-auto cSurface = Surface::makeShared<CylinderSurface>(nullptr, cCylinder);
+auto cSurface =
+    Surface::makeShared<CylinderSurface>(Transform3::Identity(), cCylinder);
 
 const int ntests = 5;
 
 // This tests the Options
 BOOST_AUTO_TEST_CASE(PropagatorOptions_) {
   using null_optionsType = PropagatorOptions<>;
-  null_optionsType null_options(tgContext, mfContext);
+  null_optionsType null_options(tgContext, mfContext, getDummyLogger());
   // todo write null options test
 
   using ActionListType = ActionList<PerpendicularMeasure>;
@@ -136,7 +139,7 @@ BOOST_AUTO_TEST_CASE(PropagatorOptions_) {
 
   using optionsType = PropagatorOptions<ActionListType, AbortConditionsType>;
 
-  optionsType options(tgContext, mfContext);
+  optionsType options(tgContext, mfContext, getDummyLogger());
 }
 
 BOOST_DATA_TEST_CASE(
@@ -166,8 +169,8 @@ BOOST_DATA_TEST_CASE(
   using AbortConditionsType = AbortList<>;
 
   // setup propagation options
-  PropagatorOptions<ActionListType, AbortConditionsType> options(tgContext,
-                                                                 mfContext);
+  PropagatorOptions<ActionListType, AbortConditionsType> options(
+      tgContext, mfContext, getDummyLogger());
 
   options.pathLimit = 20_m;
   options.maxStepSize = 1_cm;
@@ -185,9 +188,9 @@ BOOST_DATA_TEST_CASE(
   double py = pT * sin(phi);
   double pz = pT / tan(theta);
   double q = dcharge;
-  Vector3D pos(x, y, z);
-  Vector3D mom(px, py, pz);
-  CurvilinearParameters start(std::nullopt, pos, mom, q, time);
+  Vector3 pos(x, y, z);
+  Vector3 mom(px, py, pz);
+  CurvilinearTrackParameters start(makeVector4(pos, time), mom, mom.norm(), q);
   // propagate to the cylinder surface
   const auto& result = epropagator.propagate(start, *cSurface, options).value();
   auto& sor = result.get<so_result>();
@@ -219,7 +222,7 @@ BOOST_DATA_TEST_CASE(
   (void)index;
 
   // setup propagation options - the tow step options
-  PropagatorOptions<> options_2s(tgContext, mfContext);
+  PropagatorOptions<> options_2s(tgContext, mfContext, getDummyLogger());
   options_2s.pathLimit = 50_cm;
   options_2s.maxStepSize = 1_cm;
 
@@ -231,15 +234,16 @@ BOOST_DATA_TEST_CASE(
   double py = pT * sin(phi);
   double pz = pT / tan(theta);
   double q = dcharge;
-  Vector3D pos(x, y, z);
-  Vector3D mom(px, py, pz);
+  Vector3 pos(x, y, z);
+  Vector3 mom(px, py, pz);
   /// a covariance matrix to transport
   Covariance cov;
   // take some major correlations (off-diagonals)
   cov << 10_mm, 0, 0.123, 0, 0.5, 0, 0, 10_mm, 0, 0.162, 0, 0, 0.123, 0, 0.1, 0,
       0, 0, 0, 0.162, 0, 0.1, 0, 0, 0.5, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0,
       0, 0;
-  CurvilinearParameters start(cov, pos, mom, q, time);
+  CurvilinearTrackParameters start(makeVector4(pos, time), mom, mom.norm(), q,
+                                   cov);
   // propagate to a path length of 100 with two steps of 50
   const auto& mid_parameters =
       epropagator.propagate(start, options_2s).value().endParameters;
@@ -247,7 +251,7 @@ BOOST_DATA_TEST_CASE(
       epropagator.propagate(*mid_parameters, options_2s).value().endParameters;
 
   // setup propagation options - the one step options
-  PropagatorOptions<> options_1s(tgContext, mfContext);
+  PropagatorOptions<> options_1s(tgContext, mfContext, getDummyLogger());
   options_1s.pathLimit = 100_cm;
   options_1s.maxStepSize = 1_cm;
   // propagate to a path length of 100 in one step
@@ -255,8 +259,8 @@ BOOST_DATA_TEST_CASE(
       epropagator.propagate(start, options_1s).value().endParameters;
 
   // test that the propagation is additive
-  CHECK_CLOSE_REL(end_parameters_1s->position(), end_parameters_2s->position(),
-                  0.001);
+  CHECK_CLOSE_REL(end_parameters_1s->position(tgContext),
+                  end_parameters_2s->position(tgContext), 0.001);
 
   const auto& cov_1s = *(end_parameters_1s->covariance());
   const auto& cov_2s = *(end_parameters_2s->covariance());
@@ -292,7 +296,7 @@ BOOST_DATA_TEST_CASE(
   (void)index;
 
   // setup propagation options - 2 setp options
-  PropagatorOptions<> options_2s(tgContext, mfContext);
+  PropagatorOptions<> options_2s(tgContext, mfContext, getDummyLogger());
   options_2s.pathLimit = 10_m;
   options_2s.maxStepSize = 1_cm;
 
@@ -304,15 +308,16 @@ BOOST_DATA_TEST_CASE(
   double py = pT * sin(phi);
   double pz = pT / tan(theta);
   double q = dcharge;
-  Vector3D pos(x, y, z);
-  Vector3D mom(px, py, pz);
+  Vector3 pos(x, y, z);
+  Vector3 mom(px, py, pz);
   /// a covariance matrix to transport
   Covariance cov;
   // take some major correlations (off-diagonals)
   cov << 10_mm, 0, 0.123, 0, 0.5, 0, 0, 10_mm, 0, 0.162, 0, 0, 0.123, 0, 0.1, 0,
       0, 0, 0, 0.162, 0, 0.1, 0, 0, 0.5, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0,
       0, 0;
-  CurvilinearParameters start(cov, pos, mom, q, time);
+  CurvilinearTrackParameters start(makeVector4(pos, time), mom, mom.norm(), q,
+                                   cov);
   // propagate to a final surface with one stop in between
   const auto& mid_parameters =
       epropagator.propagate(start, *mSurface, options_2s).value().endParameters;
@@ -323,7 +328,7 @@ BOOST_DATA_TEST_CASE(
           .endParameters;
 
   // setup propagation options - one step options
-  PropagatorOptions<> options_1s(tgContext, mfContext);
+  PropagatorOptions<> options_1s(tgContext, mfContext, getDummyLogger());
   options_1s.pathLimit = 10_m;
   options_1s.maxStepSize = 1_cm;
   // propagate to a final surface in one stop
@@ -331,8 +336,8 @@ BOOST_DATA_TEST_CASE(
       epropagator.propagate(start, *cSurface, options_1s).value().endParameters;
 
   // test that the propagation is additive
-  CHECK_CLOSE_REL(end_parameters_1s->position(), end_parameters_2s->position(),
-                  0.001);
+  CHECK_CLOSE_REL(end_parameters_1s->position(tgContext),
+                  end_parameters_2s->position(tgContext), 0.001);
 
   const auto& cov_1s = (*(end_parameters_1s->covariance()));
   const auto& cov_2s = (*(end_parameters_2s->covariance()));

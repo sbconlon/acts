@@ -8,10 +8,10 @@
 
 #include "DetUtils.h"
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/TrapezoidBounds.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include "DD4hep/CartesianGridXZ.h"
 
@@ -22,7 +22,7 @@ std::shared_ptr<const Acts::DigitizationModule> rectangleDigiModuleXZ(
     double halflengthX, double halflengthZ, double thickness,
     const dd4hep::Segmentation& segmentation) {
   // convert to ACTS units
-  double scalor = Acts::units::_cm;
+  double scalor = Acts::UnitConstants::cm;
   halflengthX *= scalor;
   halflengthZ *= scalor;
   thickness *= scalor;
@@ -53,7 +53,7 @@ std::shared_ptr<const Acts::DigitizationModule> rectangleDigiModuleXZ(
     double halflengthX, double halflengthZ, double thickness, double gridSizeX,
     double gridSizeZ) {
   // convert to ACTS units
-  double scalor = Acts::units::_cm;
+  double scalor = Acts::UnitConstants::cm;
   halflengthX *= scalor;
   halflengthZ *= scalor;
   thickness *= scalor;
@@ -78,7 +78,7 @@ std::shared_ptr<const Acts::DigitizationModule> trapezoidalDigiModuleXZ(
     double minHalflengthX, double maxHalflengthX, double halflengthZ,
     double thickness, const dd4hep::Segmentation& segmentation) {
   // convert to ACTS units
-  double scalor = Acts::units::_cm;
+  double scalor = Acts::UnitConstants::cm;
   minHalflengthX *= scalor;
   maxHalflengthX *= scalor;
   halflengthZ *= scalor;
@@ -112,7 +112,7 @@ std::shared_ptr<const Acts::DigitizationModule> trapezoidalDigiModuleXZ(
     double minHalflengthX, double maxHalflengthX, double halflengthZ,
     double thickness, double gridSizeX, double gridSizeZ) {
   // convert to ACTS units
-  double scalor = Acts::units::_cm;
+  double scalor = Acts::UnitConstants::cm;
   minHalflengthX *= scalor;
   maxHalflengthX *= scalor;
   halflengthZ *= scalor;

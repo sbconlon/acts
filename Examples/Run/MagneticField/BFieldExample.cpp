@@ -6,10 +6,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Framework/Sequencer.hpp"
-#include "ACTFW/Options/CommonOptions.hpp"
-#include "ACTFW/Plugins/BField/BFieldOptions.hpp"
 #include "Acts/Utilities/Helpers.hpp"
+#include "ActsExamples/Framework/Sequencer.hpp"
+#include "ActsExamples/Options/CommonOptions.hpp"
+#include "ActsExamples/Plugins/BField/BFieldOptions.hpp"
 
 #include <string>
 
@@ -32,8 +32,8 @@ int main(int argc, char* argv[]) {
   using boost::program_options::value;
 
   // setup and parse options
-  auto desc = FW::Options::makeDefaultOptions();
-  FW::Options::addBFieldOptions(desc);
+  auto desc = ActsExamples::Options::makeDefaultOptions();
+  ActsExamples::Options::addBFieldOptions(desc);
   desc.add_options()("bf-file-out",
                      value<std::string>()->default_value("BFieldOut.root"),
                      "Set this name for an output root file.")(
@@ -43,13 +43,13 @@ int main(int argc, char* argv[]) {
       "Please set this flag to true, if you want to print out the field map in "
       "cylinder coordinates (r,z). The default are cartesian coordinates "
       "(x,y,z). ")(
-      "bf-rRange", value<read_range>()->multitoken(),
+      "bf-rRange", value<ActsExamples::Options::Reals<2>>(),
       "[optional] range which the bfield map should be written out in either r "
       "(cylinder "
       "coordinates) or x/y (cartesian coordinates)  in [mm]. In case no value "
       "is handed over the whole map will be written out. Please "
       "hand over by simply seperating the values by space")(
-      "bf-zRange", value<read_range>()->multitoken(),
+      "bf-zRange", value<ActsExamples::Options::Reals<2>>(),
       "[optional] range which the bfield map should be written out in z in "
       "[mm].In case no value is handed over for 'bf-rRange' and 'bf-zRange the "
       "whole map will be written out. "
@@ -64,12 +64,12 @@ int main(int argc, char* argv[]) {
       "[optional] The number of bins in phi. This parameter only needs to be "
       "specified if 'bf-rRange' and 'bf-zRange' are given and 'bf-out-rz' is "
       "turned on.");
-  auto vm = FW::Options::parse(desc, argc, argv);
+  auto vm = ActsExamples::Options::parse(desc, argc, argv);
   if (vm.empty()) {
     return EXIT_FAILURE;
   }
 
-  auto bFieldVar = FW::Options::readBField(vm);
+  auto bFieldVar = ActsExamples::Options::readBField(vm);
 
   return std::visit(
       [&](auto& bField) -> int {
@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
           std::cout << "Bfield map could not be read. Exiting." << std::endl;
           return EXIT_FAILURE;
         } else {
-          FW::BField::writeField<field_type>(vm, bField);
+          ActsExamples::BField::writeField<field_type>(vm, bField);
           return EXIT_SUCCESS;
         }
       },

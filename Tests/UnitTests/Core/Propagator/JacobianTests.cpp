@@ -46,15 +46,14 @@ MagneticFieldContext mfContext = MagneticFieldContext();
 /// @param nnomal The nominal normal direction
 /// @param angleT Rotation around the norminal normal
 /// @param angleU Roation around the original U axis
-std::shared_ptr<Transform3D> createCylindricTransform(const Vector3D& nposition,
-                                                      double angleX,
-                                                      double angleY) {
-  Transform3D ctransform;
+Transform3 createCylindricTransform(const Vector3& nposition, double angleX,
+                                    double angleY) {
+  Transform3 ctransform;
   ctransform.setIdentity();
   ctransform.pretranslate(nposition);
-  ctransform.prerotate(AngleAxis3D(angleX, Vector3D::UnitX()));
-  ctransform.prerotate(AngleAxis3D(angleY, Vector3D::UnitY()));
-  return std::make_shared<Transform3D>(ctransform);
+  ctransform.prerotate(AngleAxis3(angleX, Vector3::UnitX()));
+  ctransform.prerotate(AngleAxis3(angleY, Vector3::UnitY()));
+  return ctransform;
 }
 
 /// Helper method to create a transform for a plane
@@ -64,28 +63,27 @@ std::shared_ptr<Transform3D> createCylindricTransform(const Vector3D& nposition,
 /// @param nnomal The nominal normal direction
 /// @param angleT Rotation around the norminal normal
 /// @param angleU Roation around the original U axis
-std::shared_ptr<Transform3D> createPlanarTransform(const Vector3D& nposition,
-                                                   const Vector3D& nnormal,
-                                                   double angleT,
-                                                   double angleU) {
+Transform3 createPlanarTransform(const Vector3& nposition,
+                                 const Vector3& nnormal, double angleT,
+                                 double angleU) {
   // the rotation of the destination surface
-  Vector3D T = nnormal.normalized();
-  Vector3D U = std::abs(T.dot(Vector3D::UnitZ())) < 0.99
-                   ? Vector3D::UnitZ().cross(T).normalized()
-                   : Vector3D::UnitX().cross(T).normalized();
-  Vector3D V = T.cross(U);
+  Vector3 T = nnormal.normalized();
+  Vector3 U = std::abs(T.dot(Vector3::UnitZ())) < 0.99
+                  ? Vector3::UnitZ().cross(T).normalized()
+                  : Vector3::UnitX().cross(T).normalized();
+  Vector3 V = T.cross(U);
   // that's the plane curvilinear Rotation
-  RotationMatrix3D curvilinearRotation;
+  RotationMatrix3 curvilinearRotation;
   curvilinearRotation.col(0) = U;
   curvilinearRotation.col(1) = V;
   curvilinearRotation.col(2) = T;
   // curvilinear surfaces are boundless
-  Transform3D ctransform{curvilinearRotation};
+  Transform3 ctransform{curvilinearRotation};
   ctransform.pretranslate(nposition);
-  ctransform.prerotate(AngleAxis3D(angleT, T));
-  ctransform.prerotate(AngleAxis3D(angleU, U));
+  ctransform.prerotate(AngleAxis3(angleT, T));
+  ctransform.prerotate(AngleAxis3(angleU, U));
   //
-  return std::make_shared<Transform3D>(ctransform);
+  return ctransform;
 }
 
 /// Helper method : convert into Acts matrix
@@ -108,9 +106,9 @@ std::shared_ptr<Transform3D> createPlanarTransform(const Vector3D& nposition,
 BoundToFreeMatrix convertToMatrix(const std::array<double, 60> P) {
   // initialize to zero
   BoundToFreeMatrix jMatrix = BoundToFreeMatrix::Zero();
-  for (size_t j = 0; j < eBoundParametersSize; ++j) {
-    for (size_t i = 0; i < eFreeParametersSize; ++i) {
-      size_t ijc = eFreeParametersSize + j * eFreeParametersSize + i;
+  for (size_t j = 0; j < eBoundSize; ++j) {
+    for (size_t i = 0; i < eFreeSize; ++i) {
+      size_t ijc = eFreeSize + j * eFreeSize + i;
       jMatrix(i, j) = P[ijc];
     }
   }
@@ -139,17 +137,12 @@ void testJacobianToGlobal(const Parameters& pars) {
 
 /// This tests the jacobian of local curvilinear -> global
 BOOST_AUTO_TEST_CASE(JacobianCurvilinearToGlobalTest) {
+  // Create curvilinear parameters
   Covariance cov;
   cov << 10_mm, 0, 0, 0, 0, 0, 0, 10_mm, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0,
       0, 0.1, 0, 0, 0, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0, 0, 0;
-
-  // Let's create a surface somewhere in space
-  Vector3D pos(341., 412., 93.);
-  Vector3D mom(1.2, 8.3, 0.45);
-  const double q = 1;
-
-  // Create curvilinear parameters
-  CurvilinearParameters curvilinear(cov, pos, mom, q, 0.);
+  CurvilinearTrackParameters curvilinear(Vector4(341., 412., 93., 0.),
+                                         Vector3(1.2, 8.3, 0.45), 10.0, 1, cov);
 
   // run the test
   testJacobianToGlobal(curvilinear);
@@ -168,7 +161,7 @@ BOOST_AUTO_TEST_CASE(JacobianCylinderToGlobalTest) {
   BoundVector pars;
   pars << 182.34, -82., 0.134, 0.85, 1. / (100_GeV), 0;
 
-  BoundParameters atCylinder(tgContext, cov, std::move(pars), cSurface);
+  BoundTrackParameters atCylinder(cSurface, std::move(pars), std::move(cov));
 
   // run the test
   testJacobianToGlobal(atCylinder);
@@ -178,7 +171,7 @@ BOOST_AUTO_TEST_CASE(JacobianCylinderToGlobalTest) {
 BOOST_AUTO_TEST_CASE(JacobianDiscToGlobalTest) {
   // the disc transform and surface
   auto dTransform = createPlanarTransform(
-      {10., -5., 0.}, Vector3D(0.23, 0.07, 1.).normalized(), 0.004, 0.03);
+      {10., -5., 0.}, Vector3(0.23, 0.07, 1.).normalized(), 0.004, 0.03);
   auto dSurface = Surface::makeShared<DiscSurface>(dTransform, 200., 1000.);
 
   Covariance cov;
@@ -188,7 +181,7 @@ BOOST_AUTO_TEST_CASE(JacobianDiscToGlobalTest) {
   BoundVector pars;
   pars << 192.34, 1.823, 0.734, 0.235, 1. / (100_GeV), 0;
 
-  BoundParameters atDisc(tgContext, cov, std::move(pars), dSurface);
+  BoundTrackParameters atDisc(dSurface, std::move(pars), std::move(cov));
 
   // run the test
   testJacobianToGlobal(atDisc);
@@ -197,8 +190,8 @@ BOOST_AUTO_TEST_CASE(JacobianDiscToGlobalTest) {
 /// This tests the jacobian of local plane -> global
 BOOST_AUTO_TEST_CASE(JacobianPlaneToGlobalTest) {
   // Let's create a surface somewhere in space
-  Vector3D sPosition(3421., 112., 893.);
-  Vector3D sNormal = Vector3D(1.2, -0.3, 0.05).normalized();
+  Vector3 sPosition(3421., 112., 893.);
+  Vector3 sNormal = Vector3(1.2, -0.3, 0.05).normalized();
 
   // Create a surface & parameters with covariance on the surface
   auto pSurface = Surface::makeShared<PlaneSurface>(sPosition, sNormal);
@@ -210,7 +203,7 @@ BOOST_AUTO_TEST_CASE(JacobianPlaneToGlobalTest) {
   BoundVector pars;
   pars << 12.34, -8722., 2.134, 0.85, 1. / (100_GeV), 0;
 
-  BoundParameters atPlane(tgContext, cov, std::move(pars), pSurface);
+  BoundTrackParameters atPlane(pSurface, std::move(pars), std::move(cov));
 
   // run the test
   testJacobianToGlobal(atPlane);
@@ -219,7 +212,7 @@ BOOST_AUTO_TEST_CASE(JacobianPlaneToGlobalTest) {
 /// This tests the jacobian of local perigee -> global
 BOOST_AUTO_TEST_CASE(JacobianPerigeeToGlobalTest) {
   // Create a surface & parameters with covariance on the surface
-  auto pSurface = Surface::makeShared<PerigeeSurface>(Vector3D({0., 0., 0.}));
+  auto pSurface = Surface::makeShared<PerigeeSurface>(Vector3({0., 0., 0.}));
 
   Covariance cov;
   cov << 10_mm, 0, 0, 0, 0, 0, 0, 10_mm, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0,
@@ -227,7 +220,7 @@ BOOST_AUTO_TEST_CASE(JacobianPerigeeToGlobalTest) {
   BoundVector pars;
   pars << -3.34, -822., -0.734, 0.85, 1. / (100_GeV), 0;
 
-  BoundParameters perigee(tgContext, cov, std::move(pars), pSurface);
+  BoundTrackParameters perigee(pSurface, std::move(pars), std::move(cov));
 
   // run the test
   testJacobianToGlobal(perigee);
@@ -246,7 +239,7 @@ BOOST_AUTO_TEST_CASE(JacobianStrawToGlobalTest) {
   BoundVector pars;
   pars << -8.34, 812., 0.734, 0.25, 1. / (100_GeV), 0;
 
-  BoundParameters atStraw(tgContext, cov, std::move(pars), sSurface);
+  BoundTrackParameters atStraw(sSurface, std::move(pars), std::move(cov));
 
   // run the test
   testJacobianToGlobal(atStraw);

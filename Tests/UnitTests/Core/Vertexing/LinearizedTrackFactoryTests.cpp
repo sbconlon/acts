@@ -10,6 +10,8 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
@@ -17,8 +19,6 @@
 #include "Acts/Propagator/StraightLineStepper.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
 
 namespace bdata = boost::unit_test::data;
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_test) {
 
   // Create perigee surface
   std::shared_ptr<PerigeeSurface> perigeeSurface =
-      Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+      Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
   // Create position of vertex and perigee surface
   double x = vXYDist(gen);
@@ -93,7 +93,7 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_test) {
   double z0v = z;
 
   // Start constructing nTracks tracks in the following
-  std::vector<BoundParameters> tracks;
+  std::vector<BoundTrackParameters> tracks;
 
   // Construct random track emerging from vicinity of vertex position
   // Vector to store track objects used for vertex fit
@@ -119,8 +119,7 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_test) {
     covMat << resD0 * resD0, 0., 0., 0., 0., 0., 0., resZ0 * resZ0, 0., 0., 0.,
         0., 0., 0., resPh * resPh, 0., 0., 0., 0., 0., 0., resTh * resTh, 0.,
         0., 0., 0., 0., 0., resQp * resQp, 0., 0., 0., 0., 0., 0., 1.;
-    tracks.push_back(BoundParameters(geoContext, std::move(covMat), paramVec,
-                                     perigeeSurface));
+    tracks.emplace_back(perigeeSurface, paramVec, std::move(covMat));
   }
 
   Linearizer::Config ltConfig(bField, propagator);
@@ -129,16 +128,15 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_test) {
 
   BoundVector vecBoundZero = BoundVector::Zero();
   BoundSymMatrix matBoundZero = BoundSymMatrix::Zero();
-  Vector4D vecSPZero = Vector4D::Zero();
-  ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4> matBound2SPZero =
-      ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4>::Zero();
-  ActsMatrixD<eBoundParametersSize, 3> matBound2MomZero =
-      ActsMatrixD<eBoundParametersSize, 3>::Zero();
+  Vector4 vecSPZero = Vector4::Zero();
+  ActsMatrix<eBoundSize, 4> matBound2SPZero = ActsMatrix<eBoundSize, 4>::Zero();
+  ActsMatrix<eBoundSize, 3> matBound2MomZero =
+      ActsMatrix<eBoundSize, 3>::Zero();
 
-  for (const BoundParameters& parameters : tracks) {
+  for (const BoundTrackParameters& parameters : tracks) {
     LinearizedTrack linTrack =
         linFactory
-            .linearizeTrack(parameters, Vector4D::Zero(), geoContext,
+            .linearizeTrack(parameters, Vector4::Zero(), geoContext,
                             magFieldContext, state)
             .value();
 
@@ -172,7 +170,7 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_straightline_test) {
 
   // Create perigee surface
   std::shared_ptr<PerigeeSurface> perigeeSurface =
-      Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+      Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
   // Create position of vertex and perigee surface
   double x = vXYDist(gen);
@@ -184,7 +182,7 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_straightline_test) {
   double z0v = z;
 
   // Start constructing nTracks tracks in the following
-  std::vector<BoundParameters> tracks;
+  std::vector<BoundTrackParameters> tracks;
 
   // Construct random track emerging from vicinity of vertex position
   // Vector to store track objects used for vertex fit
@@ -210,8 +208,7 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_straightline_test) {
     covMat << resD0 * resD0, 0., 0., 0., 0., 0., 0., resZ0 * resZ0, 0., 0., 0.,
         0., 0., 0., resPh * resPh, 0., 0., 0., 0., 0., 0., resTh * resTh, 0.,
         0., 0., 0., 0., 0., resQp * resQp, 0., 0., 0., 0., 0., 0., 1.;
-    tracks.push_back(BoundParameters(geoContext, std::move(covMat), paramVec,
-                                     perigeeSurface));
+    tracks.emplace_back(perigeeSurface, paramVec, std::move(covMat));
   }
 
   // Set up helical track linearizer for the case of a non-existing
@@ -222,16 +219,15 @@ BOOST_AUTO_TEST_CASE(linearized_track_factory_straightline_test) {
 
   BoundVector vecBoundZero = BoundVector::Zero();
   BoundSymMatrix matBoundZero = BoundSymMatrix::Zero();
-  Vector4D vecSPZero = Vector4D::Zero();
-  ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4> matBound2SPZero =
-      ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4>::Zero();
-  ActsMatrixD<eBoundParametersSize, 3> matBound2MomZero =
-      ActsMatrixD<eBoundParametersSize, 3>::Zero();
+  Vector4 vecSPZero = Vector4::Zero();
+  ActsMatrix<eBoundSize, 4> matBound2SPZero = ActsMatrix<eBoundSize, 4>::Zero();
+  ActsMatrix<eBoundSize, 3> matBound2MomZero =
+      ActsMatrix<eBoundSize, 3>::Zero();
 
-  for (const BoundParameters& parameters : tracks) {
+  for (const BoundTrackParameters& parameters : tracks) {
     LinearizedTrack linTrack =
         linFactory
-            .linearizeTrack(parameters, Vector4D::Zero(), geoContext,
+            .linearizeTrack(parameters, Vector4::Zero(), geoContext,
                             magFieldContext, state)
             .value();
 

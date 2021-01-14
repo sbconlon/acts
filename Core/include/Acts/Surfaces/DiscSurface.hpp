@@ -8,14 +8,13 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Geometry/GeometryStatics.hpp"
 #include "Acts/Geometry/Polyhedron.hpp"
 #include "Acts/Surfaces/DiscBounds.hpp"
 #include "Acts/Surfaces/InfiniteBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Surfaces/detail/PlanarHelper.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 
 namespace Acts {
@@ -46,38 +45,35 @@ class DiscSurface : public Surface {
   friend Surface;
 
  protected:
-  /// Constructor for Discs from Transform3D, \f$ r_{min}, r_{max} \f$
+  /// Constructor for Discs from Transform3, \f$ r_{min}, r_{max} \f$
   ///
-  /// @param htrans is transform that places the disc in the global 3D space
-  /// (can be nullptr)
+  /// @param transform is transform that places the disc in the global 3D space
   /// @param rmin The inner radius of the disc surface
   /// @param rmax The outer radius of the disc surface
   /// @param hphisec The opening angle of the disc surface and is optional
   ///        the default is a full disc
-  DiscSurface(std::shared_ptr<const Transform3D> htrans, double rmin,
-              double rmax, double hphisec = M_PI);
+  DiscSurface(const Transform3& transform, double rmin, double rmax,
+              double hphisec = M_PI);
 
-  /// Constructor for Discs from Transform3D, \f$ r_{min}, r_{max}, hx_{min},
+  /// Constructor for Discs from Transform3, \f$ r_{min}, r_{max}, hx_{min},
   /// hx_{max} \f$
   /// This is n this case you have DiscTrapezoidBounds
   ///
-  /// @param htrans is transform that places the disc in the global 3D space
-  /// (can be nullptr)
+  /// @param transform is transform that places the disc in the global 3D space
   /// @param minhalfx The half length in x at minimal r
   /// @param maxhalfx The half length in x at maximal r
-  /// @param maxR The inner radius of the disc surface
   /// @param minR The outer radius of the disc surface
+  /// @param maxR The inner radius of the disc surface
   /// @param avephi The position in phi (default is 0.)
   /// @param stereo The optional stereo angle
-  DiscSurface(std::shared_ptr<const Transform3D> htrans, double minhalfx,
-              double maxhalfx, double maxR, double minR, double avephi = 0.,
-              double stereo = 0.);
+  DiscSurface(const Transform3& transform, double minhalfx, double maxhalfx,
+              double minR, double maxR, double avephi = 0., double stereo = 0.);
 
-  /// Constructor for Discs from Transform3D and shared DiscBounds
+  /// Constructor for Discs from Transform3 and shared DiscBounds
   ///
-  /// @param htrans The transform that positions the disc in global 3D
+  /// @param transform The transform that positions the disc in global 3D
   /// @param dbounds The disc bounds describing the surface coverage
-  DiscSurface(std::shared_ptr<const Transform3D> htrans,
+  DiscSurface(const Transform3& transform,
               std::shared_ptr<const DiscBounds> dbounds = nullptr);
 
   /// Constructor from DetectorElementBase : Element proxy
@@ -96,15 +92,12 @@ class DiscSurface : public Surface {
   ///
   /// @param gctx The current geometry context object, e.g. alignment
   /// @param other is the source cone surface
-  /// @param transf is the additional transfrom applied after copying
+  /// @param shift is the additional transfrom applied after copying
   DiscSurface(const GeometryContext& gctx, const DiscSurface& other,
-              const Transform3D& transf);
+              const Transform3& shift);
 
  public:
-  /// Destructor - defaulted
   ~DiscSurface() override = default;
-
-  /// Default Constructor - deleted
   DiscSurface() = delete;
 
   /// Assignement operator
@@ -120,9 +113,9 @@ class DiscSurface : public Surface {
   /// @param gctx The current geometry context object, e.g. alignment
   /// @param lposition The local position is ignored
   ///
-  /// @return a Vector3D by value
-  const Vector3D normal(const GeometryContext& gctx,
-                        const Vector2D& lposition) const final;
+  /// @return a Vector3 by value
+  Vector3 normal(const GeometryContext& gctx,
+                 const Vector2& lposition) const final;
 
   /// Normal vector return without argument
   using Surface::normal;
@@ -134,8 +127,8 @@ class DiscSurface : public Surface {
   /// @param bValue The binning type to be used
   ///
   /// @return position that can beused for this binning
-  const Vector3D binningPosition(const GeometryContext& gctx,
-                                 BinningValue bValue) const final;
+  Vector3 binningPosition(const GeometryContext& gctx,
+                          BinningValue bValue) const final;
 
   /// This method returns the bounds by reference
   const SurfaceBounds& bounds() const final;
@@ -147,12 +140,10 @@ class DiscSurface : public Surface {
   /// @param gctx The current geometry context object, e.g. alignment
   /// @param lposition local 2D position in specialized surface frame
   /// @param momentum global 3D momentum representation (optionally ignored)
-  /// @param position global 3D position to be filled (given by reference for
-  /// method symmetry)
   ///
-  /// @note the momentum is ignored for Disc surfaces in this calculateion
-  void localToGlobal(const GeometryContext& gctx, const Vector2D& lposition,
-                     const Vector3D& momentum, Vector3D& position) const final;
+  /// @return global position by value
+  Vector3 localToGlobal(const GeometryContext& gctx, const Vector2& lposition,
+                        const Vector3& momentum) const final;
 
   /// Global to local transformation
   /// @note the momentum is ignored for Disc surfaces in this calculateion
@@ -161,13 +152,14 @@ class DiscSurface : public Surface {
   /// @param position global 3D position - considered to be on surface but not
   /// inside bounds (check is done)
   /// @param momentum global 3D momentum representation (optionally ignored)
-  /// @param lposition local 2D position to be filled (given by reference for
-  /// method symmetry)
+  /// @param tolerance optional tolerance within which a point is considered
+  /// valid on surface
   ///
-  /// @return boolean indication if operation was successful (fail means global
-  /// position was not on surface)
-  bool globalToLocal(const GeometryContext& gctx, const Vector3D& position,
-                     const Vector3D& momentum, Vector2D& lposition) const final;
+  /// @return a Result<Vector2> which can be !ok() if the operation fails
+  Result<Vector2> globalToLocal(
+      const GeometryContext& gctx, const Vector3& position,
+      const Vector3& momentum,
+      double tolerance = s_onSurfaceTolerance) const final;
 
   /// Special method for DiscSurface : local<->local transformations polar <->
   /// cartesian
@@ -175,7 +167,7 @@ class DiscSurface : public Surface {
   /// @param lpolar is a local position in polar coordinates
   ///
   /// @return values is local 2D position in cartesian coordinates  @todo check
-  const Vector2D localPolarToCartesian(const Vector2D& lpolar) const;
+  Vector2 localPolarToCartesian(const Vector2& lpolar) const;
 
   /// Special method for Disc surface : local<->local transformations polar <->
   /// cartesian
@@ -183,7 +175,7 @@ class DiscSurface : public Surface {
   /// @param lcart is local 2D position in cartesian coordinates
   ///
   /// @return value is a local position in polar coordinates
-  const Vector2D localCartesianToPolar(const Vector2D& lcart) const;
+  Vector2 localCartesianToPolar(const Vector2& lcart) const;
 
   /// Special method for DiscSurface : local<->local transformations polar <->
   /// cartesian
@@ -192,7 +184,7 @@ class DiscSurface : public Surface {
   /// @param locpol is a local position in polar coordinates
   ///
   /// @return values is local 2D position in cartesian coordinates
-  const Vector2D localPolarToLocalCartesian(const Vector2D& locpol) const;
+  Vector2 localPolarToLocalCartesian(const Vector2& locpol) const;
 
   /// Special method for DiscSurface :  local<->global transformation when
   /// provided cartesian coordinates
@@ -201,8 +193,8 @@ class DiscSurface : public Surface {
   /// @param lposition is local 2D position in cartesian coordinates
   ///
   /// @return value is a global cartesian 3D position
-  const Vector3D localCartesianToGlobal(const GeometryContext& gctx,
-                                        const Vector2D& lposition) const;
+  Vector3 localCartesianToGlobal(const GeometryContext& gctx,
+                                 const Vector2& lposition) const;
 
   /// Special method for DiscSurface : global<->local from cartesian coordinates
   ///
@@ -211,40 +203,29 @@ class DiscSurface : public Surface {
   /// @param tol The absoltue tolerance parameter
   ///
   /// @return value is a local polar
-  const Vector2D globalToLocalCartesian(const GeometryContext& gctx,
-                                        const Vector3D& position,
-                                        double tol = 0.) const;
+  Vector2 globalToLocalCartesian(const GeometryContext& gctx,
+                                 const Vector3& position,
+                                 double tol = 0.) const;
 
-  /// Initialize the jacobian from local to global
-  /// the surface knows best, hence the calculation is done here.
-  /// The jacobian is assumed to be initialised, so only the
-  /// relevant entries are filled
+  /// Calculate the jacobian from local to global which the surface knows best,
+  /// hence the calculation is done here.
   ///
   /// @param gctx The current geometry context object, e.g. alignment
-  /// @param jacobian The jacobian to be initialized
-  /// @param position The global position of the parameters
-  /// @param direction The direction at of the parameters
+  /// @param boundParams is the bound parameters vector
   ///
-  /// @param pars The paranmeters vector
-  void initJacobianToGlobal(const GeometryContext& gctx,
-                            BoundToFreeMatrix& jacobian,
-                            const Vector3D& position, const Vector3D& direction,
-                            const BoundVector& pars) const final;
+  /// @return Jacobian from local to global
+  BoundToFreeMatrix jacobianLocalToGlobal(
+      const GeometryContext& gctx, const BoundVector& boundParams) const final;
 
-  /// Initialize the jacobian from global to local
-  /// the surface knows best, hence the calculation is done here.
-  /// The jacobian is assumed to be initialised, so only the
-  /// relevant entries are filled
+  /// Calculate the jacobian from global to local which the surface knows best,
+  /// hence the calculation is done here.
   ///
   /// @param gctx The current geometry context object, e.g. alignment
-  /// @param jacobian The jacobian to be initialized
-  /// @param position The global position of the parameters
-  /// @param direction The direction at of the parameters
+  /// @param parameters is the free parameters
   ///
-  /// @return the transposed reference frame (avoids recalculation)
-  const RotationMatrix3D initJacobianToLocal(
-      const GeometryContext& gctx, FreeToBoundMatrix& jacobian,
-      const Vector3D& position, const Vector3D& direction) const final;
+  /// @return Jacobian from global to local
+  FreeToBoundMatrix jacobianGlobalToLocal(
+      const GeometryContext& gctx, const FreeVector& parameters) const final;
 
   /// Path correction due to incident of the track
   ///
@@ -252,8 +233,8 @@ class DiscSurface : public Surface {
   /// @param position The global position as a starting point
   /// @param direction The global momentum at the starting point
   /// @return The correction factor due to incident
-  double pathCorrection(const GeometryContext& gctx, const Vector3D& position,
-                        const Vector3D& direction) const final;
+  double pathCorrection(const GeometryContext& gctx, const Vector3& position,
+                        const Vector3& direction) const final;
 
   /// @brief Straight line intersection schema
   ///
@@ -281,8 +262,8 @@ class DiscSurface : public Surface {
   ///
   /// @return The SurfaceIntersection object
   SurfaceIntersection intersect(
-      const GeometryContext& gctx, const Vector3D& position,
-      const Vector3D& direction,
+      const GeometryContext& gctx, const Vector3& position,
+      const Vector3& direction,
       const BoundaryCheck& bcheck = false) const final;
 
   /// Implement the binningValue
@@ -318,13 +299,12 @@ class DiscSurface : public Surface {
   ///
   /// @return Derivative of bound local position w.r.t. position in local 3D
   /// cartesian coordinates
-  const LocalCartesianToBoundLocalMatrix localCartesianToBoundLocalDerivative(
-      const GeometryContext& gctx, const Vector3D& position) const final;
+  ActsMatrix<2, 3> localCartesianToBoundLocalDerivative(
+      const GeometryContext& gctx, const Vector3& position) const final;
 
  protected:
   std::shared_ptr<const DiscBounds> m_bounds;  ///< bounds (shared)
 };
 
 #include "Acts/Surfaces/detail/DiscSurface.ipp"
-
 }  // end of namespace Acts

@@ -8,8 +8,9 @@
 
 #pragma once
 
-#include "Acts/Geometry/GeometryID.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Common.hpp"
+#include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "ActsFatras/EventData/Barcode.hpp"
 
 #include <cstdint>
@@ -25,9 +26,9 @@ namespace ActsFatras {
 /// thus stored as two separate four-vectors.
 class Hit {
  public:
-  using Scalar = double;
-  using Vector3 = Acts::ActsVector<Scalar, 3>;
-  using Vector4 = Acts::ActsVector<Scalar, 4>;
+  using Scalar = Acts::ActsScalar;
+  using Vector3 = Acts::ActsVector<3>;
+  using Vector4 = Acts::ActsVector<4>;
 
   /// Construct default hit with (mostly) invalid information.
   Hit() = default;
@@ -43,8 +44,9 @@ class Hit {
   /// All quantities are given in the global coordinate system. It is the
   /// users responsibility to ensure that the position correspond to a
   /// position on the given surface.
-  Hit(Acts::GeometryID geometryId, Barcode particleId, const Vector4& pos4,
-      const Vector4& before4, const Vector4& after4, int32_t index_ = -1)
+  Hit(Acts::GeometryIdentifier geometryId, Barcode particleId,
+      const Vector4& pos4, const Vector4& before4, const Vector4& after4,
+      int32_t index_ = -1)
       : m_geometryId(geometryId),
         m_particleId(particleId),
         m_index(index_),
@@ -57,7 +59,7 @@ class Hit {
   Hit& operator=(Hit&&) = default;
 
   /// Geometry identifier of the hit surface.
-  constexpr Acts::GeometryID geometryId() const { return m_geometryId; }
+  constexpr Acts::GeometryIdentifier geometryId() const { return m_geometryId; }
   /// Particle identifier of the particle that generated the hit.
   constexpr Barcode particleId() const { return m_particleId; }
   /// Hit index along the particle trajectory.
@@ -66,7 +68,7 @@ class Hit {
   constexpr int32_t index() const { return m_index; }
 
   /// Space-time position four-vector.
-  const Vector4& position4() const { return m_pos4; }
+  const Vector4& fourPosition() const { return m_pos4; }
   /// Three-position, i.e. spatial coordinates without the time.
   auto position() const { return m_pos4.segment<3>(Acts::ePos0); }
   /// Time coordinate.
@@ -100,7 +102,7 @@ class Hit {
 
  private:
   /// Identifier of the surface.
-  Acts::GeometryID m_geometryId;
+  Acts::GeometryIdentifier m_geometryId;
   /// Identifier of the generating particle.
   Barcode m_particleId;
   /// Index of the hit along the particle trajectory.

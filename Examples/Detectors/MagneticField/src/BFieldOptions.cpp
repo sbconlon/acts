@@ -6,15 +6,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Plugins/BField/BFieldOptions.hpp"
+#include "ActsExamples/Plugins/BField/BFieldOptions.hpp"
 
-#include "ACTFW/Plugins/BField/BFieldUtils.hpp"
-#include "ACTFW/Plugins/BField/ScalableBField.hpp"
-#include "ACTFW/Utilities/Options.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/MagneticField/InterpolatedBFieldMap.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/Units.hpp"
+#include "ActsExamples/Plugins/BField/BFieldUtils.hpp"
+#include "ActsExamples/Plugins/BField/ScalableBField.hpp"
+#include "ActsExamples/Utilities/Options.hpp"
 
 #include <iostream>
 #include <tuple>
@@ -25,19 +25,19 @@
 namespace po = boost::program_options;
 
 using InterpolatedMapper2D = Acts::InterpolatedBFieldMapper<
-    Acts::detail::Grid<Acts::Vector2D, Acts::detail::EquidistantAxis,
+    Acts::detail::Grid<Acts::Vector2, Acts::detail::EquidistantAxis,
                        Acts::detail::EquidistantAxis>>;
 
 using InterpolatedMapper3D = Acts::InterpolatedBFieldMapper<Acts::detail::Grid<
-    Acts::Vector3D, Acts::detail::EquidistantAxis,
-    Acts::detail::EquidistantAxis, Acts::detail::EquidistantAxis>>;
+    Acts::Vector3, Acts::detail::EquidistantAxis, Acts::detail::EquidistantAxis,
+    Acts::detail::EquidistantAxis>>;
 
 using InterpolatedBFieldMap2D =
     Acts::InterpolatedBFieldMap<InterpolatedMapper2D>;
 using InterpolatedBFieldMap3D =
     Acts::InterpolatedBFieldMap<InterpolatedMapper3D>;
 
-namespace FW {
+namespace ActsExamples {
 
 namespace Options {
 
@@ -71,8 +71,7 @@ void addBFieldOptions(boost::program_options::options_description& opt) {
       "first octant/quadrant and should be symmetrically created for all "
       "other "
       "octants/quadrants.")(
-      "bf-values",
-      po::value<read_range>()->multitoken()->default_value({0., 0., 0.}),
+      "bf-values", po::value<Reals<3>>()->default_value({{0., 0., 0.}}),
       "In case no magnetic field map is handed over. A constant magnetic "
       "field will be created automatically. The values can be set with this "
       "options. Please hand over the coordinates in cartesian coordinates: "
@@ -90,7 +89,7 @@ BFieldVariant readBField(const boost::program_options::variables_map& vm) {
   std::shared_ptr<InterpolatedBFieldMap2D> map2D = nullptr;
   std::shared_ptr<InterpolatedBFieldMap3D> map3D = nullptr;
   std::shared_ptr<Acts::ConstantBField> mapConst = nullptr;
-  std::shared_ptr<FW::BField::ScalableBField> mapScale = nullptr;
+  std::shared_ptr<ActsExamples::BField::ScalableBField> mapScale = nullptr;
 
   int bfieldmaptype = constant;
   if (vm.count("bf-map") && vm["bf-map"].template as<std::string>() != "") {
@@ -138,13 +137,13 @@ BFieldVariant readBField(const boost::program_options::variables_map& vm) {
   }
 
   // Declare the mapper
-  double lengthUnit = lscalor * Acts::units::_mm;
-  double BFieldUnit = bscalor * Acts::units::_T;
+  double lengthUnit = lscalor * Acts::UnitConstants::mm;
+  double BFieldUnit = bscalor * Acts::UnitConstants::T;
 
   // set the mapper - foort
   if (bfieldmaptype == root) {
     if (vm["bf-rz"].template as<bool>()) {
-      auto mapper2D = FW::BField::root::fieldMapperRZ(
+      auto mapper2D = ActsExamples::BField::root::fieldMapperRZ(
           [](std::array<size_t, 2> binsRZ, std::array<size_t, 2> nBinsRZ) {
             return (binsRZ.at(1) * nBinsRZ.at(0) + binsRZ.at(0));
           },
@@ -159,7 +158,7 @@ BFieldVariant readBField(const boost::program_options::variables_map& vm) {
       return std::make_shared<InterpolatedBFieldMap2D>(std::move(config2D));
 
     } else {
-      auto mapper3D = FW::BField::root::fieldMapperXYZ(
+      auto mapper3D = ActsExamples::BField::root::fieldMapperXYZ(
           [](std::array<size_t, 3> binsXYZ, std::array<size_t, 3> nBinsXYZ) {
             return (binsXYZ.at(0) * (nBinsXYZ.at(1) * nBinsXYZ.at(2)) +
                     binsXYZ.at(1) * nBinsXYZ.at(2) + binsXYZ.at(2));
@@ -176,7 +175,7 @@ BFieldVariant readBField(const boost::program_options::variables_map& vm) {
     }
   } else if (bfieldmaptype == text) {
     if (vm["bf-rz"].template as<bool>()) {
-      auto mapper2D = FW::BField::txt::fieldMapperRZ(
+      auto mapper2D = ActsExamples::BField::txt::fieldMapperRZ(
           [](std::array<size_t, 2> binsRZ, std::array<size_t, 2> nBinsRZ) {
             return (binsRZ.at(1) * nBinsRZ.at(0) + binsRZ.at(0));
           },
@@ -191,7 +190,7 @@ BFieldVariant readBField(const boost::program_options::variables_map& vm) {
       return std::make_shared<InterpolatedBFieldMap2D>(std::move(config2D));
 
     } else {
-      auto mapper3D = FW::BField::txt::fieldMapperXYZ(
+      auto mapper3D = ActsExamples::BField::txt::fieldMapperXYZ(
           [](std::array<size_t, 3> binsXYZ, std::array<size_t, 3> nBinsXYZ) {
             return (binsXYZ.at(0) * (nBinsXYZ.at(1) * nBinsXYZ.at(2)) +
                     binsXYZ.at(1) * nBinsXYZ.at(2) + binsXYZ.at(2));
@@ -209,28 +208,21 @@ BFieldVariant readBField(const boost::program_options::variables_map& vm) {
   } else {  // constant
     // No bfield map is handed over
     // get the constant bField values
-    auto bFieldValues = vm["bf-values"].template as<read_range>();
-    if (bFieldValues.size() != 3) {
-      throw std::invalid_argument(
-          "- The values handed over for the constant magnetic field "
-          "have wrong dimension. Needs to have 3 dimension. Please "
-          "hand over the coordinates in cartesian coordinates: "
-          "{Bx,By,Bz} in Tesla.");
-    }
+    auto bFieldValues = vm["bf-values"].template as<Reals<3>>();
     if (vm["bf-context-scalable"].template as<bool>()) {
       // Create the scalable magnetic field
-      return std::make_shared<FW::BField::ScalableBField>(
-          bFieldValues.at(0) * Acts::units::_T,
-          bFieldValues.at(1) * Acts::units::_T,
-          bFieldValues.at(2) * Acts::units::_T);
+      return std::make_shared<ActsExamples::BField::ScalableBField>(
+          bFieldValues.at(0) * Acts::UnitConstants::T,
+          bFieldValues.at(1) * Acts::UnitConstants::T,
+          bFieldValues.at(2) * Acts::UnitConstants::T);
     } else {
       // Create the constant magnetic field
       return std::make_shared<Acts::ConstantBField>(
-          bFieldValues.at(0) * Acts::units::_T,
-          bFieldValues.at(1) * Acts::units::_T,
-          bFieldValues.at(2) * Acts::units::_T);
+          bFieldValues.at(0) * Acts::UnitConstants::T,
+          bFieldValues.at(1) * Acts::UnitConstants::T,
+          bFieldValues.at(2) * Acts::UnitConstants::T);
     }
   }
 }
 }  // namespace Options
-}  // namespace FW
+}  // namespace ActsExamples

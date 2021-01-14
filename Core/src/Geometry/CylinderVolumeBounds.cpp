@@ -1,14 +1,10 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-///////////////////////////////////////////////////////////////////
-// CylinderVolumeBounds.cpp, Acts project
-///////////////////////////////////////////////////////////////////
 
 #include "Acts/Geometry/CylinderVolumeBounds.hpp"
 
@@ -18,8 +14,8 @@
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
+#include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/BoundingBox.hpp"
-#include "Acts/Visualization/IVisualization.hpp"
 
 #include <cmath>
 #include <iostream>
@@ -56,57 +52,48 @@ Acts::CylinderVolumeBounds::CylinderVolumeBounds(
 }
 
 Acts::OrientedSurfaces Acts::CylinderVolumeBounds::orientedSurfaces(
-    const Transform3D* transformPtr) const {
+    const Transform3& transform) const {
   OrientedSurfaces oSurfaces;
   oSurfaces.reserve(6);
 
-  // Set the transform
-  Transform3D transform =
-      (transformPtr == nullptr) ? Transform3D::Identity() : (*transformPtr);
-  auto trfShared = std::make_shared<Transform3D>(transform);
-
   // [0] Bottom Disc (negative z)
   auto dSurface = Surface::makeShared<DiscSurface>(
-      std::make_shared<const Transform3D>(
-          transform * Translation3D(0., 0., -get(eHalfLengthZ))),
-      m_discBounds);
+      transform * Translation3(0., 0., -get(eHalfLengthZ)), m_discBounds);
   oSurfaces.push_back(OrientedSurface(std::move(dSurface), forward));
   // [1] Top Disc (positive z)
   dSurface = Surface::makeShared<DiscSurface>(
-      std::make_shared<const Transform3D>(
-          transform * Translation3D(0., 0., get(eHalfLengthZ))),
-      m_discBounds);
+      transform * Translation3(0., 0., get(eHalfLengthZ)), m_discBounds);
   oSurfaces.push_back(OrientedSurface(std::move(dSurface), backward));
 
   // [2] Outer Cylinder
   auto cSurface =
-      Surface::makeShared<CylinderSurface>(trfShared, m_outerCylinderBounds);
+      Surface::makeShared<CylinderSurface>(transform, m_outerCylinderBounds);
   oSurfaces.push_back(OrientedSurface(std::move(cSurface), backward));
 
   // [3] Inner Cylinder (optional)
   if (m_innerCylinderBounds != nullptr) {
     cSurface =
-        Surface::makeShared<CylinderSurface>(trfShared, m_innerCylinderBounds);
+        Surface::makeShared<CylinderSurface>(transform, m_innerCylinderBounds);
     oSurfaces.push_back(OrientedSurface(std::move(cSurface), forward));
   }
 
   // [4] & [5] - Sectoral planes (optional)
   if (m_sectorPlaneBounds != nullptr) {
     // sectorPlane 1 (negative phi)
-    const Transform3D* sp1Transform = new Transform3D(
-        transform * AngleAxis3D(-get(eHalfPhiSector), Vector3D(0., 0., 1.)) *
-        Translation3D(0.5 * (get(eMinR) + get(eMaxR)), 0., 0.) *
-        AngleAxis3D(M_PI / 2, Vector3D(1., 0., 0.)));
-    auto pSurface = Surface::makeShared<PlaneSurface>(
-        std::shared_ptr<const Transform3D>(sp1Transform), m_sectorPlaneBounds);
+    const Transform3 sp1Transform = Transform3(
+        transform * AngleAxis3(-get(eHalfPhiSector), Vector3(0., 0., 1.)) *
+        Translation3(0.5 * (get(eMinR) + get(eMaxR)), 0., 0.) *
+        AngleAxis3(M_PI / 2, Vector3(1., 0., 0.)));
+    auto pSurface =
+        Surface::makeShared<PlaneSurface>(sp1Transform, m_sectorPlaneBounds);
     oSurfaces.push_back(OrientedSurface(std::move(pSurface), forward));
     // sectorPlane 2 (positive phi)
-    const Transform3D* sp2Transform = new Transform3D(
-        transform * AngleAxis3D(get(eHalfPhiSector), Vector3D(0., 0., 1.)) *
-        Translation3D(0.5 * (get(eMinR) + get(eMaxR)), 0., 0.) *
-        AngleAxis3D(-M_PI / 2, Vector3D(1., 0., 0.)));
-    pSurface = Surface::makeShared<PlaneSurface>(
-        std::shared_ptr<const Transform3D>(sp2Transform), m_sectorPlaneBounds);
+    const Transform3 sp2Transform = Transform3(
+        transform * AngleAxis3(get(eHalfPhiSector), Vector3(0., 0., 1.)) *
+        Translation3(0.5 * (get(eMinR) + get(eMaxR)), 0., 0.) *
+        AngleAxis3(-M_PI / 2, Vector3(1., 0., 0.)));
+    pSurface =
+        Surface::makeShared<PlaneSurface>(sp2Transform, m_sectorPlaneBounds);
     oSurfaces.push_back(OrientedSurface(std::move(pSurface), backward));
   }
   return oSurfaces;
@@ -133,7 +120,7 @@ std::ostream& Acts::CylinderVolumeBounds::toStream(std::ostream& sl) const {
 }
 
 Acts::Volume::BoundingBox Acts::CylinderVolumeBounds::boundingBox(
-    const Transform3D* trf, const Vector3D& envelope,
+    const Transform3* trf, const Vector3& envelope,
     const Volume* entity) const {
   double xmax, xmin, ymax, ymin;
   xmax = get(eMaxR);
@@ -151,8 +138,8 @@ Acts::Volume::BoundingBox Acts::CylinderVolumeBounds::boundingBox(
     xmin = get(eMinR) * std::cos(get(eHalfPhiSector));
   }
 
-  Vector3D vmin(xmin, ymin, -get(eHalfLengthZ));
-  Vector3D vmax(xmax, ymax, get(eHalfLengthZ));
+  Vector3 vmin(xmin, ymin, -get(eHalfLengthZ));
+  Vector3 vmax(xmax, ymax, get(eHalfLengthZ));
 
   // this is probably not perfect, but at least conservative
   Volume::BoundingBox box{entity, vmin - envelope, vmax + envelope};

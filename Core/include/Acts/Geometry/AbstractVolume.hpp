@@ -1,16 +1,18 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/BoundarySurfaceT.hpp"
 #include "Acts/Geometry/Volume.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
+#include <memory>
 #include <vector>
 
 namespace Acts {
@@ -27,7 +29,7 @@ using VolumeBoundsPtr = std::shared_ptr<const VolumeBounds>;
 /// AbstractVolume description inside the tracking realm. This is the purely
 /// geometrical object volume.
 ///
-/// The Acts::AbstractVolume is constructed by giving a pointer to a Transform3D
+/// The Acts::AbstractVolume is constructed by giving a pointer to a Transform3
 /// and a pointer to Acts::VolumeBounds, this implies that the ownership of the
 /// objects pointed to is passed as well. For memory optimisation, the
 /// AbstractVolume can also be constructed with shared_ptr objects.
@@ -42,20 +44,16 @@ using VolumeBoundsPtr = std::shared_ptr<const VolumeBounds>;
 
 class AbstractVolume : public Volume {
  public:
-  /// Constructor with shared Transform3D*, VolumeBounds*
+  /// Constructor with shared Transform3*, VolumeBounds*
   ///
-  /// @param htrans is the transform 3D the positions the volume in global frame
+  /// @param transform is the gobal 3d transformation into the volume frame
   /// @param volbounds is the boundary definition
-  AbstractVolume(std::shared_ptr<const Transform3D> htrans,
-                 VolumeBoundsPtr volbounds);
+  AbstractVolume(const Transform3& transform, VolumeBoundsPtr volbounds);
 
   AbstractVolume(const AbstractVolume& vol) = default;
 
   AbstractVolume() = delete;
-
-  ~AbstractVolume() override;
-
-  /// Assignment operator - deleted
+  ~AbstractVolume() override = default;
   AbstractVolume& operator=(const AbstractVolume& vol) = delete;
 
   /// Method to return the BoundarySurfaces

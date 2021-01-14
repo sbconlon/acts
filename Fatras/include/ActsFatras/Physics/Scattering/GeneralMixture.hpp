@@ -39,8 +39,7 @@ struct GeneralMixture {
   ///
   /// @tparam generator_t is a RandomNumberEngine
   template <typename generator_t>
-  double operator()(generator_t &generator,
-                    const Acts::MaterialProperties &slab,
+  double operator()(generator_t &generator, const Acts::MaterialSlab &slab,
                     Particle &particle) const {
     double theta = 0.0;
 
@@ -56,7 +55,7 @@ struct GeneralMixture {
       //   beta² = (p/E)² = p²/(p² + m²) = 1/(1 + (m/p)²)
       // 1/beta² = 1 + (m/p)²
       //    beta = 1/sqrt(1 + (m/p)²)
-      double mOverP = particle.mass() / particle.absMomentum();
+      double mOverP = particle.mass() / particle.absoluteMomentum();
       double beta2Inv = 1 + mOverP * mOverP;
       double beta = 1 / std::sqrt(beta2Inv);
       double tInX0 = slab.thicknessInX0();
@@ -64,11 +63,11 @@ struct GeneralMixture {
       if (tob2 > 0.6 / std::pow(slab.material().Z(), 0.6)) {
         // Gaussian mixture or pure Gaussian
         if (tob2 > 10) {
-          scattering_params = getGaussian(beta, particle.absMomentum(), tInX0,
-                                          genMixtureScalor);
+          scattering_params = getGaussian(beta, particle.absoluteMomentum(),
+                                          tInX0, genMixtureScalor);
         } else {
           scattering_params =
-              getGaussmix(beta, particle.absMomentum(), tInX0,
+              getGaussmix(beta, particle.absoluteMomentum(), tInX0,
                           slab.material().Z(), genMixtureScalor);
         }
         // Simulate
@@ -76,7 +75,7 @@ struct GeneralMixture {
       } else {
         // Semigaussian mixture - get parameters
         auto scattering_params_sg =
-            getSemigauss(beta, particle.absMomentum(), tInX0,
+            getSemigauss(beta, particle.absoluteMomentum(), tInX0,
                          slab.material().Z(), genMixtureScalor);
         // Simulate
         theta = semigauss(generator, scattering_params_sg);
@@ -86,7 +85,7 @@ struct GeneralMixture {
       // return projection factor times sigma times gauss random
       const auto theta0 = Acts::computeMultipleScatteringTheta0(
           slab, particle.pdg(), particle.mass(),
-          particle.charge() / particle.absMomentum(), particle.charge());
+          particle.charge() / particle.absoluteMomentum(), particle.charge());
       theta = std::normal_distribution<double>(0.0, theta0)(generator);
     }
     // scale from planar to 3d angle

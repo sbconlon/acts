@@ -30,13 +30,12 @@ struct Highland {
   ///
   /// @tparam generator_t is a RandomNumberEngine
   template <typename generator_t>
-  double operator()(generator_t &generator,
-                    const Acts::MaterialProperties &slab,
+  double operator()(generator_t &generator, const Acts::MaterialSlab &slab,
                     Particle &particle) const {
     // compute the planar scattering angle
     const auto theta0 = Acts::computeMultipleScatteringTheta0(
         slab, particle.pdg(), particle.mass(),
-        particle.charge() / particle.absMomentum(), particle.charge());
+        particle.charge() / particle.absoluteMomentum(), particle.charge());
     // draw from the normal distribution representing the 3d angle distribution
     return std::normal_distribution<double>(0.0, M_SQRT2 * theta0)(generator);
   }

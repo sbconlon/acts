@@ -6,26 +6,22 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-///////////////////////////////////////////////////////////////////
-// PlaneLayer.cpp, Acts project
-///////////////////////////////////////////////////////////////////
-
-// Geometry module
 #include "Acts/Geometry/PlaneLayer.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GenericApproachDescriptor.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Helpers.hpp"
+#include "Acts/Geometry/GeometryContext.hpp"
+#include "Acts/Surfaces/Surface.hpp"
 
-#include <utility>
+#include <vector>
 
-Acts::PlaneLayer::PlaneLayer(std::shared_ptr<const Transform3D> transform,
+Acts::PlaneLayer::PlaneLayer(const Transform3& transform,
                              std::shared_ptr<const PlanarBounds>& pbounds,
                              std::unique_ptr<SurfaceArray> surfaceArray,
                              double thickness,
                              std::unique_ptr<ApproachDescriptor> ades,
                              LayerType laytyp)
-    : PlaneSurface(std::move(transform), pbounds),
+    : PlaneSurface(transform, pbounds),
       Layer(std::move(surfaceArray), thickness, std::move(ades), laytyp) {
   // @todo create representing volume
   // register the layer to the surface
@@ -56,24 +52,22 @@ void Acts::PlaneLayer::buildApproachDescriptor() {
   // get the appropriate transform, the center and the normal vector
 
   //@todo fix with representing volume
-  const Transform3D& lTransform = PlaneSurface::transform(GeometryContext());
-  RotationMatrix3D lRotation = lTransform.rotation();
-  const Vector3D& lCenter = PlaneSurface::center(GeometryContext());
-  const Vector3D& lVector = Surface::normal(GeometryContext(), lCenter);
+  const Transform3& lTransform = PlaneSurface::transform(GeometryContext());
+  RotationMatrix3 lRotation = lTransform.rotation();
+  const Vector3& lCenter = PlaneSurface::center(GeometryContext());
+  const Vector3& lVector = Surface::normal(GeometryContext(), lCenter);
   // create new surfaces
-  const Transform3D* apnTransform = new Transform3D(
-      Translation3D(lCenter - 0.5 * Layer::m_layerThickness * lVector) *
+  const Transform3 apnTransform = Transform3(
+      Translation3(lCenter - 0.5 * Layer::m_layerThickness * lVector) *
       lRotation);
-  const Transform3D* appTransform = new Transform3D(
-      Translation3D(lCenter + 0.5 * Layer::m_layerThickness * lVector) *
+  const Transform3 appTransform = Transform3(
+      Translation3(lCenter + 0.5 * Layer::m_layerThickness * lVector) *
       lRotation);
   // create the new surfaces
   aSurfaces.push_back(Surface::makeShared<Acts::PlaneSurface>(
-      std::shared_ptr<const Transform3D>(apnTransform),
-      PlaneSurface::m_bounds));
+      apnTransform, PlaneSurface::m_bounds));
   aSurfaces.push_back(Surface::makeShared<Acts::PlaneSurface>(
-      std::shared_ptr<const Transform3D>(appTransform),
-      PlaneSurface::m_bounds));
+      appTransform, PlaneSurface::m_bounds));
   // set the layer and make TrackingGeometry
   for (auto& sfPtr : aSurfaces) {
     auto mutableSf = const_cast<Surface*>(sfPtr.get());

@@ -8,20 +8,20 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/InfiniteBounds.hpp"  //to get s_noBounds
 #include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 namespace Acts {
 /// Surface derived class stub
 class SurfaceStub : public Surface {
  public:
-  SurfaceStub(std::shared_ptr<const Transform3D> htrans = nullptr)
+  SurfaceStub(const Transform3& htrans = Transform3::Identity())
       : GeometryObject(), Surface(htrans) {}
   SurfaceStub(const GeometryContext& gctx, const SurfaceStub& sf,
-              const Transform3D& transf)
+              const Transform3& transf)
       : GeometryObject(), Surface(gctx, sf, transf) {}
   SurfaceStub(const DetectorElementBase& detelement)
       : GeometryObject(), Surface(detelement) {}
@@ -33,18 +33,17 @@ class SurfaceStub : public Surface {
   SurfaceType type() const final { return Surface::Other; }
 
   /// Return method for the normal vector of the surface
-  const Vector3D normal(const GeometryContext& gctx,
-                        const Vector2D& /*lpos*/) const final {
+  Vector3 normal(const GeometryContext& gctx,
+                 const Vector2& /*lpos*/) const final {
     return normal(gctx);
   }
 
-  const Vector3D normal(const GeometryContext& gctx,
-                        const Vector3D&) const final {
+  Vector3 normal(const GeometryContext& gctx, const Vector3&) const final {
     return normal(gctx);
   }
 
-  const Vector3D normal(const GeometryContext& /*gctx*/) const final {
-    return Vector3D{0., 0., 0.};
+  Vector3 normal(const GeometryContext& /*gctx*/) const final {
+    return Vector3{0., 0., 0.};
   }
 
   /// Return method for SurfaceBounds
@@ -53,38 +52,41 @@ class SurfaceStub : public Surface {
   }
 
   /// Local to global transformation
-  void localToGlobal(const GeometryContext& /*gctx*/, const Vector2D& /*lpos*/,
-                     const Vector3D& /*gmom*/, Vector3D& /*gpos*/) const final {
-    // nop
+  Vector3 localToGlobal(const GeometryContext& /*gctx*/,
+                        const Vector2& /*lpos*/,
+                        const Vector3& /*gmom*/) const final {
+    return Vector3(0., 0., 0.);
   }
 
   /// Global to local transformation
-  bool globalToLocal(const GeometryContext& /*cxt*/, const Vector3D& /*gpos*/,
-                     const Vector3D& /*gmom*/, Vector2D& lpos) const final {
-    lpos = Vector2D{20., 20.};
-    return true;
+  Result<Vector2> globalToLocal(const GeometryContext& /*cxt*/,
+                                const Vector3& /*gpos*/,
+                                const Vector3& /*gmom*/,
+                                double /*tolerance*/) const final {
+    return Result<Vector2>::success(Vector2{20., 20.});
   }
 
   /// Calculation of the path correction for incident
-  double pathCorrection(const GeometryContext& /*cxt*/,
-                        const Vector3D& /*gpos*/,
-                        const Vector3D& /*gmom*/) const final {
+  double pathCorrection(const GeometryContext& /*cxt*/, const Vector3& /*gpos*/,
+                        const Vector3& /*gmom*/) const final {
     return 0.0;
   }
 
   /// Inherited from GeometryObject base
-  const Vector3D binningPosition(const GeometryContext& /*txt*/,
-                                 BinningValue /*bValue*/) const final {
-    const Vector3D v{0.0, 0.0, 0.0};
+  Vector3 binningPosition(const GeometryContext& /*txt*/,
+                          BinningValue /*bValue*/) const final {
+    const Vector3 v{0.0, 0.0, 0.0};
     return v;
   }
 
   /// Surface intersction
   SurfaceIntersection intersect(const GeometryContext& /*gctx*/,
-                                const Vector3D& /*position*/,
-                                const Vector3D& /*direction*/,
+                                const Vector3& /*position*/,
+                                const Vector3& /*direction*/,
                                 const BoundaryCheck& /*bcheck*/) const final {
-    return SurfaceIntersection();
+    Intersection3D stubIntersection(Vector3(20., 0., 0.), 20.,
+                                    Intersection3D::Status::reachable);
+    return SurfaceIntersection(stubIntersection, this);
   }
 
   /// Return properly formatted class name
@@ -96,7 +98,7 @@ class SurfaceStub : public Surface {
   /// Return a Polyhedron for the surfaces
   Polyhedron polyhedronRepresentation(const GeometryContext& /*gctx*/,
                                       size_t /*lseg */) const final {
-    std::vector<Vector3D> vertices;
+    std::vector<Vector3> vertices;
     std::vector<std::vector<size_t>> faces;
     std::vector<std::vector<size_t>> triangularMesh;
 
@@ -104,10 +106,10 @@ class SurfaceStub : public Surface {
   }
 
   // Cartesian 3D to local bound derivative
-  const LocalCartesianToBoundLocalMatrix localCartesianToBoundLocalDerivative(
+  ActsMatrix<2, 3> localCartesianToBoundLocalDerivative(
       const GeometryContext& /*unused*/,
-      const Vector3D& /*unused*/) const final {
-    return LocalCartesianToBoundLocalMatrix::Identity();
+      const Vector3& /*unused*/) const final {
+    return ActsMatrix<2, 3>::Identity();
   };
 
  private:

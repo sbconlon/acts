@@ -8,16 +8,18 @@
 
 #pragma once
 
-#include "Acts/Material/AccumulatedMaterialProperties.hpp"
-#include "Acts/Material/ISurfaceMaterial.hpp"
-#include "Acts/Material/MaterialProperties.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Material/AccumulatedMaterialSlab.hpp"
+#include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <array>
+#include <memory>
 #include <vector>
 
 namespace Acts {
+
+class ISurfaceMaterial;
 
 /// @class AccumulatedSurfaceMaterial
 ///
@@ -28,7 +30,7 @@ namespace Acts {
 /// a new SurfaceMaterial object as a unique_ptr after finalisation
 class AccumulatedSurfaceMaterial {
  public:
-  using AccumulatedVector = std::vector<AccumulatedMaterialProperties>;
+  using AccumulatedVector = std::vector<AccumulatedMaterialSlab>;
   using AccumulatedMatrix = std::vector<AccumulatedVector>;
 
   /// Default Constructor - for homogeneous material
@@ -36,7 +38,7 @@ class AccumulatedSurfaceMaterial {
   /// @param splitFactor is the pre/post splitting directive
   AccumulatedSurfaceMaterial(double splitFactor = 0.);
 
-  /// Explicit constructor with only full MaterialProperties,
+  /// Explicit constructor with only full MaterialSlab,
   /// for one-dimensional binning.
   ///
   /// The split factors:
@@ -83,8 +85,7 @@ class AccumulatedSurfaceMaterial {
   /// @param mp material properties to be assigned
   ///
   /// @return the bin triple to which the material was assigned
-  std::array<size_t, 3> accumulate(const Vector2D& lp,
-                                   const MaterialProperties& mp,
+  std::array<size_t, 3> accumulate(const Vector2& lp, const MaterialSlab& mp,
                                    double pathCorrection = 1.);
 
   /// Assign a material properites object
@@ -93,8 +94,7 @@ class AccumulatedSurfaceMaterial {
   /// @param mp material properties to be assigned
   ///
   /// @return the bin triple to which the material was assigned
-  std::array<size_t, 3> accumulate(const Vector3D& gp,
-                                   const MaterialProperties& mp,
+  std::array<size_t, 3> accumulate(const Vector3& gp, const MaterialSlab& mp,
                                    double pathCorrection = 1.);
 
   /// Average the information accumulated from one mapped track
@@ -109,7 +109,7 @@ class AccumulatedSurfaceMaterial {
   ///
   /// @param gp global position for the bin assignment
   /// @param emptyHit indicator if this is an empty assignment
-  void trackAverage(const Vector3D& gp, bool emptyHit = false);
+  void trackAverage(const Vector3& gp, bool emptyHit = false);
 
   /// Total average creates SurfaceMaterial
   std::unique_ptr<const ISurfaceMaterial> totalAverage();

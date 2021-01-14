@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,19 +8,17 @@
 
 #pragma once
 
-#include "Acts/Geometry/CylinderVolumeBounds.hpp"
-#include "Acts/Geometry/GeometryContext.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Geometry/ApproachDescriptor.hpp"
 #include "Acts/Geometry/Layer.hpp"
+#include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/ThrowAssert.hpp"
+#include "Acts/Surfaces/SurfaceArray.hpp"
 
 #include <algorithm>
+#include <memory>
 
 namespace Acts {
-
-class CylinderBounds;
-class ApproachDescriptor;
 
 /// @class CylinderLayer
 ///
@@ -43,7 +41,7 @@ class CylinderLayer : public CylinderSurface, public Layer {
   ///
   /// @return The return object is a shared poiter to the layer.
   static MutableLayerPtr create(
-      const std::shared_ptr<const Transform3D>& transform,
+      const Transform3& transform,
       const std::shared_ptr<const CylinderBounds>& cbounds,
       std::unique_ptr<SurfaceArray> surfaceArray = nullptr,
       double thickness = 0., std::unique_ptr<ApproachDescriptor> ad = nullptr,
@@ -53,17 +51,10 @@ class CylinderLayer : public CylinderSurface, public Layer {
                                              std::move(ad), laytyp));
   }
 
-  /// Copy constructor - deleted
   CylinderLayer(const CylinderLayer& cla) = delete;
-
-  /// Assignment operator for CylinderLayers - deleted
-  CylinderLayer& operator=(const CylinderLayer&) = delete;
-
-  /// Default Constructor
   CylinderLayer() = delete;
-
-  /// Destructor
   ~CylinderLayer() override = default;
+  CylinderLayer& operator=(const CylinderLayer&) = delete;
 
   /// Transforms the layer into a Surface representation
   /// This is for positioning and extrapolation
@@ -88,7 +79,7 @@ class CylinderLayer : public CylinderSurface, public Layer {
   /// @todo change ApproachDescriptor to unique_ptr
   ///
   /// @return The return object is a shared poiter to the layer.
-  CylinderLayer(const std::shared_ptr<const Transform3D>& transform,
+  CylinderLayer(const Transform3& transform,
                 const std::shared_ptr<const CylinderBounds>& cBounds,
                 std::unique_ptr<SurfaceArray> surfaceArray = nullptr,
                 double thickness = 0.,
@@ -101,7 +92,7 @@ class CylinderLayer : public CylinderSurface, public Layer {
   /// @param shift is the additional transform applied after cloning
   ///
   /// @return The return object is a shared pointer to the layer.
-  CylinderLayer(const CylinderLayer& cla, const Transform3D& shift);
+  CylinderLayer(const CylinderLayer& cla, const Transform3& shift);
 };
 
 }  // namespace Acts

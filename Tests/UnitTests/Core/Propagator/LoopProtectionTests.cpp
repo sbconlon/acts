@@ -10,18 +10,17 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Propagator/AbortList.hpp"
-#include "Acts/Propagator/DebugOutputActor.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Propagator/StandardAborters.hpp"
 #include "Acts/Propagator/detail/LoopProtection.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 namespace bdata = boost::unit_test::data;
 namespace tt = boost::test_tools;
@@ -40,8 +39,8 @@ MagneticFieldContext mfContext = MagneticFieldContext();
 /// @brief mockup of stepping state
 struct SteppingState {
   /// Parameters
-  Vector3D pos = Vector3D(0., 0., 0.);
-  Vector3D dir = Vector3D(0., 0., 1);
+  Vector3 pos = Vector3(0., 0., 0.);
+  Vector3 dir = Vector3(0., 0., 1);
   double p = 100_MeV;
 
   NavigationDirection navDir = NavigationDirection::forward;
@@ -49,7 +48,7 @@ struct SteppingState {
 
 /// @brief mockup of stepping state
 struct Stepper {
-  Vector3D field = Vector3D(0., 0., 2_T);
+  Vector3 field = Vector3(0., 0., 2_T);
 
   /// Get the field for the stepping, it checks first if the access is still
   /// within the Cell, and updates the cell if necessary.
@@ -58,17 +57,16 @@ struct Stepper {
   ///                 the magnetic field cell is used (and potentially
   ///                 updated)
   /// @param [in] pos is the field position
-  Vector3D getField(SteppingState& /*unused*/,
-                    const Vector3D& /*unused*/) const {
+  Vector3 getField(SteppingState& /*unused*/, const Vector3& /*unused*/) const {
     // get the field from the cell
     return field;
   }
 
   /// Access method - position
-  Vector3D position(const SteppingState& state) const { return state.pos; }
+  Vector3 position(const SteppingState& state) const { return state.pos; }
 
   /// Access method - direction
-  Vector3D direction(const SteppingState& state) const { return state.dir; }
+  Vector3 direction(const SteppingState& state) const { return state.dir; }
 
   /// Access method - momentum
   double momentum(const SteppingState& state) const { return state.p; }
@@ -93,6 +91,8 @@ struct Options {
 
   /// Contains: target aborters
   AbortList<PathLimitReached> abortList;
+
+  LoggerWrapper logger{getDummyLogger()};
 };
 
 /// @brief mockup of propagtor state
@@ -121,7 +121,7 @@ BOOST_DATA_TEST_CASE(
   (void)deltaPhi;
 
   PropagatorState pState;
-  pState.stepping.dir = Vector3D(cos(phi), sin(phi), 0.);
+  pState.stepping.dir = Vector3(cos(phi), sin(phi), 0.);
   pState.stepping.p = 100_MeV;
 
   Stepper pStepper;
@@ -166,40 +166,24 @@ BOOST_DATA_TEST_CASE(
     return;
   }
 
-  double dcharge = -1 + 2 * charge;
-
-  const double Bz = 2_T;
-  BField bField(0, 0, Bz);
-
-  EigenStepper estepper(bField);
-
-  EigenPropagator epropagator(std::move(estepper));
-
-  // define start parameters
-  double x = 0;
-  double y = 0;
-  double z = 0;
   double px = pT * cos(phi);
   double py = pT * sin(phi);
   double pz = pT / tan(theta);
-  double q = dcharge;
-  Vector3D pos(x, y, z);
-  Vector3D mom(px, py, pz);
-  CurvilinearParameters start(std::nullopt, pos, mom, q, 42.);
+  double p = pT / sin(theta);
+  double q = -1 + 2 * charge;
 
-  using DebugOutput = Acts::DebugOutputActor;
-  using ProopagatorOptions =
-      PropagatorOptions<ActionList<DebugOutput>, AbortList<>>;
-  ProopagatorOptions options(tgContext, mfContext);
-  options.debug = false;
+  const double Bz = 2_T;
+  BField bField(0, 0, Bz);
+  EigenStepper estepper(bField);
+  EigenPropagator epropagator(std::move(estepper));
+
+  // define start parameters
+  CurvilinearTrackParameters start(Vector4(0, 0, 0, 42), phi, theta, p, q);
+
+  using PropagatorOptions = PropagatorOptions<ActionList<>, AbortList<>>;
+  PropagatorOptions options(tgContext, mfContext, getDummyLogger());
   options.maxSteps = 1e6;
   const auto& result = epropagator.propagate(start, options).value();
-
-  if (options.debug) {
-    const auto debugString =
-        result.template get<DebugOutput::result_type>().debugString;
-    std::cout << debugString << std::endl;
-  }
 
   // this test assumes state.options.loopFraction = 0.5
   CHECK_CLOSE_REL(px, -result.endParameters->momentum().x(), 1e-2);

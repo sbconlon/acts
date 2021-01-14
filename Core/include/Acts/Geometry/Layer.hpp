@@ -8,19 +8,21 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/AbstractVolume.hpp"
 #include "Acts/Geometry/ApproachDescriptor.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Geometry/GeometryID.hpp"
+#include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Geometry/GeometryObject.hpp"
-#include "Acts/Geometry/GeometryStatics.hpp"
 #include "Acts/Material/IMaterialDecorator.hpp"
+#include "Acts/Surfaces/BoundaryCheck.hpp"
 #include "Acts/Surfaces/SurfaceArray.hpp"
 #include "Acts/Utilities/BinnedArray.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 
-#include <map>
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace Acts {
 
@@ -31,6 +33,7 @@ class Volume;
 class VolumeBounds;
 class TrackingVolume;
 class ApproachDescriptor;
+class IMaterialDecorator;
 
 // Simple surface intersection
 using SurfaceIntersection = ObjectIntersection<Surface>;
@@ -123,7 +126,7 @@ class Layer : public virtual GeometryObject {
   /// @param bcheck is the boundary check directive
   ///
   /// @return boolean that indicates success of the operation
-  virtual bool isOnLayer(const GeometryContext& gctx, const Vector3D& position,
+  virtual bool isOnLayer(const GeometryContext& gctx, const Vector3& position,
                          const BoundaryCheck& bcheck = true) const;
 
   /// Return method for the approach descriptor, can be nullptr
@@ -165,8 +168,8 @@ class Layer : public virtual GeometryObject {
   /// @return list of intersection of surfaces on the layer
   template <typename options_t>
   std::vector<SurfaceIntersection> compatibleSurfaces(
-      const GeometryContext& gctx, const Vector3D& position,
-      const Vector3D& direction, const options_t& options) const;
+      const GeometryContext& gctx, const Vector3& position,
+      const Vector3& direction, const options_t& options) const;
 
   /// Surface seen on approach
   ///
@@ -183,8 +186,8 @@ class Layer : public virtual GeometryObject {
   /// @return the Surface intersection of the approach surface
   template <typename options_t>
   const SurfaceIntersection surfaceOnApproach(const GeometryContext& gctx,
-                                              const Vector3D& position,
-                                              const Vector3D& direction,
+                                              const Vector3& position,
+                                              const Vector3& direction,
                                               const options_t& options) const;
 
   /// Fast navigation to next layer
@@ -194,8 +197,8 @@ class Layer : public virtual GeometryObject {
   /// @param direction is the direction for the search
   ///
   /// @return the pointer to the next layer
-  const Layer* nextLayer(const GeometryContext& gctx, const Vector3D& position,
-                         const Vector3D& direction) const;
+  const Layer* nextLayer(const GeometryContext& gctx, const Vector3& position,
+                         const Vector3& direction) const;
 
   /// Get the confining TrackingVolume
   ///
@@ -226,7 +229,7 @@ class Layer : public virtual GeometryObject {
   ///  optionally, the layer can be resized to the dimensions of the
   /// TrackingVolume
   ///  - Bounds of the Surface are resized
-  ///  - MaterialProperties dimensions are resized
+  ///  - MaterialSlab dimensions are resized
   ///  - SubSurface array boundaries are NOT resized
   ///
   /// @param tvol is the tracking volume the layer is confined
@@ -282,7 +285,7 @@ class Layer : public virtual GeometryObject {
   /// @param layerID is the geometry id of the volume
   ///                as calculated by the TrackingGeometry
   void closeGeometry(const IMaterialDecorator* materialDecorator,
-                     const GeometryID& layerID);
+                     const GeometryIdentifier& layerID);
 };
 
 /// Layers are constructedd with shared_ptr factories, hence the layer array is

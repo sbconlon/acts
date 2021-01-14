@@ -8,12 +8,12 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/BoundarySurfaceFace.hpp"
 #include "Acts/Geometry/CuboidVolumeBounds.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 namespace Acts {
 namespace Test {
@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeException) {
 BOOST_AUTO_TEST_CASE(CuboidVolumeProperties) {
   CuboidVolumeBounds box(hx, hy, hz);
   // Test the type
-  BOOST_TEST(box.type() == VolumeBounds::eCuboid);
+  BOOST_CHECK_EQUAL(box.type(), VolumeBounds::eCuboid);
   // Test the halflength x
   CHECK_CLOSE_ABS(box.get(CuboidVolumeBounds::eHalfLengthX), hx, s_epsilon);
   // Test the halflength y
@@ -74,29 +74,31 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeProperties) {
   // Test the halflength z
   CHECK_CLOSE_ABS(box.get(CuboidVolumeBounds::eHalfLengthZ), hz, s_epsilon);
   // Test the streaming
+  std::vector<double> actvalues = box.values();
   std::vector<double> refvalues = {hx, hy, hz};
-  BOOST_TEST(box.values() == refvalues);
+  BOOST_CHECK_EQUAL_COLLECTIONS(actvalues.begin(), actvalues.end(),
+                                refvalues.begin(), refvalues.end());
 
   // Inside position
-  Vector3D inside({5., 10., 8.});
+  Vector3 inside({5., 10., 8.});
   // Outside positions  in x, y, z
-  std::vector<Vector3D> outsides = {
+  std::vector<Vector3> outsides = {
       {20., 1., -2.}, {1., -30., 2.}, {-1., 2., 100.}};
 
   // Inside position
-  BOOST_TEST(box.inside(inside, s_onSurfaceTolerance));
+  BOOST_CHECK(box.inside(inside, s_onSurfaceTolerance));
 
   // Outside position
   for (const auto& outside : outsides) {
-    BOOST_TEST(!box.inside(outside, s_onSurfaceTolerance));
+    BOOST_CHECK(!box.inside(outside, s_onSurfaceTolerance));
   }
 }
 
 BOOST_AUTO_TEST_CASE(CuboidVolumeBoundarySurfaces) {
   CuboidVolumeBounds box(5, 8, 7);
-  auto cvbOrientedSurfaces = box.orientedSurfaces(nullptr);
+  auto cvbOrientedSurfaces = box.orientedSurfaces(Transform3::Identity());
 
-  BOOST_TEST(cvbOrientedSurfaces.size(), (size_t)6);
+  BOOST_CHECK_EQUAL(cvbOrientedSurfaces.size(), 6);
 
   auto geoCtx = GeometryContext();
 
@@ -111,9 +113,9 @@ BOOST_AUTO_TEST_CASE(CuboidVolumeBoundarySurfaces) {
     BOOST_CHECK(!box.inside(outsideBox));
   }
 
-  Vector3D xaxis(1., 0., 0.);
-  Vector3D yaxis(0., 1., 0.);
-  Vector3D zaxis(0., 0., 1.);
+  Vector3 xaxis(1., 0., 0.);
+  Vector3 yaxis(0., 1., 0.);
+  Vector3 zaxis(0., 0., 1.);
 
   // Test the orientation of the boundary surfaces
   auto nFaceXY =

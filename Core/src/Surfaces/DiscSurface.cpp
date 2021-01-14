@@ -8,19 +8,16 @@
 
 #include "Acts/Surfaces/DiscSurface.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Surfaces/DiscTrapezoidBounds.hpp"
 #include "Acts/Surfaces/InfiniteBounds.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
+#include "Acts/Surfaces/SurfaceError.hpp"
 #include "Acts/Surfaces/detail/FacesHelper.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/ThrowAssert.hpp"
 
-#include <algorithm>
 #include <cmath>
-#include <iomanip>
-#include <iostream>
-#include <numeric>
-#include <utility>
+#include <system_error>
 #include <vector>
 
 using Acts::VectorHelpers::perp;
@@ -31,30 +28,26 @@ Acts::DiscSurface::DiscSurface(const DiscSurface& other)
 
 Acts::DiscSurface::DiscSurface(const GeometryContext& gctx,
                                const DiscSurface& other,
-                               const Transform3D& transf)
-    : GeometryObject(),
-      Surface(gctx, other, transf),
-      m_bounds(other.m_bounds) {}
+                               const Transform3& shift)
+    : GeometryObject(), Surface(gctx, other, shift), m_bounds(other.m_bounds) {}
 
-Acts::DiscSurface::DiscSurface(std::shared_ptr<const Transform3D> htrans,
-                               double rmin, double rmax, double hphisec)
+Acts::DiscSurface::DiscSurface(const Transform3& transform, double rmin,
+                               double rmax, double hphisec)
     : GeometryObject(),
-      Surface(std::move(htrans)),
+      Surface(std::move(transform)),
       m_bounds(std::make_shared<const RadialBounds>(rmin, rmax, hphisec)) {}
 
-Acts::DiscSurface::DiscSurface(std::shared_ptr<const Transform3D> htrans,
-                               double minhalfx, double maxhalfx, double maxR,
-                               double minR, double avephi, double stereo)
+Acts::DiscSurface::DiscSurface(const Transform3& transform, double minhalfx,
+                               double maxhalfx, double minR, double maxR,
+                               double avephi, double stereo)
     : GeometryObject(),
-      Surface(std::move(htrans)),
+      Surface(transform),
       m_bounds(std::make_shared<const DiscTrapezoidBounds>(
-          minhalfx, maxhalfx, maxR, minR, avephi, stereo)) {}
+          minhalfx, maxhalfx, minR, maxR, avephi, stereo)) {}
 
-Acts::DiscSurface::DiscSurface(std::shared_ptr<const Transform3D> htrans,
+Acts::DiscSurface::DiscSurface(const Transform3& transform,
                                std::shared_ptr<const DiscBounds> dbounds)
-    : GeometryObject(),
-      Surface(std::move(htrans)),
-      m_bounds(std::move(dbounds)) {}
+    : GeometryObject(), Surface(transform), m_bounds(std::move(dbounds)) {}
 
 Acts::DiscSurface::DiscSurface(const std::shared_ptr<const DiscBounds>& dbounds,
                                const DetectorElementBase& detelement)
@@ -74,61 +67,62 @@ Acts::Surface::SurfaceType Acts::DiscSurface::type() const {
   return Surface::Disc;
 }
 
-void Acts::DiscSurface::localToGlobal(const GeometryContext& gctx,
-                                      const Vector2D& lposition,
-                                      const Vector3D& /*gmom*/,
-                                      Vector3D& position) const {
+Acts::Vector3 Acts::DiscSurface::localToGlobal(const GeometryContext& gctx,
+                                               const Vector2& lposition,
+                                               const Vector3& /*gmom*/) const {
   // create the position in the local 3d frame
-  Vector3D loc3Dframe(lposition[Acts::eLOC_R] * cos(lposition[Acts::eLOC_PHI]),
-                      lposition[Acts::eLOC_R] * sin(lposition[Acts::eLOC_PHI]),
-                      0.);
-  // transport it to the globalframe (very unlikely that this is not needed)
-  position = transform(gctx) * loc3Dframe;
+  Vector3 loc3Dframe(
+      lposition[Acts::eBoundLoc0] * cos(lposition[Acts::eBoundLoc1]),
+      lposition[Acts::eBoundLoc0] * sin(lposition[Acts::eBoundLoc1]), 0.);
+  // transform to globalframe
+  return transform(gctx) * loc3Dframe;
 }
 
-bool Acts::DiscSurface::globalToLocal(const GeometryContext& gctx,
-                                      const Vector3D& position,
-                                      const Vector3D& /*gmom*/,
-                                      Vector2D& lposition) const {
-  // transport it to the globalframe (very unlikely that this is not needed)
-  Vector3D loc3Dframe = (transform(gctx).inverse()) * position;
-  lposition = Acts::Vector2D(perp(loc3Dframe), phi(loc3Dframe));
-  return ((std::abs(loc3Dframe.z()) > s_onSurfaceTolerance) ? false : true);
+Acts::Result<Acts::Vector2> Acts::DiscSurface::globalToLocal(
+    const GeometryContext& gctx, const Vector3& position,
+    const Vector3& /*gmom*/, double tolerance) const {
+  // transport it to the globalframe
+  Vector3 loc3Dframe = (transform(gctx).inverse()) * position;
+  if (loc3Dframe.z() * loc3Dframe.z() > tolerance * tolerance) {
+    return Result<Vector2>::failure(SurfaceError::GlobalPositionNotOnSurface);
+  }
+  return Result<Acts::Vector2>::success({perp(loc3Dframe), phi(loc3Dframe)});
 }
 
-const Acts::Vector2D Acts::DiscSurface::localPolarToLocalCartesian(
-    const Vector2D& locpol) const {
+Acts::Vector2 Acts::DiscSurface::localPolarToLocalCartesian(
+    const Vector2& locpol) const {
   const DiscTrapezoidBounds* dtbo =
       dynamic_cast<const Acts::DiscTrapezoidBounds*>(&(bounds()));
   if (dtbo != nullptr) {
     double rMedium = dtbo->rCenter();
     double phi = dtbo->get(DiscTrapezoidBounds::eAveragePhi);
 
-    Vector2D polarCenter(rMedium, phi);
-    Vector2D cartCenter = localPolarToCartesian(polarCenter);
-    Vector2D cartPos = localPolarToCartesian(locpol);
-    Vector2D Pos = cartPos - cartCenter;
+    Vector2 polarCenter(rMedium, phi);
+    Vector2 cartCenter = localPolarToCartesian(polarCenter);
+    Vector2 cartPos = localPolarToCartesian(locpol);
+    Vector2 Pos = cartPos - cartCenter;
 
-    Acts::Vector2D locPos(
-        Pos[Acts::eLOC_X] * sin(phi) - Pos[Acts::eLOC_Y] * cos(phi),
-        Pos[Acts::eLOC_Y] * sin(phi) + Pos[Acts::eLOC_X] * cos(phi));
-    return Vector2D(locPos[Acts::eLOC_X], locPos[Acts::eLOC_Y]);
+    Acts::Vector2 locPos(
+        Pos[Acts::eBoundLoc0] * sin(phi) - Pos[Acts::eBoundLoc1] * cos(phi),
+        Pos[Acts::eBoundLoc1] * sin(phi) + Pos[Acts::eBoundLoc0] * cos(phi));
+    return Vector2(locPos[Acts::eBoundLoc0], locPos[Acts::eBoundLoc1]);
   }
-  return Vector2D(locpol[Acts::eLOC_R] * cos(locpol[Acts::eLOC_PHI]),
-                  locpol[Acts::eLOC_R] * sin(locpol[Acts::eLOC_PHI]));
+  return Vector2(locpol[Acts::eBoundLoc0] * cos(locpol[Acts::eBoundLoc1]),
+                 locpol[Acts::eBoundLoc0] * sin(locpol[Acts::eBoundLoc1]));
 }
 
-const Acts::Vector3D Acts::DiscSurface::localCartesianToGlobal(
-    const GeometryContext& gctx, const Vector2D& lposition) const {
-  Vector3D loc3Dframe(lposition[Acts::eLOC_X], lposition[Acts::eLOC_Y], 0.);
-  return Vector3D(transform(gctx) * loc3Dframe);
+Acts::Vector3 Acts::DiscSurface::localCartesianToGlobal(
+    const GeometryContext& gctx, const Vector2& lposition) const {
+  Vector3 loc3Dframe(lposition[Acts::eBoundLoc0], lposition[Acts::eBoundLoc1],
+                     0.);
+  return Vector3(transform(gctx) * loc3Dframe);
 }
 
-const Acts::Vector2D Acts::DiscSurface::globalToLocalCartesian(
-    const GeometryContext& gctx, const Vector3D& position,
+Acts::Vector2 Acts::DiscSurface::globalToLocalCartesian(
+    const GeometryContext& gctx, const Vector3& position,
     double /*unused*/) const {
-  Vector3D loc3Dframe = (transform(gctx).inverse()) * position;
-  return Vector2D(loc3Dframe.x(), loc3Dframe.y());
+  Vector3 loc3Dframe = (transform(gctx).inverse()) * position;
+  return Vector2(loc3Dframe.x(), loc3Dframe.y());
 }
 
 std::string Acts::DiscSurface::name() const {
@@ -145,7 +139,7 @@ const Acts::SurfaceBounds& Acts::DiscSurface::bounds() const {
 Acts::Polyhedron Acts::DiscSurface::polyhedronRepresentation(
     const GeometryContext& gctx, size_t lseg) const {
   // Prepare vertices and faces
-  std::vector<Vector3D> vertices;
+  std::vector<Vector3> vertices;
   std::vector<Polyhedron::FaceType> faces;
   std::vector<Polyhedron::FaceType> triangularMesh;
 
@@ -157,9 +151,9 @@ Acts::Polyhedron Acts::DiscSurface::polyhedronRepresentation(
   if (m_bounds) {
     auto vertices2D = m_bounds->vertices(lseg);
     vertices.reserve(vertices2D.size() + 1);
-    Vector3D wCenter(0., 0., 0);
+    Vector3 wCenter(0., 0., 0);
     for (const auto& v2D : vertices2D) {
-      vertices.push_back(transform(gctx) * Vector3D(v2D.x(), v2D.y(), 0.));
+      vertices.push_back(transform(gctx) * Vector3(v2D.x(), v2D.y(), 0.));
       wCenter += (*vertices.rbegin());
     }
     // These are convex shapes, use the helper method

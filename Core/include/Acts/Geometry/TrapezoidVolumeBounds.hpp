@@ -8,17 +8,19 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/Volume.hpp"
 #include "Acts/Geometry/VolumeBounds.hpp"
-#include "Acts/Utilities/BoundingBox.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <array>
+#include <iomanip>
+#include <iosfwd>
+#include <memory>
+#include <stdexcept>
 #include <vector>
 
 namespace Acts {
 
-class Surface;
 class RectangleBounds;
 class TrapezoidBounds;
 
@@ -88,11 +90,9 @@ class TrapezoidVolumeBounds : public VolumeBounds {
   }
 
   TrapezoidVolumeBounds(const TrapezoidVolumeBounds& trabo) = default;
-
+  ~TrapezoidVolumeBounds() override = default;
   TrapezoidVolumeBounds& operator=(const TrapezoidVolumeBounds& trabo) =
       default;
-
-  ~TrapezoidVolumeBounds() override = default;
 
   VolumeBounds::BoundsType type() const final {
     return VolumeBounds::eTrapezoid;
@@ -110,7 +110,7 @@ class TrapezoidVolumeBounds : public VolumeBounds {
   /// @param tol is the tolerance applied
   ///
   /// @return boolean indicator if position is inside
-  bool inside(const Vector3D& pos, double tol = 0.) const override;
+  bool inside(const Vector3& pos, double tol = 0.) const override;
 
   /// Oriented surfaces, i.e. the decomposed boundary surfaces and the
   /// according navigation direction into the volume given the normal
@@ -123,15 +123,15 @@ class TrapezoidVolumeBounds : public VolumeBounds {
   ///
   /// @return a vector of surfaces bounding this volume
   OrientedSurfaces orientedSurfaces(
-      const Transform3D* transform = nullptr) const override;
+      const Transform3& transform = Transform3::Identity()) const override;
 
   /// Construct bounding box for this shape
   /// @param trf Optional transform
   /// @param envelope Optional envelope to add / subtract from min/max
   /// @param entity Entity to associate this bounding box with
   /// @return Constructed bounding box
-  Volume::BoundingBox boundingBox(const Transform3D* trf = nullptr,
-                                  const Vector3D& envelope = {0, 0, 0},
+  Volume::BoundingBox boundingBox(const Transform3* trf = nullptr,
+                                  const Vector3& envelope = {0, 0, 0},
                                   const Volume* entity = nullptr) const final;
 
   /// Output Method for std::ostream

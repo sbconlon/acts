@@ -6,12 +6,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Io/Csv/CsvParticleReader.hpp"
+#include "ActsExamples/Io/Csv/CsvParticleReader.hpp"
 
-#include "ACTFW/EventData/SimParticle.hpp"
-#include "ACTFW/Framework/WhiteBoard.hpp"
-#include "ACTFW/Utilities/Paths.hpp"
-#include <Acts/Utilities/Units.hpp>
+#include "ActsExamples/EventData/SimParticle.hpp"
+#include "ActsExamples/Framework/WhiteBoard.hpp"
+#include "ActsExamples/Utilities/Paths.hpp"
+#include <Acts/Definitions/Units.hpp>
 
 #include <fstream>
 #include <ios>
@@ -21,10 +21,11 @@
 
 #include <dfe/dfe_io_dsv.hpp>
 
-#include "TrackMlData.hpp"
+#include "CsvOutputData.hpp"
 
-FW::CsvParticleReader::CsvParticleReader(
-    const FW::CsvParticleReader::Config& cfg, Acts::Logging::Level lvl)
+ActsExamples::CsvParticleReader::CsvParticleReader(
+    const ActsExamples::CsvParticleReader::Config& cfg,
+    Acts::Logging::Level lvl)
     : m_cfg(cfg),
       m_eventsRange(
           determineEventFilesRange(cfg.inputDir, cfg.inputStem + ".csv")),
@@ -37,15 +38,17 @@ FW::CsvParticleReader::CsvParticleReader(
   }
 }
 
-std::string FW::CsvParticleReader::CsvParticleReader::name() const {
+std::string ActsExamples::CsvParticleReader::CsvParticleReader::name() const {
   return "CsvParticleReader";
 }
 
-std::pair<size_t, size_t> FW::CsvParticleReader::availableEvents() const {
+std::pair<size_t, size_t> ActsExamples::CsvParticleReader::availableEvents()
+    const {
   return m_eventsRange;
 }
 
-FW::ProcessCode FW::CsvParticleReader::read(const FW::AlgorithmContext& ctx) {
+ActsExamples::ProcessCode ActsExamples::CsvParticleReader::read(
+    const ActsExamples::AlgorithmContext& ctx) {
   SimParticleContainer::sequence_type unordered;
 
   auto path = perEventFilepath(m_cfg.inputDir, m_cfg.inputStem + ".csv",
@@ -65,8 +68,8 @@ FW::ProcessCode FW::CsvParticleReader::read(const FW::AlgorithmContext& ctx) {
         data.vz * Acts::UnitConstants::mm, data.vt * Acts::UnitConstants::ns);
     // only used for direction; normalization/units do not matter
     particle.setDirection(data.px, data.py, data.pz);
-    particle.setAbsMomentum(std::hypot(data.px, data.py, data.pz) *
-                            Acts::UnitConstants::GeV);
+    particle.setAbsoluteMomentum(std::hypot(data.px, data.py, data.pz) *
+                                 Acts::UnitConstants::GeV);
     unordered.push_back(std::move(particle));
   }
 

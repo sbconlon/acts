@@ -6,6 +6,8 @@ add_library(
   src/CsvParticleWriter.cpp
   src/CsvPlanarClusterReader.cpp
   src/CsvPlanarClusterWriter.cpp
+  src/CsvSimHitReader.cpp
+  src/CsvSimHitWriter.cpp
   src/CsvTrackingGeometryWriter.cpp)
 target_include_directories(
   ActsExamplesIoCsv
@@ -13,7 +15,7 @@ target_include_directories(
 target_link_libraries(
   ActsExamplesIoCsv
   PRIVATE
-    ActsCore ActsDigitizationPlugin ActsIdentificationPlugin
+    ActsCore ActsPluginDigitization ActsPluginIdentification
     ActsExamplesFramework
     Threads::Threads Boost::program_options dfelibs)
 
