@@ -1,9 +1,7 @@
-find_package (Python3 COMPONENTS Interpreter Development NumPy)
+find_package (Python3 COMPONENTS Interpreter Development)
 message( "Python3_FOUND = " ${Python3_FOUND})
 message( "Python3_INCLUDE_DIRS = ${Python3_INCLUDE_DIRS}")
 message( "Python3_LIBRARIES = ${Python3_LIBRARIES}")
-message( "Python3_NumPy_FOUND = ${Python3_NumPy_FOUND}")
-message( "Python3_NumPy_INCLUDE_DIRS = ${Python3_NumPy_INCLUDE_DIRS}")
 
 add_library(
   ActsExatrkxPlugin SHARED
@@ -14,7 +12,7 @@ target_include_directories(
   ActsExatrkxPlugin
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> ${Python3_INCLUDE_DIRS} ${Python3_NumPy_INCLUDE_DIRS})
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> ${Python3_INCLUDE_DIRS})
 
 target_link_libraries(
   ActsExatrkxPlugin 

@@ -1,7 +1,4 @@
 #include "Python.h"
-#include "numpy/arrayobject.h"
-#include "numpy/npy_common.h"
-#include "numpy/ndarrayobject.h"
 
 template <typename external_spacepoint_t>
 void hits_to_list(std::vector<external_spacepoint_t>* hits, PyListObject* phits){

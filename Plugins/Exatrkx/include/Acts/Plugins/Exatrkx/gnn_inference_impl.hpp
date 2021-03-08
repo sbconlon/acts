@@ -4,9 +4,6 @@
 #include <stdexcept>
 
 #include "Python.h"
-#include "numpy/arrayobject.h"
-#include "numpy/npy_common.h"
-#include "numpy/ndarrayobject.h"
 
 #include "pythonHelper.hpp"
 
@@ -35,37 +32,36 @@ namespace Acts {
     PyRun_SimpleString("sys.path.append(\".\")");
     
     // Import Exatrkx Python module
-    pName = PyUnicode_FromString("wrap_inference");
+    pName = PyUnicode_FromString("inference_fn");
     if (pName == NULL){
       PyErr_Print();
       throw std::runtime_error("String to unicode conversion failed");
     }
     pModule = PyImport_Import(pName);
-    wrap_import_array();
     Py_DECREF(pName);
 
     if(pModule != NULL) {
       // Import python function
-      pFunc = PyObject_GetAttrString(pModule, "test_inference");
+      pFunc = PyObject_GetAttrString(pModule, "gnn_track_finding");
       if (pFunc && PyCallable_Check(pFunc)) {
         // Initialize Python lists
         pHits = (PyListObject*) PyList_New(0);
         pTruth = (PyListObject*) PyList_New(0);
         pCells = (PyListObject*) PyList_New(0);
-        pParticles = (PyListObject*) PyList_New(0);
+        //pParticles = (PyListObject*) PyList_New(0);
         
         // Convert C vectors to Python lists
         hits_to_list(hits, pHits);
         truth_to_list(truth, pTruth);
         cells_to_list(cells, pCells);
-        particles_to_list(particles, pParticles);
+        //particles_to_list(particles, pParticles);
       
       } else {
         PyErr_Print();
-        throw std::runtime_error("Failed to load inference function");
+        throw std::runtime_error("Failed to load track finding function");
       }
       
-      pTracks = PyObject_CallFunctionObjArgs(pFunc, pHits, pTruth, pCells, pParticles, NULL);  
+      pTracks = PyObject_CallFunctionObjArgs(pFunc, pHits, pCells, pTruth, NULL);  
       
       if(PyList_Check(pTracks)){
         PyObject* ptrack;

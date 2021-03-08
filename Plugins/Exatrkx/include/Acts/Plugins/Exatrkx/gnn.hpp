@@ -11,24 +11,6 @@
 #include <iterator>
 
 namespace Acts{
-
-    template <typename external_spacepoint_t>
-    std::vector<Acts::Seed<external_spacepoint_t>> prepareDoubletGraph(const auto first,
-                                                                       const auto last,
-                                                                       const size_t nhits,
-                                                                       const char *config_path="configs/prep_trackml.yaml",
-                                                                       const char *filename="event00000",
-                                                                       long verbose=0,
-                                                                       long show_config=0);
-
-    template <typename external_spacepoint_t>
-    std::vector<Acts::Seed<external_spacepoint_t>> prepareTripletGraph(const auto first,
-                                                                       const auto last,
-                                                                       const size_t nhits,
-                                                                       const char *config_path="configs/prep_trackml.yaml",
-                                                                       const char *filename="event00000",
-                                                                       long verbose=0,
-                                                                       long show_config=0);
     
     template <typename external_spacepoint_t, 
               typename external_truth_t, 
@@ -45,7 +27,4 @@ namespace Acts{
 
 } // namespace Acts
 
-
-#include "Acts/Plugins/Exatrkx/gnn_dplet_impl.hpp"
-#include "Acts/Plugins/Exatrkx/gnn_tplet_impl.hpp"
 #include "Acts/Plugins/Exatrkx/gnn_inference_impl.hpp"
