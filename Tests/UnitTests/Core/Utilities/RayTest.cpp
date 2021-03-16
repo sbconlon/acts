@@ -11,7 +11,7 @@
 
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/Ray.hpp"
-#include "Acts/Visualization/PlyVisualization.hpp"
+#include "Acts/Visualization/PlyVisualization3D.hpp"
 
 using boost::test_tools::output_test_stream;
 
@@ -21,6 +21,9 @@ namespace Test {
 BOOST_AUTO_TEST_SUITE(Utilities)
 BOOST_AUTO_TEST_CASE(ray_construction) {
   // 2D
+
+  using Vector2F = Eigen::Matrix<float, 2, 1>;
+
   output_test_stream output;
 
   Vector2F dir2(0.5, 0.5);
@@ -36,6 +39,7 @@ BOOST_AUTO_TEST_CASE(ray_construction) {
   BOOST_CHECK(!output.is_empty(true));
 
   // 3D
+  using Vector3F = Eigen::Matrix<float, 3, 1>;
 
   Vector3F dir3(1, 2, 1);
   Ray<float, 3> ray3({1, 2, 3}, dir3);
@@ -49,8 +53,8 @@ BOOST_AUTO_TEST_CASE(ray_construction) {
   BOOST_CHECK(!output.is_empty(true));
 
   // compile draw call, doesn't actually test anything
-  PlyVisualization hlp;
-  ray3.draw(hlp);
+  // PlyVisualization3D hlp;
+  // ray3.draw(hlp);
 }
 BOOST_AUTO_TEST_SUITE_END()
 

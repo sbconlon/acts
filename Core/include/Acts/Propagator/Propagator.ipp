@@ -14,8 +14,10 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state) const
     -> Result<result_t> {
   result_t result;
 
+  const auto& logger = state.options.logger;
+
   // Pre-stepping call to the navigator and action list
-  debugLog(state, [&] { return std::string("Entering propagation."); });
+  ACTS_VERBOSE("Entering propagation.");
 
   // Navigator initialize state call
   m_navigator.status(state, m_stepper);
@@ -23,14 +25,19 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state) const
   state.options.actionList(state, m_stepper, result);
   // assume negative outcome, only set to true later if we actually have
   // a positive outcome.
-  // This is needed for correct error logging
-  bool terminatedNormally = false;
+
+  // start at true, if we don't begin the stepping loop we're fine.
+  bool terminatedNormally = true;
+
   // Pre-Stepping: abort condition check
   if (!state.options.abortList(result, state, m_stepper)) {
     // Pre-Stepping: target setting
     m_navigator.target(state, m_stepper);
     // Stepping loop
-    debugLog(state, [&] { return std::string("Starting stepping loop."); });
+    ACTS_VERBOSE("Starting stepping loop.");
+
+    terminatedNormally = false;  // priming error condition
+
     // Propagation loop : stepping
     for (; result.steps < state.options.maxSteps; ++result.steps) {
       // Perform a propagation step - it takes the propagation state
@@ -39,20 +46,9 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state) const
         // Accumulate the path length
         double s = *res;
         result.pathLength += s;
-        debugLog(state, [&] {
-          std::stringstream dstream;
-          dstream << "Step with size = ";
-          dstream << s;
-          dstream << " performed.";
-          return dstream.str();
-        });
+        ACTS_VERBOSE("Step with size = " << s << " performed");
       } else {
-        debugLog(state, [&] {
-          std::stringstream dstream;
-          dstream << "Step failed: ";
-          dstream << res.error();
-          return dstream.str();
-        });
+        ACTS_ERROR("Step failed: " << res.error());
         // pass error to caller
         return res.error();
       }
@@ -66,17 +62,22 @@ auto Acts::Propagator<S, N>::propagate_impl(propagator_state_t& state) const
       }
       m_navigator.target(state, m_stepper);
     }
+  } else {
+    ACTS_VERBOSE("Propagation terminated without going into stepping loop.");
   }
 
   // if we didn't terminate normally (via aborters) set navigation break.
   // this will trigger error output in the lines below
   if (!terminatedNormally) {
-    debugLog(state, [&] { return std::string("Terminated with failure."); });
     state.navigation.navigationBreak = true;
+    ACTS_ERROR("Propagation reached the step count limit of "
+               << state.options.maxSteps << " (did " << result.steps
+               << " steps)");
+    return PropagatorError::StepCountLimitReached;
   }
 
   // Post-stepping call to the action list
-  debugLog(state, [&] { return std::string("Stepping loop done."); });
+  ACTS_VERBOSE("Stepping loop done.");
   state.options.actionList(state, m_stepper, result);
 
   // return progress flag here, decide on SUCCESS later
@@ -89,13 +90,13 @@ template <typename parameters_t, typename propagator_options_t,
 auto Acts::Propagator<S, N>::propagate(
     const parameters_t& start, const propagator_options_t& options) const
     -> Result<action_list_t_result_t<
-        CurvilinearParameters,
+        CurvilinearTrackParameters,
         typename propagator_options_t::action_list_type>> {
   static_assert(Concepts::BoundTrackParametersConcept<parameters_t>,
                 "Parameters do not fulfill bound parameters concept.");
 
   // Type of track parameters produced by the propagation
-  using ReturnParameterType = CurvilinearParameters;
+  using ReturnParameterType = CurvilinearTrackParameters;
 
   // Type of the full propagation result, including output from actions
   using ResultType =
@@ -116,11 +117,15 @@ auto Acts::Propagator<S, N>::propagate(
   using OptionsType = decltype(eOptions);
   // Initialize the internal propagator state
   using StateType = State<OptionsType>;
-  StateType state(start, eOptions);
+  StateType state{
+      start, eOptions,
+      m_stepper.makeState(eOptions.geoContext, eOptions.magFieldContext, start,
+                          eOptions.direction, eOptions.maxStepSize,
+                          eOptions.tolerance)};
 
   static_assert(
-      concept ::has_method<const S, Result<double>, concept ::Stepper::step_t,
-                           StateType&>,
+      Concepts ::has_method<const S, Result<double>, Concepts ::Stepper::step_t,
+                            StateType&>,
       "Step method of the Stepper is not compatible with the propagator "
       "state");
 
@@ -135,15 +140,15 @@ auto Acts::Propagator<S, N>::propagate(
     auto& propRes = *result;
     /// Convert into return type and fill the result object
     auto curvState = m_stepper.curvilinearState(state.stepping);
-    auto& curvParameters = std::get<CurvilinearParameters>(curvState);
+    auto& curvParameters = std::get<CurvilinearTrackParameters>(curvState);
     // Fill the end parameters
-    propRes.endParameters = std::make_unique<const CurvilinearParameters>(
-        std::move(curvParameters));
+    propRes.endParameters =
+        std::make_unique<CurvilinearTrackParameters>(std::move(curvParameters));
     // Only fill the transport jacobian when covariance transport was done
     if (state.stepping.covTransport) {
       auto& tJacobian = std::get<Jacobian>(curvState);
       propRes.transportJacobian =
-          std::make_unique<const Jacobian>(std::move(tJacobian));
+          std::make_unique<Jacobian>(std::move(tJacobian));
     }
     return result;
   } else {
@@ -158,12 +163,13 @@ auto Acts::Propagator<S, N>::propagate(
     const parameters_t& start, const Surface& target,
     const propagator_options_t& options) const
     -> Result<action_list_t_result_t<
-        BoundParameters, typename propagator_options_t::action_list_type>> {
+        BoundTrackParameters,
+        typename propagator_options_t::action_list_type>> {
   static_assert(Concepts::BoundTrackParametersConcept<parameters_t>,
                 "Parameters do not fulfill bound parameters concept.");
 
   // Type of track parameters produced at the end of the propagation
-  using return_parameter_type = BoundParameters;
+  using return_parameter_type = BoundTrackParameters;
 
   // Type of provided options
   target_aborter_t targetAborter;
@@ -182,12 +188,16 @@ auto Acts::Propagator<S, N>::propagate(
 
   // Initialize the internal propagator state
   using StateType = State<OptionsType>;
-  StateType state(start, eOptions);
+  StateType state{
+      start, eOptions,
+      m_stepper.makeState(eOptions.geoContext, eOptions.magFieldContext, start,
+                          eOptions.direction, eOptions.maxStepSize,
+                          eOptions.tolerance)};
   state.navigation.targetSurface = &target;
 
   static_assert(
-      concept ::has_method<const S, Result<double>, concept ::Stepper::step_t,
-                           StateType&>,
+      Concepts ::has_method<const S, Result<double>, Concepts ::Stepper::step_t,
+                            StateType&>,
       "Step method of the Stepper is not compatible with the propagator "
       "state");
 
@@ -201,39 +211,25 @@ auto Acts::Propagator<S, N>::propagate(
   if (result.ok()) {
     auto& propRes = *result;
     // Compute the final results and mark the propagation as successful
-    auto bs = m_stepper.boundState(state.stepping, target);
-    auto& boundParameters = std::get<BoundParameters>(bs);
+    auto bsRes = m_stepper.boundState(state.stepping, target);
+    if (!bsRes.ok()) {
+      return bsRes.error();
+    }
+
+    const auto& bs = *bsRes;
+
+    auto& boundParams = std::get<BoundTrackParameters>(bs);
     // Fill the end parameters
     propRes.endParameters =
-        std::make_unique<const BoundParameters>(std::move(boundParameters));
+        std::make_unique<BoundTrackParameters>(std::move(boundParams));
     // Only fill the transport jacobian when covariance transport was done
     if (state.stepping.covTransport) {
       auto& tJacobian = std::get<Jacobian>(bs);
       propRes.transportJacobian =
-          std::make_unique<const Jacobian>(std::move(tJacobian));
+          std::make_unique<Jacobian>(std::move(tJacobian));
     }
     return result;
   } else {
     return result.error();
-  }
-}
-
-template <typename S, typename N>
-template <typename propagator_state_t>
-void Acts::Propagator<S, N>::debugLog(
-    propagator_state_t& state,
-    const std::function<std::string()>& logAction) const {
-  if (state.options.debug) {
-    std::vector<std::string> lines;
-    std::string input = logAction();
-    boost::split(lines, input, boost::is_any_of("\n"));
-    for (const auto& line : lines) {
-      std::stringstream dstream;
-      dstream << "|->" << std::setw(state.options.debugPfxWidth);
-      dstream << "Propagator"
-              << " | ";
-      dstream << std::setw(state.options.debugMsgWidth) << line << '\n';
-      state.options.debugString += dstream.str();
-    }
   }
 }

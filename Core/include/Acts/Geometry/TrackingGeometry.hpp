@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,14 +8,14 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Geometry/GeometryID.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Geometry/GeometryIdentifier.hpp"
 
 #include <functional>
-#include <map>
 #include <memory>
-#include <vector>
+#include <string>
+#include <unordered_map>
 
 namespace Acts {
 
@@ -63,14 +63,7 @@ class TrackingGeometry {
   ///
   /// @return plain pointer to the lowest TrackingVolume
   const TrackingVolume* lowestTrackingVolume(const GeometryContext& gctx,
-                                             const Vector3D& gp) const;
-
-  /// return the lowest tracking Volume
-  ///
-  /// @param name is the name for the volume search
-  ///
-  /// @return plain pointer to the lowest TrackingVolume
-  const TrackingVolume* trackingVolume(const std::string& name) const;
+                                             const Vector3& gp) const;
 
   /// Forward the associated Layer information
   ///
@@ -79,7 +72,7 @@ class TrackingGeometry {
   ///
   /// @return plain pointer to assocaiated layer
   const Layer* associatedLayer(const GeometryContext& gctx,
-                               const Vector3D& gp) const;
+                               const Vector3& gp) const;
 
   /// Register the beam tube
   ///
@@ -101,13 +94,28 @@ class TrackingGeometry {
   void visitSurfaces(
       const std::function<void(const Acts::Surface*)>& visitor) const;
 
- private:
-  /// The known world - and the beamline
-  TrackingVolumePtr m_world;
-  std::shared_ptr<const PerigeeSurface> m_beam;
+  /// Search for a volume with the given identifier.
+  ///
+  /// @param id is the geometry identifier of the volume
+  /// @retval nullptr if no such volume exists
+  /// @retval pointer to the found volume otherwise.
+  const TrackingVolume* findVolume(GeometryIdentifier id) const;
 
-  /// The Volumes in a map for string based search
-  std::map<std::string, const TrackingVolume*> m_trackingVolumes;
+  /// Search for a surface with the given identifier.
+  ///
+  /// @param id is the geometry identifier of the surface
+  /// @retval nullptr if no such surface exists
+  /// @retval pointer to the found surface otherwise.
+  const Surface* findSurface(GeometryIdentifier id) const;
+
+ private:
+  // the known world
+  TrackingVolumePtr m_world;
+  // beam line
+  std::shared_ptr<const PerigeeSurface> m_beam;
+  // lookup containers
+  std::unordered_map<GeometryIdentifier, const TrackingVolume*> m_volumesById;
+  std::unordered_map<GeometryIdentifier, const Surface*> m_surfacesById;
 };
 
 }  // namespace Acts

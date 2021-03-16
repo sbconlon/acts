@@ -13,8 +13,8 @@
 #include "Acts/Plugins/TGeo/TGeoParser.hpp"
 #include "Acts/Plugins/TGeo/TGeoSurfaceConverter.hpp"
 #include "Acts/Tests/CommonHelpers/DataDirectory.hpp"
-#include "Acts/Visualization/GeometryView.hpp"
-#include "Acts/Visualization/ObjVisualization.hpp"
+#include "Acts/Visualization/GeometryView3D.hpp"
+#include "Acts/Visualization/ObjVisualization3D.hpp"
 
 #include "TGeoManager.h"
 
@@ -52,16 +52,16 @@ BOOST_AUTO_TEST_CASE(TGeoParser_Pixel) {
     TGeoParser::select(tgpState, tgpOptions);
 
     // This should select 176 PixelActive modules
-    BOOST_TEST(tgpState.selectedNodes.size() == 176u);
+    BOOST_CHECK_EQUAL(tgpState.selectedNodes.size(), 176u);
 
     /// Convert into surfaces using the TGeoSurfaceConverter & Draw them
-    ObjVisualization objVis;
+    ObjVisualization3D objVis;
     for (auto& snode : tgpState.selectedNodes) {
       const auto& shape = *(snode.node->GetVolume()->GetShape());
       const auto& transform = *(snode.transform.get());
       auto surface =
           TGeoSurfaceConverter::toSurface(shape, transform, axes, scale);
-      GeometryView::drawSurface(objVis, *surface, tgContext);
+      GeometryView3D::drawSurface(objVis, *surface, tgContext);
     }
     objVis.write("PixelActive");
   }
@@ -88,16 +88,16 @@ BOOST_AUTO_TEST_CASE(TGeoParser_Pixel_SelectInnermost) {
     TGeoParser::select(tgpState, tgpOptions);
 
     // This should select 14 PixelActive modules
-    BOOST_TEST(tgpState.selectedNodes.size() == 14u);
+    BOOST_CHECK_EQUAL(tgpState.selectedNodes.size(), 14u);
 
     /// Convert into surfaces using the TGeoSurfaceConverter & Draw them
-    ObjVisualization objVis;
+    ObjVisualization3D objVis;
     for (auto& snode : tgpState.selectedNodes) {
       const auto& shape = *(snode.node->GetVolume()->GetShape());
       const auto& transform = *(snode.transform.get());
       auto surface = TGeoSurfaceConverter::toSurface(shape, transform, axes,
                                                      tgpOptions.unit);
-      GeometryView::drawSurface(objVis, *surface, tgContext);
+      GeometryView3D::drawSurface(objVis, *surface, tgContext);
     }
     objVis.write("PixelActive_Innermost");
   }

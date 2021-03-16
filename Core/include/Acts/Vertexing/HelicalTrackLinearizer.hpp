@@ -8,13 +8,14 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
+#include "Acts/MagneticField/MagneticFieldProvider.hpp"
 #include "Acts/MagneticField/NullBField.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Result.hpp"
 #include "Acts/Vertexing/LinearizedTrack.hpp"
 
@@ -44,16 +45,16 @@ template <typename propagator_t,
 class HelicalTrackLinearizer {
  public:
   using Propagator_t = propagator_t;
-  using BField_t = typename Propagator_t::Stepper::BField;
 
   /// @struct State struct
   struct State {
     /// @brief The state constructor
     ///
     /// @param mctx The magnetic field context
-    State(const Acts::MagneticFieldContext& mctx) : fieldCache(mctx) {}
+    State(MagneticFieldProvider::Cache fieldCacheIn)
+        : fieldCache(std::move(fieldCacheIn)) {}
     /// Magnetic field cache
-    typename BField_t::Cache fieldCache;
+    MagneticFieldProvider::Cache fieldCache;
   };
 
   /// @brief Configuration struct
@@ -62,19 +63,18 @@ class HelicalTrackLinearizer {
     ///
     /// @param bIn The magnetic field
     /// @param prop The propagator
-    Config(const BField_t& bIn, std::shared_ptr<Propagator_t> prop)
-        : bField(bIn), propagator(std::move(prop)) {}
+    Config(std::shared_ptr<MagneticFieldProvider> bIn,
+           std::shared_ptr<Propagator_t> prop)
+        : bField(std::move(bIn)), propagator(std::move(prop)) {}
 
-    /// @brief Config constructor if BField_t == NullBField (no B-Field
-    /// provided)
+    /// @brief Config constructor without B field -> uses NullBField
     ///
     /// @param prop The propagator
-    template <typename T = BField_t,
-              std::enable_if_t<std::is_same<T, NullBField>::value, int> = 0>
-    Config(std::shared_ptr<Propagator_t> prop) : propagator(std::move(prop)) {}
+    Config(std::shared_ptr<Propagator_t> prop)
+        : bField{std::make_shared<NullBField>()}, propagator(std::move(prop)) {}
 
     // The magnetic field
-    BField_t bField;
+    std::shared_ptr<MagneticFieldProvider> bField;
     // The propagator
     std::shared_ptr<Propagator_t> propagator;
 
@@ -89,7 +89,7 @@ class HelicalTrackLinearizer {
   /// @param config Configuration object
   HelicalTrackLinearizer(const Config& config) : m_cfg(config) {}
 
-  /// @brief Function that linearizes BoundParameters at
+  /// @brief Function that linearizes BoundTrackParameters at
   /// given linearization point
   ///
   /// @param params Parameters to linearize
@@ -99,8 +99,8 @@ class HelicalTrackLinearizer {
   /// @param state The state object
   ///
   /// @return Linearized track
-  Result<LinearizedTrack> linearizeTrack(const BoundParameters& params,
-                                         const Vector4D& linPoint,
+  Result<LinearizedTrack> linearizeTrack(const BoundTrackParameters& params,
+                                         const Vector4& linPoint,
                                          const Acts::GeometryContext& gctx,
                                          const Acts::MagneticFieldContext& mctx,
                                          State& state) const;

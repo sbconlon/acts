@@ -12,7 +12,7 @@
 #include "Acts/Material/IMaterialDecorator.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
 #include "Acts/Material/IVolumeMaterial.hpp"
-#include "Acts/Plugins/Json/JsonGeometryConverter.hpp"
+#include "Acts/Plugins/Json/MaterialMapJsonConverter.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 
 #include <fstream>
@@ -30,12 +30,12 @@ namespace Acts {
 class JsonMaterialDecorator : public IMaterialDecorator {
  public:
   using SurfaceMaterialMap =
-      std::map<GeometryID, std::shared_ptr<const ISurfaceMaterial>>;
+      std::map<GeometryIdentifier, std::shared_ptr<const ISurfaceMaterial>>;
 
   using VolumeMaterialMap =
-      std::map<GeometryID, std::shared_ptr<const IVolumeMaterial>>;
+      std::map<GeometryIdentifier, std::shared_ptr<const IVolumeMaterial>>;
 
-  JsonMaterialDecorator(const JsonGeometryConverter::Config& rConfig,
+  JsonMaterialDecorator(const MaterialMapJsonConverter::Config& rConfig,
                         const std::string& jFileName,
                         bool clearSurfaceMaterial = true,
                         bool clearVolumeMaterial = true)
@@ -43,7 +43,7 @@ class JsonMaterialDecorator : public IMaterialDecorator {
         m_clearSurfaceMaterial(clearSurfaceMaterial),
         m_clearVolumeMaterial(clearVolumeMaterial) {
     // the material reader
-    Acts::JsonGeometryConverter jmConverter(rConfig);
+    Acts::MaterialMapJsonConverter jmConverter(rConfig);
 
     std::ifstream ifj(jFileName.c_str());
     nlohmann::json jin;
@@ -63,7 +63,7 @@ class JsonMaterialDecorator : public IMaterialDecorator {
       surface.assignSurfaceMaterial(nullptr);
     }
     // Try to find the surface in the map
-    auto sMaterial = m_surfaceMaterialMap.find(surface.geoID());
+    auto sMaterial = m_surfaceMaterialMap.find(surface.geometryId());
     if (sMaterial != m_surfaceMaterialMap.end()) {
       surface.assignSurfaceMaterial(sMaterial->second);
     }
@@ -78,14 +78,14 @@ class JsonMaterialDecorator : public IMaterialDecorator {
       volume.assignVolumeMaterial(nullptr);
     }
     // Try to find the volume in the map
-    auto vMaterial = m_volumeMaterialMap.find(volume.geoID());
+    auto vMaterial = m_volumeMaterialMap.find(volume.geometryId());
     if (vMaterial != m_volumeMaterialMap.end()) {
       volume.assignVolumeMaterial(vMaterial->second);
     }
   }
 
  private:
-  JsonGeometryConverter::Config m_readerConfig;
+  MaterialMapJsonConverter::Config m_readerConfig;
   SurfaceMaterialMap m_surfaceMaterialMap;
   VolumeMaterialMap m_volumeMaterialMap;
 

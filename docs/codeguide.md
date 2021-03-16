@@ -1,4 +1,4 @@
-# Coding guidelines
+# Code guidelines
 
 The following guidelines must be followed by all new code. Existing code that does not yet follow should be adapted when possible.
 You might disagree with some guidelines, but in a large code base as this one consistency is more important than personal opinion.
@@ -17,11 +17,11 @@ Example:
 
 ```cpp
 // local surface coordinate vector
-Vector2D loc;
+Vector2 loc;
 loc[ePos0] = 2.0;
 
 // space-time coordinate vector
-Vector4D pos4;
+Vector4 pos4;
 pos4[ePos0] = 0.1;
 ...
 pos4[eTime] = 12.3;

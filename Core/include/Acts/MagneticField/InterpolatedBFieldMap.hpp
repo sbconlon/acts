@@ -8,8 +8,9 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/MagneticField/MagneticFieldProvider.hpp"
 #include "Acts/Utilities/Interpolation.hpp"
 #include "Acts/Utilities/detail/Grid.hpp"
 
@@ -54,10 +55,10 @@ struct InterpolatedBFieldMapper {
     ///                         each Dimension)
     /// @param [in] fieldValues field values at the hyper box corners sorted in
     ///                         the canonical order defined in Acts::interpolate
-    FieldCell(std::function<ActsVectorD<DIM_POS>(const Vector3D&)> transformPos,
+    FieldCell(std::function<ActsVector<DIM_POS>(const Vector3&)> transformPos,
               std::array<double, DIM_POS> lowerLeft,
               std::array<double, DIM_POS> upperRight,
-              std::array<Vector3D, N> fieldValues)
+              std::array<Vector3, N> fieldValues)
         : m_transformPos(std::move(transformPos)),
           m_lowerLeft(std::move(lowerLeft)),
           m_upperRight(std::move(upperRight)),
@@ -69,7 +70,7 @@ struct InterpolatedBFieldMapper {
     /// @return magnetic field value at the given position
     ///
     /// @pre The given @c position must lie within the current field cell.
-    Vector3D getField(const Vector3D& position) const {
+    Vector3 getField(const Vector3& position) const {
       // defined in Interpolation.hpp
       return interpolate(m_transformPos(position), m_lowerLeft, m_upperRight,
                          m_fieldValues);
@@ -80,7 +81,7 @@ struct InterpolatedBFieldMapper {
     /// @param [in] position global 3D position
     /// @return @c true if position is inside the current field cell,
     ///         otherwise @c false
-    bool isInside(const Vector3D& position) const {
+    bool isInside(const Vector3& position) const {
       const auto& gridCoordinates = m_transformPos(position);
       for (unsigned int i = 0; i < DIM_POS; ++i) {
         if (gridCoordinates[i] < m_lowerLeft.at(i) ||
@@ -93,7 +94,7 @@ struct InterpolatedBFieldMapper {
 
    private:
     /// geometric transformation applied to global 3D positions
-    std::function<ActsVectorD<DIM_POS>(const Vector3D&)> m_transformPos;
+    std::function<ActsVector<DIM_POS>(const Vector3&)> m_transformPos;
 
     /// generalized lower-left corner of the confining hyper-box
     std::array<double, DIM_POS> m_lowerLeft;
@@ -105,7 +106,7 @@ struct InterpolatedBFieldMapper {
     ///
     /// @note These values must be order according to the prescription detailed
     ///       in Acts::interpolate.
-    std::array<Vector3D, N> m_fieldValues;
+    std::array<Vector3, N> m_fieldValues;
   };
 
   /// @brief default constructor
@@ -117,9 +118,8 @@ struct InterpolatedBFieldMapper {
   /// the global 3D position as input
   /// @param [in] grid      grid storing magnetic field values
   InterpolatedBFieldMapper(
-      std::function<ActsVectorD<DIM_POS>(const Vector3D&)> transformPos,
-      std::function<Vector3D(const FieldType&, const Vector3D&)>
-          transformBField,
+      std::function<ActsVector<DIM_POS>(const Vector3&)> transformPos,
+      std::function<Vector3(const FieldType&, const Vector3&)> transformBField,
       Grid_t grid)
       : m_transformPos(std::move(transformPos)),
         m_transformBField(std::move(transformBField)),
@@ -132,7 +132,7 @@ struct InterpolatedBFieldMapper {
   ///
   /// @pre The given @c position must lie within the range of the underlying
   ///      magnetic field map.
-  Vector3D getField(const Vector3D& position) const {
+  Vector3 getField(const Vector3& position) const {
     return m_transformBField(m_grid.interpolate(m_transformPos(position)),
                              position);
   }
@@ -144,7 +144,7 @@ struct InterpolatedBFieldMapper {
   ///
   /// @pre The given @c position must lie within the range of the underlying
   ///      magnetic field map.
-  FieldCell getFieldCell(const Vector3D& position) const {
+  FieldCell getFieldCell(const Vector3& position) const {
     const auto& gridPosition = m_transformPos(position);
     const auto& indices = m_grid.localBinsFromPosition(gridPosition);
     const auto& lowerLeft = m_grid.lowerLeftBinEdge(indices);
@@ -152,7 +152,7 @@ struct InterpolatedBFieldMapper {
 
     // loop through all corner points
     constexpr size_t nCorners = 1 << DIM_POS;
-    std::array<Vector3D, nCorners> neighbors;
+    std::array<Vector3, nCorners> neighbors;
     const auto& cornerIndices = m_grid.closestPointsIndices(gridPosition);
 
     size_t i = 0;
@@ -193,7 +193,7 @@ struct InterpolatedBFieldMapper {
   /// @param [in] position global 3D position
   /// @return @c true if position is inside the defined look-up grid,
   ///         otherwise @c false
-  bool isInside(const Vector3D& position) const {
+  bool isInside(const Vector3& position) const {
     return m_grid.isInside(m_transformPos(position));
   }
 
@@ -204,11 +204,11 @@ struct InterpolatedBFieldMapper {
 
  private:
   /// geometric transformation applied to global 3D positions
-  std::function<ActsVectorD<DIM_POS>(const Vector3D&)> m_transformPos;
+  std::function<ActsVector<DIM_POS>(const Vector3&)> m_transformPos;
   /// Transformation calculating the global 3D coordinates (cartesian) of the
   /// magnetic field with the local n dimensional field and the global 3D
   /// position as input
-  std::function<Vector3D(const FieldType&, const Vector3D&)> m_transformBField;
+  std::function<Vector3(const FieldType&, const Vector3&)> m_transformBField;
   /// grid storing magnetic field values
   Grid_t m_grid;
 };
@@ -229,7 +229,7 @@ struct InterpolatedBFieldMapper {
 /// - looking up the magnetic field values on the closest grid points,
 /// - doing a linear interpolation of these magnetic field values.
 template <typename Mapper_t>
-class InterpolatedBFieldMap final {
+class InterpolatedBFieldMap final : public MagneticFieldProvider {
  public:
   /// @brief configuration object for magnetic field interpolation
   struct Config {
@@ -253,7 +253,7 @@ class InterpolatedBFieldMap final {
     /// @brief Constructor with magnetic field context
     ///
     /// @param mcfg the magnetic field context
-    Cache(std::reference_wrapper<const MagneticFieldContext> /*mcfg*/) {}
+    Cache(const MagneticFieldContext& /*mcfg*/) {}
 
     std::optional<typename Mapper_t::FieldCell> fieldCell;
     bool initialized = false;
@@ -268,58 +268,6 @@ class InterpolatedBFieldMap final {
   ///
   /// @return copy of the internal configuration object
   Config getConfiguration() const { return m_config; }
-
-  /// @brief retrieve magnetic field value
-  ///
-  /// @param [in] position global 3D position
-  ///
-  /// @return magnetic field vector at given position
-  Vector3D getField(const Vector3D& position) const {
-    return m_config.mapper.getField(position);
-  }
-
-  /// @brief retrieve magnetic field value
-  ///
-  /// @param [in] position global 3D position
-  /// @param [in,out] cache Cache object. Contains field cell used for
-  /// interpolation
-  ///
-  /// @return magnetic field vector at given position
-  Vector3D getField(const Vector3D& position, Cache& cache) const {
-    if (!cache.fieldCell || !(*cache.fieldCell).isInside(position)) {
-      cache.fieldCell = getFieldCell(position);
-    }
-    return (*cache.fieldCell).getField(position);
-  }
-
-  /// @brief retrieve magnetic field value & its gradient
-  ///
-  /// @param [in]  position   global 3D position
-  /// @param [out] derivative gradient of magnetic field vector as (3x3) matrix
-  /// @return magnetic field vector
-  ///
-  /// @note currently the derivative is not calculated
-  /// @todo return derivative
-  Vector3D getFieldGradient(const Vector3D& position,
-                            ActsMatrixD<3, 3>& /*derivative*/) const {
-    return m_config.mapper.getField(position);
-  }
-
-  /// @brief retrieve magnetic field value & its gradient
-  ///
-  /// @param [in]  position   global 3D position
-  /// @param [out] derivative gradient of magnetic field vector as (3x3) matrix
-  /// @param [in,out] cache Cache object. Contains field cell used for
-  /// @return magnetic field vector
-  ///
-  /// @note currently the derivative is not calculated
-  /// @note Cache is not used currently
-  /// @todo return derivative
-  Vector3D getFieldGradient(const Vector3D& position,
-                            ActsMatrixD<3, 3>& /*derivative*/,
-                            Cache& /*cache*/) const {
-    return m_config.mapper.getField(position);
-  }
 
   /// @brief get global scaling factor for magnetic field
   ///
@@ -336,7 +284,7 @@ class InterpolatedBFieldMap final {
   /// @param [in] position global 3D position
   /// @return @c true if position is inside the defined BField map,
   ///         otherwise @c false
-  bool isInside(const Vector3D& position) const {
+  bool isInside(const Vector3& position) const {
     return m_config.mapper.isInside(position);
   }
 
@@ -344,6 +292,51 @@ class InterpolatedBFieldMap final {
   ///
   /// @param [in] config new configuration object
   void setConfiguration(const Config& config) { m_config = config; }
+
+ public:
+  /// @copydoc MagneticFieldProvider::makeCache(const MagneticFieldContext&)
+  MagneticFieldProvider::Cache makeCache(
+      const MagneticFieldContext& mctx) const override {
+    return MagneticFieldProvider::Cache::make<Cache>(mctx);
+  }
+
+  /// @copydoc MagneticFieldProvider::getField(const Vector3&)
+  Vector3 getField(const Vector3& position) const override {
+    return m_config.mapper.getField(position);
+  }
+
+  /// @copydoc MagneticFieldProvider::getField(const
+  /// Vector3&,MagneticFieldProvider::Cache&)
+  Vector3 getField(const Vector3& position,
+                   MagneticFieldProvider::Cache& gcache) const override {
+    Cache& cache = gcache.get<Cache>();
+    if (!cache.fieldCell || !(*cache.fieldCell).isInside(position)) {
+      cache.fieldCell = getFieldCell(position);
+    }
+    return (*cache.fieldCell).getField(position);
+  }
+
+  /// @copydoc MagneticFieldProvider::getFieldGradient(const
+  /// Vector3&,ActsMatrix<3,3>&)
+  ///
+  /// @note currently the derivative is not calculated
+  /// @todo return derivative
+  Vector3 getFieldGradient(const Vector3& position,
+                           ActsMatrix<3, 3>& /*derivative*/) const override {
+    return m_config.mapper.getField(position);
+  }
+
+  /// @copydoc MagneticFieldProvider::getFieldGradient(const
+  /// Vector3&,ActsMatrix<3,3>&,MagneticFieldProvider::Cache&)
+  ///
+  /// @note currently the derivative is not calculated
+  /// @note Cache is not used currently
+  /// @todo return derivative
+  Vector3 getFieldGradient(
+      const Vector3& position, ActsMatrix<3, 3>& /*derivative*/,
+      MagneticFieldProvider::Cache& /*cache*/) const override {
+    return m_config.mapper.getField(position);
+  }
 
  private:
   /// @brief retrieve field cell for given position
@@ -353,7 +346,7 @@ class InterpolatedBFieldMap final {
   ///
   /// @pre The given @c position must lie within the range of the underlying
   ///      magnetic field map.
-  typename Mapper_t::FieldCell getFieldCell(const Vector3D& position) const {
+  typename Mapper_t::FieldCell getFieldCell(const Vector3& position) const {
     return m_config.mapper.getFieldCell(position);
   }
 

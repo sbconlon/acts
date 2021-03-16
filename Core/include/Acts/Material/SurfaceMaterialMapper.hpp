@@ -12,7 +12,8 @@
 #include "Acts/Utilities/detail/ReferenceWrapperAnyCompat.hpp"
 
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Geometry/GeometryID.hpp"
+#include "Acts/Geometry/GeometryIdentifier.hpp"
+#include "Acts/Geometry/TrackingVolume.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
 #include "Acts/Material/AccumulatedSurfaceMaterial.hpp"
 #include "Acts/Material/ISurfaceMaterial.hpp"
@@ -25,8 +26,14 @@
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
+#include <array>
+#include <map>
+#include <memory>
+
 namespace Acts {
 
+class IVolumeMaterial;
+class ISurfaceMaterial;
 class TrackingGeometry;
 
 /// @brief selector for finding surface
@@ -53,7 +60,8 @@ struct MaterialVolume {
 ///
 ///  1) TrackingGeometry is parsed and for each Surface with
 ///     ProtoSurfaceMaterial a local store is initialized
-///     the identification is done hereby through the Surface::GeometryID
+///     the identification is done hereby through the
+///     Surface::GeometryIdentifier
 ///
 ///  2) A Cache is generated that is used to keep the filling thread local,
 ///     the filling is protected with std::mutex
@@ -89,19 +97,20 @@ class SurfaceMaterialMapper {
   /// Nested State struct which is used for the mapping prococess
   struct State {
     /// Constructor of the Sate with contexts
-    State(std::reference_wrapper<const GeometryContext> gctx,
-          std::reference_wrapper<const MagneticFieldContext> mctx)
+    State(const GeometryContext& gctx, const MagneticFieldContext& mctx)
         : geoContext(gctx), magFieldContext(mctx) {}
 
     /// The accumulated material per geometry ID
-    std::map<GeometryID, AccumulatedSurfaceMaterial> accumulatedMaterial;
+    std::map<GeometryIdentifier, AccumulatedSurfaceMaterial>
+        accumulatedMaterial;
 
     /// The created surface material from it
-    std::map<GeometryID, std::unique_ptr<const ISurfaceMaterial>>
+    std::map<GeometryIdentifier, std::unique_ptr<const ISurfaceMaterial>>
         surfaceMaterial;
 
     /// The volume material of the input tracking geometry
-    std::map<GeometryID, std::shared_ptr<const IVolumeMaterial>> volumeMaterial;
+    std::map<GeometryIdentifier, std::shared_ptr<const IVolumeMaterial>>
+        volumeMaterial;
 
     /// Reference to the geometry context for the mapping
     std::reference_wrapper<const GeometryContext> geoContext;
@@ -148,7 +157,7 @@ class SurfaceMaterialMapper {
   /// @param mState The current state map
   /// @param mTrack The material track to be mapped
   ///
-  /// @note the RecordedMaterialProperties of the track are assumed
+  /// @note the RecordedMaterialSlab of the track are assumed
   /// to be ordered from the starting position along the starting direction
   void mapMaterialTrack(State& mState, RecordedMaterialTrack& mTrack) const;
 

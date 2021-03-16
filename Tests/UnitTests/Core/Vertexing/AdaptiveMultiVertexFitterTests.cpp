@@ -10,12 +10,13 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
+#include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Vertexing/AdaptiveMultiVertexFitter.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
 #include "Acts/Vertexing/ImpactPointEstimator.hpp"
@@ -25,9 +26,10 @@ namespace Acts {
 namespace Test {
 
 using namespace Acts::UnitLiterals;
+using Acts::VectorHelpers::makeVector4;
 
 using Covariance = BoundSymMatrix;
-using Propagator = Propagator<EigenStepper<ConstantBField>>;
+using Propagator = Acts::Propagator<EigenStepper<>>;
 using Linearizer = HelicalTrackLinearizer<Propagator>;
 
 // Create a test context
@@ -69,42 +71,42 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test) {
   std::mt19937 gen(mySeed);
 
   // Set up constant B-Field
-  ConstantBField bField(Vector3D(0., 0., 1._T));
+  auto bField = std::make_shared<ConstantBField>(0.0, 0.0, 1_T);
 
   // Set up EigenStepper
-  EigenStepper<ConstantBField> stepper(bField);
+  EigenStepper<> stepper(bField);
 
   // Set up propagator with void navigator
   auto propagator = std::make_shared<Propagator>(stepper);
 
-  VertexingOptions<BoundParameters> vertexingOptions(geoContext,
-                                                     magFieldContext);
+  VertexingOptions<BoundTrackParameters> vertexingOptions(geoContext,
+                                                          magFieldContext);
 
   // IP 3D Estimator
-  using IPEstimator = ImpactPointEstimator<BoundParameters, Propagator>;
+  using IPEstimator = ImpactPointEstimator<BoundTrackParameters, Propagator>;
 
   IPEstimator::Config ip3dEstCfg(bField, propagator);
   IPEstimator ip3dEst(ip3dEstCfg);
 
-  AdaptiveMultiVertexFitter<BoundParameters, Linearizer>::Config fitterCfg(
+  AdaptiveMultiVertexFitter<BoundTrackParameters, Linearizer>::Config fitterCfg(
       ip3dEst);
 
-  // Linearizer for BoundParameters type test
+  // Linearizer for BoundTrackParameters type test
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
 
   // Test smoothing
   fitterCfg.doSmoothing = true;
 
-  AdaptiveMultiVertexFitter<BoundParameters, Linearizer> fitter(fitterCfg);
+  AdaptiveMultiVertexFitter<BoundTrackParameters, Linearizer> fitter(fitterCfg);
 
   // Create positions of three vertices, two of which (1 and 2) are
   // close to one another and will share a common track later
-  Vector3D vtxPos1(-0.15_mm, -0.1_mm, -1.5_mm);
-  Vector3D vtxPos2(-0.1_mm, -0.15_mm, -3._mm);
-  Vector3D vtxPos3(0.2_mm, 0.2_mm, 10._mm);
+  Vector3 vtxPos1(-0.15_mm, -0.1_mm, -1.5_mm);
+  Vector3 vtxPos2(-0.1_mm, -0.15_mm, -3._mm);
+  Vector3 vtxPos3(0.2_mm, 0.2_mm, 10._mm);
 
-  std::vector<Vector3D> vtxPosVec{vtxPos1, vtxPos2, vtxPos3};
+  std::vector<Vector3> vtxPosVec{vtxPos1, vtxPos2, vtxPos3};
 
   // Resolutions, use the same for all tracks
   double resD0 = resIPDist(gen);
@@ -113,17 +115,17 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test) {
   double resTh = resAngDist(gen);
   double resQp = resQoPDist(gen);
 
-  std::vector<Vertex<BoundParameters>> vtxList;
+  std::vector<Vertex<BoundTrackParameters>> vtxList;
   for (auto& vtxPos : vtxPosVec) {
-    Vertex<BoundParameters> vtx(vtxPos);
+    Vertex<BoundTrackParameters> vtx(vtxPos);
     // Set some vertex covariance
-    SymMatrix4D posCovariance(SymMatrix4D::Identity());
+    SymMatrix4 posCovariance(SymMatrix4::Identity());
     vtx.setFullCovariance(posCovariance);
     // Add to vertex list
     vtxList.push_back(vtx);
   }
 
-  std::vector<Vertex<BoundParameters>*> vtxPtrList;
+  std::vector<Vertex<BoundTrackParameters>*> vtxPtrList;
   int cv = 0;
   if (debugMode) {
     std::cout << "All vertices in test case: " << std::endl;
@@ -136,7 +138,7 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test) {
     vtxPtrList.push_back(&vtx);
   }
 
-  std::vector<BoundParameters> allTracks;
+  std::vector<BoundTrackParameters> allTracks;
 
   unsigned int nTracksPerVtx = 4;
   // Construct nTracksPerVtx * 3 (3 vertices) random track emerging
@@ -157,15 +159,14 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test) {
     int vtxIdx = (int)(iTrack / nTracksPerVtx);
 
     // Construct random track parameters
-    BoundParameters::ParametersVector paramVec;
+    BoundTrackParameters::ParametersVector paramVec;
     paramVec << d0Dist(gen), z0Dist(gen), phiDist(gen), thetaDist(gen),
         q / pTDist(gen), 0.;
 
     std::shared_ptr<PerigeeSurface> perigeeSurface =
         Surface::makeShared<PerigeeSurface>(vtxPosVec[vtxIdx]);
 
-    allTracks.push_back(BoundParameters(geoContext, std::move(covMat), paramVec,
-                                        perigeeSurface));
+    allTracks.emplace_back(perigeeSurface, paramVec, std::move(covMat));
   }
 
   if (debugMode) {
@@ -177,8 +178,8 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test) {
     }
   }
 
-  AdaptiveMultiVertexFitter<BoundParameters, Linearizer>::State state(
-      magFieldContext);
+  AdaptiveMultiVertexFitter<BoundTrackParameters, Linearizer>::State state(
+      *bField, magFieldContext);
 
   for (unsigned int iTrack = 0; iTrack < nTracksPerVtx * vtxPosVec.size();
        iTrack++) {
@@ -188,8 +189,8 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test) {
         &(allTracks[iTrack]));
     state.tracksAtVerticesMap.insert(
         std::make_pair(std::make_pair(&(allTracks[iTrack]), &(vtxList[vtxIdx])),
-                       TrackAtVertex<BoundParameters>(1., allTracks[iTrack],
-                                                      &(allTracks[iTrack]))));
+                       TrackAtVertex<BoundTrackParameters>(
+                           1., allTracks[iTrack], &(allTracks[iTrack]))));
 
     // Use first track also for second vertex to let vtx1 and vtx2
     // share this track
@@ -198,8 +199,8 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test) {
           &(allTracks[iTrack]));
       state.tracksAtVerticesMap.insert(
           std::make_pair(std::make_pair(&(allTracks[iTrack]), &(vtxList.at(1))),
-                         TrackAtVertex<BoundParameters>(1., allTracks[iTrack],
-                                                        &(allTracks[iTrack]))));
+                         TrackAtVertex<BoundTrackParameters>(
+                             1., allTracks[iTrack], &(allTracks[iTrack]))));
     }
   }
 
@@ -227,7 +228,7 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test) {
 
   // Copy vertex seeds from state.vertexCollection to new
   // list in order to be able to compare later
-  std::vector<Vertex<BoundParameters>> seedListCopy = vtxList;
+  std::vector<Vertex<BoundTrackParameters>> seedListCopy = vtxList;
 
   auto res1 =
       fitter.addVtxToFit(state, vtxList.at(0), linearizer, vertexingOptions);
@@ -315,20 +316,20 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test_athena) {
   // Set debug mode
   bool debugMode = false;
   // Set up constant B-Field
-  ConstantBField bField(Vector3D(0., 0., 2_T));
+  auto bField = std::make_shared<ConstantBField>(0.0, 0.0, 2_T);
 
   // Set up EigenStepper
-  // EigenStepper<ConstantBField> stepper(bField);
-  EigenStepper<ConstantBField> stepper(bField);
+  // EigenStepper<> stepper(bField);
+  EigenStepper<> stepper(bField);
 
   // Set up propagator with void navigator
   auto propagator = std::make_shared<Propagator>(stepper);
 
-  VertexingOptions<BoundParameters> vertexingOptions(geoContext,
-                                                     magFieldContext);
+  VertexingOptions<BoundTrackParameters> vertexingOptions(geoContext,
+                                                          magFieldContext);
 
   // IP 3D Estimator
-  using IPEstimator = ImpactPointEstimator<BoundParameters, Propagator>;
+  using IPEstimator = ImpactPointEstimator<BoundTrackParameters, Propagator>;
 
   IPEstimator::Config ip3dEstCfg(bField, propagator);
   IPEstimator ip3dEst(ip3dEstCfg);
@@ -337,35 +338,35 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test_athena) {
   AnnealingUtility::Config annealingConfig(temperatures);
   AnnealingUtility annealingUtility(annealingConfig);
 
-  AdaptiveMultiVertexFitter<BoundParameters, Linearizer>::Config fitterCfg(
+  AdaptiveMultiVertexFitter<BoundTrackParameters, Linearizer>::Config fitterCfg(
       ip3dEst);
 
   fitterCfg.annealingTool = annealingUtility;
 
-  // Linearizer for BoundParameters type test
+  // Linearizer for BoundTrackParameters type test
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
 
   // Test smoothing
   // fitterCfg.doSmoothing = true;
 
-  AdaptiveMultiVertexFitter<BoundParameters, Linearizer> fitter(fitterCfg);
+  AdaptiveMultiVertexFitter<BoundTrackParameters, Linearizer> fitter(fitterCfg);
 
   // Create first vector of tracks
-  Vector3D pos1a(0.5_mm, -0.5_mm, 2.4_mm);
-  Vector3D mom1a(1000_MeV, 0_MeV, -500_MeV);
-  Vector3D pos1b(0.5_mm, -0.5_mm, 3.5_mm);
-  Vector3D mom1b(0_MeV, 1000_MeV, 500_MeV);
-  Vector3D pos1c(-0.2_mm, 0.1_mm, 3.4_mm);
-  Vector3D mom1c(-50_MeV, 180_MeV, 300_MeV);
+  Vector3 pos1a(0.5_mm, -0.5_mm, 2.4_mm);
+  Vector3 mom1a(1000_MeV, 0_MeV, -500_MeV);
+  Vector3 pos1b(0.5_mm, -0.5_mm, 3.5_mm);
+  Vector3 mom1b(0_MeV, 1000_MeV, 500_MeV);
+  Vector3 pos1c(-0.2_mm, 0.1_mm, 3.4_mm);
+  Vector3 mom1c(-50_MeV, 180_MeV, 300_MeV);
 
-  Vector3D pos1d(-0.1_mm, 0.3_mm, 3.0_mm);
-  Vector3D mom1d(-80_MeV, 480_MeV, -100_MeV);
-  Vector3D pos1e(-0.01_mm, 0.01_mm, 2.9_mm);
-  Vector3D mom1e(-600_MeV, 10_MeV, 210_MeV);
+  Vector3 pos1d(-0.1_mm, 0.3_mm, 3.0_mm);
+  Vector3 mom1d(-80_MeV, 480_MeV, -100_MeV);
+  Vector3 pos1e(-0.01_mm, 0.01_mm, 2.9_mm);
+  Vector3 mom1e(-600_MeV, 10_MeV, 210_MeV);
 
-  Vector3D pos1f(-0.07_mm, 0.03_mm, 2.5_mm);
-  Vector3D mom1f(240_MeV, 110_MeV, 150_MeV);
+  Vector3 pos1f(-0.07_mm, 0.03_mm, 2.5_mm);
+  Vector3 mom1f(240_MeV, 110_MeV, 150_MeV);
 
   // Start creating some track parameters
   Covariance covMat1;
@@ -373,72 +374,82 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test_athena) {
       0.1, 0, 0, 0, 0, 0., 0, 0.1, 0, 0, 0., 0, 0, 0, 1. / (10_GeV * 10_GeV), 0,
       0, 0, 0, 0, 0, 1_ns;
 
-  std::vector<BoundParameters> params1;
-  params1.push_back(
-      BoundParameters(geoContext, covMat1, pos1a, mom1a, 1, 0,
-                      Surface::makeShared<PerigeeSurface>(pos1a)));
-  params1.push_back(
-      BoundParameters(geoContext, covMat1, pos1b, mom1b, -1, 0,
-                      Surface::makeShared<PerigeeSurface>(pos1b)));
-  params1.push_back(
-      BoundParameters(geoContext, covMat1, pos1c, mom1c, 1, 0,
-                      Surface::makeShared<PerigeeSurface>(pos1c)));
-  params1.push_back(
-      BoundParameters(geoContext, covMat1, pos1d, mom1d, -1, 0,
-                      Surface::makeShared<PerigeeSurface>(pos1d)));
-  params1.push_back(
-      BoundParameters(geoContext, covMat1, pos1e, mom1e, 1, 0,
-                      Surface::makeShared<PerigeeSurface>(pos1e)));
-  params1.push_back(
-      BoundParameters(geoContext, covMat1, pos1f, mom1f, -1, 0,
-                      Surface::makeShared<PerigeeSurface>(pos1f)));
+  std::vector<BoundTrackParameters> params1 = {
+      BoundTrackParameters::create(Surface::makeShared<PerigeeSurface>(pos1a),
+                                   geoContext, makeVector4(pos1a, 0), mom1a,
+                                   mom1a.norm(), 1, covMat1)
+          .value(),
+      BoundTrackParameters::create(Surface::makeShared<PerigeeSurface>(pos1b),
+                                   geoContext, makeVector4(pos1b, 0), mom1b,
+                                   mom1b.norm(), -1, covMat1)
+          .value(),
+      BoundTrackParameters::create(Surface::makeShared<PerigeeSurface>(pos1c),
+                                   geoContext, makeVector4(pos1c, 0), mom1c,
+                                   mom1c.norm(), 1, covMat1)
+          .value(),
+      BoundTrackParameters::create(Surface::makeShared<PerigeeSurface>(pos1d),
+                                   geoContext, makeVector4(pos1d, 0), mom1d,
+                                   mom1d.norm(), -1, covMat1)
+          .value(),
+      BoundTrackParameters::create(Surface::makeShared<PerigeeSurface>(pos1e),
+                                   geoContext, makeVector4(pos1e, 0), mom1e,
+                                   mom1e.norm(), 1, covMat1)
+          .value(),
+      BoundTrackParameters::create(Surface::makeShared<PerigeeSurface>(pos1f),
+                                   geoContext, makeVector4(pos1f, 0), mom1f,
+                                   mom1f.norm(), -1, covMat1)
+          .value(),
+  };
 
   // Create second vector of tracks
-  Vector3D pos2a(0.2_mm, 0_mm, -4.9_mm);
-  Vector3D mom2a(5000_MeV, 30_MeV, 200_MeV);
-  Vector3D pos2b(-0.5_mm, 0.1_mm, -5.1_mm);
-  Vector3D mom2b(800_MeV, 1200_MeV, 200_MeV);
-  Vector3D pos2c(0.05_mm, -0.5_mm, -4.7_mm);
-  Vector3D mom2c(400_MeV, -300_MeV, -200_MeV);
+  Vector3 pos2a(0.2_mm, 0_mm, -4.9_mm);
+  Vector3 mom2a(5000_MeV, 30_MeV, 200_MeV);
+  Vector3 pos2b(-0.5_mm, 0.1_mm, -5.1_mm);
+  Vector3 mom2b(800_MeV, 1200_MeV, 200_MeV);
+  Vector3 pos2c(0.05_mm, -0.5_mm, -4.7_mm);
+  Vector3 mom2c(400_MeV, -300_MeV, -200_MeV);
 
   // Define covariance as used in athena unit test
   Covariance covMat2 = covMat1;
 
-  std::vector<BoundParameters> params2;
-  params2.push_back(
-      BoundParameters(geoContext, covMat2, pos2a, mom2a, 1, 0,
-                      Surface::makeShared<PerigeeSurface>(pos2a)));
-  params2.push_back(
-      BoundParameters(geoContext, covMat2, pos2b, mom2b, -1, 0,
-                      Surface::makeShared<PerigeeSurface>(pos2b)));
-  params2.push_back(
-      BoundParameters(geoContext, covMat2, pos2c, mom2c, -1, 0,
-                      Surface::makeShared<PerigeeSurface>(pos2c)));
+  std::vector<BoundTrackParameters> params2 = {
+      BoundTrackParameters::create(Surface::makeShared<PerigeeSurface>(pos2a),
+                                   geoContext, makeVector4(pos2a, 0), mom2a,
+                                   mom2a.norm(), 1, covMat2)
+          .value(),
+      BoundTrackParameters::create(Surface::makeShared<PerigeeSurface>(pos2b),
+                                   geoContext, makeVector4(pos2b, 0), mom2b,
+                                   mom2b.norm(), -1, covMat2)
+          .value(),
+      BoundTrackParameters::create(Surface::makeShared<PerigeeSurface>(pos2c),
+                                   geoContext, makeVector4(pos2c, 0), mom2c,
+                                   mom2c.norm(), -1, covMat2)
+          .value(),
+  };
+  std::vector<Vertex<BoundTrackParameters>*> vtxList;
 
-  std::vector<Vertex<BoundParameters>*> vtxList;
-
-  AdaptiveMultiVertexFitter<BoundParameters, Linearizer>::State state(
-      magFieldContext);
+  AdaptiveMultiVertexFitter<BoundTrackParameters, Linearizer>::State state(
+      *bField, magFieldContext);
 
   // The constraint vertex position covariance
-  SymMatrix4D covConstr(SymMatrix4D::Identity());
+  SymMatrix4 covConstr(SymMatrix4::Identity());
   covConstr = covConstr * 1e+8;
   covConstr(3, 3) = 0.;
 
   // Prepare first vertex
-  Vector3D vtxPos1(0.15_mm, 0.15_mm, 2.9_mm);
-  Vertex<BoundParameters> vtx1(vtxPos1);
+  Vector3 vtxPos1(0.15_mm, 0.15_mm, 2.9_mm);
+  Vertex<BoundTrackParameters> vtx1(vtxPos1);
 
   // Add to vertex list
   vtxList.push_back(&vtx1);
 
   // The constraint vtx for vtx1
-  Vertex<BoundParameters> vtx1Constr(vtxPos1);
+  Vertex<BoundTrackParameters> vtx1Constr(vtxPos1);
   vtx1Constr.setFullCovariance(covConstr);
   vtx1Constr.setFitQuality(0, -3);
 
   // Prepare vtx info for fitter
-  VertexInfo<BoundParameters> vtxInfo1;
+  VertexInfo<BoundTrackParameters> vtxInfo1;
   vtxInfo1.linPoint.setZero();
   vtxInfo1.linPoint.head<3>() = vtxPos1;
   vtxInfo1.constraintVertex = vtx1Constr;
@@ -449,23 +460,23 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test_athena) {
     vtxInfo1.trackLinks.push_back(&trk);
     state.tracksAtVerticesMap.insert(
         std::make_pair(std::make_pair(&trk, &vtx1),
-                       TrackAtVertex<BoundParameters>(1.5, trk, &trk)));
+                       TrackAtVertex<BoundTrackParameters>(1.5, trk, &trk)));
   }
 
   // Prepare second vertex
-  Vector3D vtxPos2(0.3_mm, -0.2_mm, -4.8_mm);
-  Vertex<BoundParameters> vtx2(vtxPos2);
+  Vector3 vtxPos2(0.3_mm, -0.2_mm, -4.8_mm);
+  Vertex<BoundTrackParameters> vtx2(vtxPos2);
 
   // Add to vertex list
   vtxList.push_back(&vtx2);
 
   // The constraint vtx for vtx2
-  Vertex<BoundParameters> vtx2Constr(vtxPos2);
+  Vertex<BoundTrackParameters> vtx2Constr(vtxPos2);
   vtx2Constr.setFullCovariance(covConstr);
   vtx2Constr.setFitQuality(0, -3);
 
   // Prepare vtx info for fitter
-  VertexInfo<BoundParameters> vtxInfo2;
+  VertexInfo<BoundTrackParameters> vtxInfo2;
   vtxInfo2.linPoint.setZero();
   vtxInfo2.linPoint.head<3>() = vtxPos2;
   vtxInfo2.constraintVertex = vtx2Constr;
@@ -476,7 +487,7 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test_athena) {
     vtxInfo2.trackLinks.push_back(&trk);
     state.tracksAtVerticesMap.insert(
         std::make_pair(std::make_pair(&trk, &vtx2),
-                       TrackAtVertex<BoundParameters>(1.5, trk, &trk)));
+                       TrackAtVertex<BoundTrackParameters>(1.5, trk, &trk)));
   }
 
   state.vtxInfoMap[&vtx1] = std::move(vtxInfo1);
@@ -520,24 +531,24 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_fitter_test_athena) {
 
   // Expected values from Athena implementation
   // Vertex 1
-  const Vector3D expVtx1Pos(0.077_mm, -0.189_mm, 2.924_mm);
+  const Vector3 expVtx1Pos(0.077_mm, -0.189_mm, 2.924_mm);
 
   // Helper matrix to create const expVtx1Cov below
-  ActsSymMatrixD<3> expVtx1Cov;
+  SymMatrix3 expVtx1Cov;
   expVtx1Cov << 0.329, 0.016, -0.035, 0.016, 0.250, 0.085, -0.035, 0.085, 0.242;
 
-  ActsVectorD<6> expVtx1TrkWeights;
+  ActsVector<6> expVtx1TrkWeights;
   expVtx1TrkWeights << 0.8128, 0.7994, 0.8164, 0.8165, 0.8165, 0.8119;
   const double expVtx1chi2 = 0.9812;
   const double expVtx1ndf = 6.7474;
 
   // Vertex 2
-  const Vector3D expVtx2Pos(-0.443_mm, -0.044_mm, -4.829_mm);
+  const Vector3 expVtx2Pos(-0.443_mm, -0.044_mm, -4.829_mm);
   // Helper matrix to create const expVtx2Cov below
-  ActsSymMatrixD<3> expVtx2Cov;
+  SymMatrix3 expVtx2Cov;
   expVtx2Cov << 1.088, 0.028, -0.066, 0.028, 0.643, 0.073, -0.066, 0.073, 0.435;
 
-  const Vector3D expVtx2TrkWeights(0.8172, 0.8150, 0.8137);
+  const Vector3 expVtx2TrkWeights(0.8172, 0.8150, 0.8137);
   const double expVtx2chi2 = 0.2114;
   const double expVtx2ndf = 1.8920;
 

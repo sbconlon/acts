@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2019-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,14 +8,16 @@
 
 #pragma once
 
+#include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/EventData/Measurement.hpp"
 #include "Acts/EventData/TrackStatePropMask.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Utilities/ParameterDefinitions.hpp"
+#include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/TypeTraits.hpp"
 
 #include <bitset>
 #include <cstdint>
+#include <memory>
 #include <type_traits>
 #include <vector>
 
@@ -93,7 +95,7 @@ struct Types {
     Flags = Eigen::ColMajor | Eigen::AutoAlign,
     SizeIncrement = 8,
   };
-  using Scalar = double;
+  using Scalar = ActsScalar;
   // single items
   using Coefficients = Eigen::Matrix<Scalar, Size, 1, Flags>;
   using Covariance = Eigen::Matrix<Scalar, Size, Size, Flags>;
@@ -140,10 +142,8 @@ template <typename source_link_t, size_t M, bool ReadOnly = true>
 class TrackStateProxy {
  public:
   using SourceLink = source_link_t;
-  using Parameters =
-      typename Types<eBoundParametersSize, ReadOnly>::CoefficientsMap;
-  using Covariance =
-      typename Types<eBoundParametersSize, ReadOnly>::CovarianceMap;
+  using Parameters = typename Types<eBoundSize, ReadOnly>::CoefficientsMap;
+  using Covariance = typename Types<eBoundSize, ReadOnly>::CovarianceMap;
   using Measurement = typename Types<M, ReadOnly>::CoefficientsMap;
   using MeasurementCovariance = typename Types<M, ReadOnly>::CovarianceMap;
 
@@ -152,11 +152,11 @@ class TrackStateProxy {
   // @TODO: Does not copy flags, because this fails: can't have col major row
   // vector, but that's required for 1xN projection matrices below.
   constexpr static auto ProjectorFlags = Eigen::RowMajor | Eigen::AutoAlign;
-  using Projector = Eigen::Matrix<typename Covariance::Scalar, M,
-                                  eBoundParametersSize, ProjectorFlags>;
+  using Projector =
+      Eigen::Matrix<typename Covariance::Scalar, M, eBoundSize, ProjectorFlags>;
   using EffectiveProjector =
       Eigen::Matrix<typename Projector::Scalar, Eigen::Dynamic, Eigen::Dynamic,
-                    ProjectorFlags, M, eBoundParametersSize>;
+                    ProjectorFlags, M, eBoundSize>;
 
   /// Index within the trajectory.
   /// @return the index
@@ -357,8 +357,7 @@ class TrackStateProxy {
     assert(dataref.iprojector != IndexData::kInvalid);
 
     static_assert(rows <= M, "Given projector has too many rows");
-    static_assert(cols <= eBoundParametersSize,
-                  "Given projector has too many columns");
+    static_assert(cols <= eBoundSize, "Given projector has too many columns");
 
     // set up full size projector with only zeros
     typename TrackStateProxy::Projector fullProjector =
@@ -438,71 +437,66 @@ class TrackStateProxy {
   /// @return The number of dimensions
   size_t calibratedSize() const { return data().measdim; }
 
-  /// Setter for a full measurement object
-  /// @note This assumes this TrackState stores it's own calibrated
-  /// measurement. **If storage is shared with another TrackState, both will
-  /// be overwritten!**. Also assumes none of the calibrated components is
-  /// *invalid* (i.e. unset) for this TrackState..
-  /// @tparam params The parameter tags of the measurement
+  /// Overwrite existing measurement data.
+  ///
+  /// @tparam kMeasurementSize Size of the calibrated measurement
   /// @param meas The measurement object to set
-  template <bool RO = ReadOnly, typename = std::enable_if_t<!RO>,
-            ParID_t... params>
-  void setCalibrated(const Acts::Measurement<SourceLink, BoundParametersIndices,
-                                             params...>& meas) {
+  ///
+  /// @note This assumes this TrackState stores it's own calibrated
+  ///   measurement. **If storage is shared with another TrackState, both will
+  ///   be overwritten!**. Also assumes none of the calibrated components is
+  ///   *invalid* (i.e. unset) for this TrackState.
+  /// @note This does not set the reference surface.
+  template <size_t kMeasurementSize, bool RO = ReadOnly,
+            typename = std::enable_if_t<!RO>>
+  void setCalibrated(const Acts::Measurement<SourceLink, BoundIndices,
+                                             kMeasurementSize>& meas) {
+    static_assert(kMeasurementSize <= M,
+                  "Input measurement must be within the allowed size");
+
     IndexData& dataref = data();
-    constexpr size_t measdim =
-        Acts::Measurement<SourceLink, BoundParametersIndices,
-                          params...>::size();
-
-    dataref.measdim = measdim;
-
-    assert(hasCalibrated());
-    calibrated().setZero();
-    calibrated().template head<measdim>() = meas.parameters();
-
-    calibratedCovariance().setZero();
-    calibratedCovariance().template topLeftCorner<measdim, measdim>() =
-        meas.covariance();
-
-    setProjector(meas.projector());
-
-    // this shouldn't change
-    assert(data().irefsurface != IndexData::kInvalid);
-    std::shared_ptr<const Surface>& refSrf =
-        m_traj->m_referenceSurfaces[dataref.irefsurface];
-    // either unset, or the same, otherwise this is inconsistent assignment
-    assert(!refSrf || refSrf.get() == &meas.referenceObject());
-    if (!refSrf) {
-      // ref surface is not set, set it now
-      refSrf = meas.referenceObject().getSharedPtr();
-    }
+    dataref.measdim = kMeasurementSize;
 
     assert(dataref.icalibratedsourcelink != IndexData::kInvalid);
     calibratedSourceLink() = meas.sourceLink();
+
+    assert(hasCalibrated());
+    calibrated().setZero();
+    calibrated().template head<kMeasurementSize>() = meas.parameters();
+    calibratedCovariance().setZero();
+    calibratedCovariance()
+        .template topLeftCorner<kMeasurementSize, kMeasurementSize>() =
+        meas.covariance();
+    setProjector(meas.projector());
   }
 
-  /// Setter for a full measurement object.
-  /// @note This allocates new storage for the calibrated measurement. If this
-  /// TrackState previously already had unique storage for these components,
-  /// they will **not be removed**, but may become unaccessible.
-  /// @tparam params The parameter tags of the measurement
+  /// Write measurement data without touching existing data.
+  ///
+  /// @tparam kMeasurementSize Size of the calibrated measurement
   /// @param meas The measurement object to set
-  template <bool RO = ReadOnly, typename = std::enable_if_t<!RO>,
-            ParID_t... params>
-  void resetCalibrated(
-      const Acts::Measurement<SourceLink, BoundParametersIndices, params...>&
-          meas) {
+  ///
+  /// @note This allocates new storage for the calibrated measurement. If this
+  ///   TrackState previously already had unique storage for these components,
+  ///   they will **not be removed**, but may become unaccessible.
+  /// @note This does not set the reference surface.
+  template <size_t kMeasurementSize, bool RO = ReadOnly,
+            typename = std::enable_if_t<!RO>>
+  void resetCalibrated(const Acts::Measurement<SourceLink, BoundIndices,
+                                               kMeasurementSize>& meas) {
+    static_assert(kMeasurementSize <= M,
+                  "Input measurement must be within the allowed size");
+
     IndexData& dataref = data();
     auto& traj = *m_traj;
-    // force reallocate, whether currently invalid or shared index
-    traj.m_meas.addCol();
-    traj.m_measCov.addCol();
-    // shared index between meas par
-    // and cov
-    dataref.icalibrated = traj.m_meas.size() - 1;
 
     traj.m_sourceLinks.emplace_back();
     dataref.icalibratedsourcelink = traj.m_sourceLinks.size() - 1;
+
+    // force reallocate, whether currently invalid or shared index
+    traj.m_meas.addCol();
+    traj.m_measCov.addCol();
+    // shared index between meas par and cov
+    dataref.icalibrated = traj.m_meas.size() - 1;
 
     traj.m_projectors.emplace_back();
     dataref.iprojector = traj.m_projectors.size() - 1;
@@ -587,9 +581,9 @@ template <typename T, typename TS>
 using call_operator_t = decltype(std::declval<T>()(std::declval<TS>()));
 
 template <typename T, typename TS>
-constexpr bool VisitorConcept = concept ::require<
-    concept ::either<concept ::identical_to<bool, call_operator_t, T, TS>,
-                     concept ::identical_to<void, call_operator_t, T, TS>>>;
+constexpr bool VisitorConcept = Concepts ::require<
+    Concepts ::either<Concepts ::identical_to<bool, call_operator_t, T, TS>,
+                      Concepts ::identical_to<void, call_operator_t, T, TS>>>;
 
 }  // namespace detail_lt
 
@@ -606,16 +600,14 @@ template <typename source_link_t>
 class MultiTrajectory {
  public:
   enum {
-    MeasurementSizeMax = eBoundParametersSize,
+    MeasurementSizeMax = eBoundSize,
   };
   using SourceLink = source_link_t;
   using ConstTrackStateProxy =
       detail_lt::TrackStateProxy<SourceLink, MeasurementSizeMax, true>;
   using TrackStateProxy =
       detail_lt::TrackStateProxy<SourceLink, MeasurementSizeMax, false>;
-
-  using ProjectorBitset =
-      std::bitset<eBoundParametersSize * MeasurementSizeMax>;
+  using ProjectorBitset = std::bitset<eBoundSize * MeasurementSizeMax>;
 
   /// Create an empty trajectory.
   MultiTrajectory() = default;
@@ -661,11 +653,11 @@ class MultiTrajectory {
  private:
   /// index to map track states to the corresponding
   std::vector<detail_lt::IndexData> m_index;
-  typename detail_lt::Types<eBoundParametersSize>::StorageCoefficients m_params;
-  typename detail_lt::Types<eBoundParametersSize>::StorageCovariance m_cov;
+  typename detail_lt::Types<eBoundSize>::StorageCoefficients m_params;
+  typename detail_lt::Types<eBoundSize>::StorageCovariance m_cov;
   typename detail_lt::Types<MeasurementSizeMax>::StorageCoefficients m_meas;
   typename detail_lt::Types<MeasurementSizeMax>::StorageCovariance m_measCov;
-  typename detail_lt::Types<eBoundParametersSize>::StorageCovariance m_jac;
+  typename detail_lt::Types<eBoundSize>::StorageCovariance m_jac;
   std::vector<SourceLink> m_sourceLinks;
   std::vector<ProjectorBitset> m_projectors;
 

@@ -10,14 +10,14 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/FullBilloirVertexFitter.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
@@ -29,8 +29,7 @@ namespace Acts {
 namespace Test {
 
 using Covariance = BoundSymMatrix;
-using Linearizer =
-    HelicalTrackLinearizer<Propagator<EigenStepper<ConstantBField>>>;
+using Linearizer = HelicalTrackLinearizer<Propagator<EigenStepper<>>>;
 
 // Create a test context
 GeometryContext geoContext = GeometryContext();
@@ -40,47 +39,47 @@ MagneticFieldContext magFieldContext = MagneticFieldContext();
 ///
 BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_empty_input_test) {
   // Set up constant B-Field
-  ConstantBField bField(0.0, 0.0, 1_T);
+  auto bField = std::make_shared<ConstantBField>(0.0, 0.0, 1_T);
 
   // Set up Eigenstepper
-  EigenStepper<ConstantBField> stepper(bField);
+  EigenStepper<> stepper(bField);
 
   // Set up propagator with void navigator
-  auto propagator =
-      std::make_shared<Propagator<EigenStepper<ConstantBField>>>(stepper);
+  auto propagator = std::make_shared<Propagator<EigenStepper<>>>(stepper);
 
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
 
   // Set up Billoir Vertex Fitter
-  using VertexFitter = FullBilloirVertexFitter<BoundParameters, Linearizer>;
+  using VertexFitter =
+      FullBilloirVertexFitter<BoundTrackParameters, Linearizer>;
   VertexFitter::Config vertexFitterCfg;
   VertexFitter billoirFitter(vertexFitterCfg);
-  VertexFitter::State state(magFieldContext);
+  VertexFitter::State state(bField->makeCache(magFieldContext));
 
   // Constraint for vertex fit
-  Vertex<BoundParameters> myConstraint;
+  Vertex<BoundTrackParameters> myConstraint;
   // Some abitrary values
-  SymMatrix4D myCovMat = SymMatrix4D::Zero();
+  SymMatrix4 myCovMat = SymMatrix4::Zero();
   myCovMat(0, 0) = 30.;
   myCovMat(1, 1) = 30.;
   myCovMat(2, 2) = 30.;
   myCovMat(3, 3) = 30.;
   myConstraint.setFullCovariance(std::move(myCovMat));
-  myConstraint.setFullPosition(Vector4D(0, 0, 0, 0));
+  myConstraint.setFullPosition(Vector4(0, 0, 0, 0));
 
-  const std::vector<const BoundParameters*> emptyVector;
+  const std::vector<const BoundTrackParameters*> emptyVector;
 
-  VertexingOptions<BoundParameters> vfOptions(geoContext, magFieldContext,
-                                              myConstraint);
+  VertexingOptions<BoundTrackParameters> vfOptions(geoContext, magFieldContext,
+                                                   myConstraint);
 
-  Vertex<BoundParameters> fittedVertex =
+  Vertex<BoundTrackParameters> fittedVertex =
       billoirFitter.fit(emptyVector, linearizer, vfOptions, state).value();
 
-  Vector3D origin(0., 0., 0.);
+  Vector3 origin(0., 0., 0.);
   BOOST_CHECK_EQUAL(fittedVertex.position(), origin);
 
-  SymMatrix4D zeroMat = SymMatrix4D::Zero();
+  SymMatrix4 zeroMat = SymMatrix4::Zero();
   BOOST_CHECK_EQUAL(fittedVertex.fullCovariance(), zeroMat);
 
   fittedVertex =
@@ -117,21 +116,19 @@ std::uniform_int_distribution<> nTracksDist(3, 10);
 
 ///
 /// @brief Unit test for FullBilloirVertexFitter
-/// with default input track type (= BoundParameters)
+/// with default input track type (= BoundTrackParameters)
 ///
 BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_defaulttrack_test) {
-  bool debugMode = false;
   // Set up RNG
   int mySeed = 31415;
   std::mt19937 gen(mySeed);
   // Set up constant B-Field
-  ConstantBField bField(0.0, 0.0, 1_T);
+  auto bField = std::make_shared<ConstantBField>(0.0, 0.0, 1_T);
 
   // Set up Eigenstepper
-  EigenStepper<ConstantBField> stepper(bField);
+  EigenStepper<> stepper(bField);
   // Set up propagator with void navigator
-  auto propagator =
-      std::make_shared<Propagator<EigenStepper<ConstantBField>>>(stepper);
+  auto propagator = std::make_shared<Propagator<EigenStepper<>>>(stepper);
 
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
@@ -143,38 +140,40 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_defaulttrack_test) {
     unsigned int nTracks = nTracksDist(gen);
 
     // Set up Billoir Vertex Fitter
-    using VertexFitter = FullBilloirVertexFitter<BoundParameters, Linearizer>;
+    using VertexFitter =
+        FullBilloirVertexFitter<BoundTrackParameters, Linearizer>;
     VertexFitter::Config vertexFitterCfg;
     VertexFitter billoirFitter(vertexFitterCfg);
-    VertexFitter::State state(magFieldContext);
+    VertexFitter::State state(bField->makeCache(magFieldContext));
     // Constraint for vertex fit
-    Vertex<BoundParameters> myConstraint;
+    Vertex<BoundTrackParameters> myConstraint;
     // Some abitrary values
-    SymMatrix4D myCovMat = SymMatrix4D::Zero();
+    SymMatrix4 myCovMat = SymMatrix4::Zero();
     myCovMat(0, 0) = 30.;
     myCovMat(1, 1) = 30.;
     myCovMat(2, 2) = 30.;
     myCovMat(3, 3) = 30.;
     myConstraint.setFullCovariance(std::move(myCovMat));
-    myConstraint.setFullPosition(Vector4D(0, 0, 0, 0));
-    VertexingOptions<BoundParameters> vfOptions(geoContext, magFieldContext);
+    myConstraint.setFullPosition(Vector4(0, 0, 0, 0));
+    VertexingOptions<BoundTrackParameters> vfOptions(geoContext,
+                                                     magFieldContext);
 
-    VertexingOptions<BoundParameters> vfOptionsConstr(
+    VertexingOptions<BoundTrackParameters> vfOptionsConstr(
         geoContext, magFieldContext, myConstraint);
     // Create position of vertex and perigee surface
     double x = vXYDist(gen);
     double y = vXYDist(gen);
     double z = vZDist(gen);
 
-    Vector3D vertexPosition(x, y, z);
+    Vector3 vertexPosition(x, y, z);
     std::shared_ptr<PerigeeSurface> perigeeSurface =
-        Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+        Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
     // Calculate d0 and z0 corresponding to vertex position
     double d0V = sqrt(x * x + y * y);
     double z0V = z;
 
     // Start constructing nTracks tracks in the following
-    std::vector<BoundParameters> tracks;
+    std::vector<BoundTrackParameters> tracks;
 
     // Construct random track emerging from vicinity of vertex position
     // Vector to store track objects used for vertex fit
@@ -200,49 +199,47 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_defaulttrack_test) {
       covMat << resD0 * resD0, 0., 0., 0., 0., 0., 0., resZ0 * resZ0, 0., 0.,
           0., 0., 0., 0., resPh * resPh, 0., 0., 0., 0., 0., 0., resTh * resTh,
           0., 0., 0., 0., 0., 0., resQp * resQp, 0., 0., 0., 0., 0., 0., 1.;
-      tracks.push_back(BoundParameters(geoContext, std::move(covMat), paramVec,
-                                       perigeeSurface));
+      tracks.push_back(
+          BoundTrackParameters(perigeeSurface, paramVec, std::move(covMat)));
     }
 
-    std::vector<const BoundParameters*> tracksPtr;
+    std::vector<const BoundTrackParameters*> tracksPtr;
     for (const auto& trk : tracks) {
       tracksPtr.push_back(&trk);
     }
 
     // Do the actual fit with 4 tracks without constraint
-    Vertex<BoundParameters> fittedVertex =
+    Vertex<BoundTrackParameters> fittedVertex =
         billoirFitter.fit(tracksPtr, linearizer, vfOptions, state).value();
     if (fittedVertex.tracks().size() > 0) {
       CHECK_CLOSE_ABS(fittedVertex.position(), vertexPosition, 1_mm);
     }
     // Do the fit with a constraint
-    Vertex<BoundParameters> fittedVertexConstraint =
+    Vertex<BoundTrackParameters> fittedVertexConstraint =
         billoirFitter.fit(tracksPtr, linearizer, vfOptionsConstr, state)
             .value();
     if (fittedVertexConstraint.tracks().size() > 0) {
       CHECK_CLOSE_ABS(fittedVertexConstraint.position(), vertexPosition, 1_mm);
     }
 
-    if (debugMode) {
-      std::cout << "Fitting nTracks: " << nTracks << std::endl;
-      std::cout << "True Vertex: " << x << ", " << y << ", " << z << std::endl;
-      std::cout << "Fitted Vertex: " << fittedVertex.position() << std::endl;
-      std::cout << "Fitted constraint Vertex: "
-                << fittedVertexConstraint.position() << std::endl;
-    }
+    std::cout << "Fitting nTracks: " << nTracks << std::endl;
+    std::cout << "True Vertex: " << x << ", " << y << ", " << z << std::endl;
+    std::cout << "Fitted Vertex: " << fittedVertex.position() << std::endl;
+    std::cout << "Fitted constraint Vertex: "
+              << fittedVertexConstraint.position() << std::endl;
   }
 }
 
 // Dummy user-defined InputTrack type
 struct InputTrack {
-  InputTrack(const BoundParameters& params) : m_parameters(params) {}
+  InputTrack(const BoundTrackParameters& params) : m_parameters(params) {}
 
-  const BoundParameters& parameters() const { return m_parameters; }
+  const BoundTrackParameters& parameters() const { return m_parameters; }
 
   // store e.g. link to original objects here
 
  private:
-  BoundParameters m_parameters;
+  BoundTrackParameters m_parameters;
 };
 
 ///
@@ -250,21 +247,18 @@ struct InputTrack {
 /// type
 ///
 BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_usertrack_test) {
-  bool debugMode = false;
-
   // Set up RNG
   int mySeed = 31415;
   std::mt19937 gen(mySeed);
 
   // Set up constant B-Field
-  ConstantBField bField(0.0, 0.0, 1_T);
+  auto bField = std::make_shared<ConstantBField>(0.0, 0.0, 1_T);
 
   // Set up Eigenstepper
-  EigenStepper<ConstantBField> stepper(bField);
+  EigenStepper<> stepper(bField);
 
   // Set up propagator with void navigator
-  auto propagator =
-      std::make_shared<Propagator<EigenStepper<ConstantBField>>>(stepper);
+  auto propagator = std::make_shared<Propagator<EigenStepper<>>>(stepper);
 
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
@@ -274,27 +268,27 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_usertrack_test) {
   for (int eventIdx = 0; eventIdx < nEvents; ++eventIdx) {
     unsigned int nTracks = nTracksDist(gen);
 
-    // Create a custom std::function to extract BoundParameters from
+    // Create a custom std::function to extract BoundTrackParameters from
     // user-defined InputTrack
-    std::function<BoundParameters(InputTrack)> extractParameters =
+    std::function<BoundTrackParameters(InputTrack)> extractParameters =
         [](InputTrack params) { return params.parameters(); };
 
     // Set up Billoir Vertex Fitter
     using VertexFitter = FullBilloirVertexFitter<InputTrack, Linearizer>;
     VertexFitter::Config vertexFitterCfg;
     VertexFitter billoirFitter(vertexFitterCfg, extractParameters);
-    VertexFitter::State state(magFieldContext);
+    VertexFitter::State state(bField->makeCache(magFieldContext));
 
     // Constraint for vertex fit
     Vertex<InputTrack> myConstraint;
     // Some abitrary values
-    SymMatrix4D myCovMat = SymMatrix4D::Zero();
+    SymMatrix4 myCovMat = SymMatrix4::Zero();
     myCovMat(0, 0) = 30.;
     myCovMat(1, 1) = 30.;
     myCovMat(2, 2) = 30.;
     myCovMat(3, 3) = 30.;
     myConstraint.setFullCovariance(std::move(myCovMat));
-    myConstraint.setFullPosition(Vector4D(0, 0, 0, 0));
+    myConstraint.setFullPosition(Vector4(0, 0, 0, 0));
 
     VertexingOptions<InputTrack> vfOptions(geoContext, magFieldContext);
 
@@ -306,9 +300,9 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_usertrack_test) {
     double y = vXYDist(gen);
     double z = vZDist(gen);
 
-    Vector3D vertexPosition(x, y, z);
+    Vector3 vertexPosition(x, y, z);
     std::shared_ptr<PerigeeSurface> perigeeSurface =
-        Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+        Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
     // Calculate d0 and z0 corresponding to vertex position
     double d0V = sqrt(x * x + y * y);
@@ -341,8 +335,8 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_usertrack_test) {
       covMat << resD0 * resD0, 0., 0., 0., 0., 0., 0., resZ0 * resZ0, 0., 0.,
           0., 0., 0., 0., resPh * resPh, 0., 0., 0., 0., 0., 0., resTh * resTh,
           0., 0., 0., 0., 0., 0., resQp * resQp, 0., 0., 0., 0., 0., 0., 1.;
-      tracks.push_back(InputTrack(BoundParameters(geoContext, std::move(covMat),
-                                                  paramVec, perigeeSurface)));
+      tracks.push_back(InputTrack(
+          BoundTrackParameters(perigeeSurface, paramVec, std::move(covMat))));
     }
 
     std::vector<const InputTrack*> tracksPtr;
@@ -364,13 +358,11 @@ BOOST_AUTO_TEST_CASE(billoir_vertex_fitter_usertrack_test) {
       CHECK_CLOSE_ABS(fittedVertexConstraint.position(), vertexPosition, 1_mm);
     }
 
-    if (debugMode) {
-      std::cout << "Fitting nTracks: " << nTracks << std::endl;
-      std::cout << "True Vertex: " << x << ", " << y << ", " << z << std::endl;
-      std::cout << "Fitted Vertex: " << fittedVertex.position() << std::endl;
-      std::cout << "Fitted constraint Vertex: "
-                << fittedVertexConstraint.position() << std::endl;
-    }
+    std::cout << "Fitting nTracks: " << nTracks << std::endl;
+    std::cout << "True Vertex: " << x << ", " << y << ", " << z << std::endl;
+    std::cout << "Fitted Vertex: " << fittedVertex.position() << std::endl;
+    std::cout << "Fitted constraint Vertex: "
+              << fittedVertexConstraint.position() << std::endl;
   }
 }
 

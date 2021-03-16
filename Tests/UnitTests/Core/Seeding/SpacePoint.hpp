@@ -13,7 +13,7 @@ struct SpacePoint {
   float m_y;
   float m_z;
   float m_r;
-  int surface;
+  int layer;
   float varianceR;
   float varianceZ;
   float x() const { return m_x; }
@@ -23,9 +23,8 @@ struct SpacePoint {
 };
 
 bool operator==(SpacePoint a, SpacePoint b) {
-  if (a.m_x == b.m_x && a.m_y == b.m_y && a.m_z == b.m_z &&
-      a.surface == b.surface && a.varianceR == b.varianceR &&
-      a.varianceZ == b.varianceZ) {
+  if (fabs(a.m_x - b.m_x) < 1e-6 && fabs(a.m_y - b.m_y) < 1e-6 &&
+      fabs(a.m_z - b.m_z) < 1e-6) {
     return true;
   } else {
     return false;

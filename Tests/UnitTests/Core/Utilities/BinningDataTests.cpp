@@ -20,15 +20,15 @@ namespace Test {
 namespace tt = boost::test_tools;
 
 // the test positions in 3D
-Vector3D xyzPosition(0.5, 1.5, 2.5);
-Vector3D xyzPositionOutside(30., -30., 200.);
-Vector3D phi0Position(0.5, 0., 2.5);
-Vector3D phiPihPosition(0., 1.5, 2.5);
-Vector3D eta0Position(0.5, 1.5, 0.);
+Vector3 xyzPosition(0.5, 1.5, 2.5);
+Vector3 xyzPositionOutside(30., -30., 200.);
+Vector3 phi0Position(0.5, 0., 2.5);
+Vector3 phiPihPosition(0., 1.5, 2.5);
+Vector3 eta0Position(0.5, 1.5, 0.);
 // the test positions in 2D
-Vector2D xyPosition(0.5, 1.5);
-Vector2D rphizPosition(0.1, 2.5);
-Vector2D rphiPosition(3.5, M_PI / 8.);
+Vector2 xyPosition(0.5, 1.5);
+Vector2 rphizPosition(0.1, 2.5);
+Vector2 rphiPosition(3.5, M_PI / 8.);
 
 // the binnings - equidistant
 // x/y/zData
@@ -165,7 +165,7 @@ BOOST_AUTO_TEST_CASE(BinningData_bins) {
   // | 0 | 1 | 2 | 3 | 4 | 10 |
   BOOST_CHECK_EQUAL(xData_arb.searchGlobal(xyzPosition), size_t(0));
   BOOST_CHECK_EQUAL(xData_arb.search(6.), size_t(4));
-  BOOST_CHECK_EQUAL(xData_arb_binary.searchGlobal(xyzPosition), size_t(1));
+  BOOST_CHECK_EQUAL(xData_arb_binary.searchGlobal(xyzPosition), size_t(0));
   BOOST_CHECK_EQUAL(xData_arb_binary.search(50.), (nBins_binary - 1));
   // | 0 | 1 | 1.5 | 2 |  3 | 4 | 5 |
   BOOST_CHECK_EQUAL(xData_add.searchGlobal(xyzPosition), size_t(0));
@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE(BinningData_bins) {
   BOOST_CHECK_EQUAL(yData_eq.searchLocal(xyPosition), size_t(1));
   BOOST_CHECK_EQUAL(zData_eq.searchLocal(rphizPosition), size_t(2));
   BOOST_CHECK_EQUAL(xData_arb.searchLocal(xyPosition), size_t(0));
-  BOOST_CHECK_EQUAL(xData_arb_binary.searchLocal(xyPosition), size_t(1));
+  BOOST_CHECK_EQUAL(xData_arb_binary.searchLocal(xyPosition), size_t(0));
 
   // r/phi/rphiData
   BOOST_CHECK_EQUAL(rData_eq.searchGlobal(xyzPosition), size_t(1));
@@ -276,29 +276,6 @@ BOOST_AUTO_TEST_CASE(BinningData_open_close) {
                     xData_arb_binary.bins());
   BOOST_CHECK_EQUAL(yData_arb.searchGlobal(xyzPositionOutside), size_t(0));
 
-  // increment an open bin
-  // - for equidistant
-  size_t bin = 9;
-  xData_eq.increment(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(9));
-  bin = 0;
-  xData_eq.decrement(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(0));
-  // - for arbitrary
-  bin = 5;
-  xData_arb.increment(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(5));
-  bin = 0;
-  xData_arb.decrement(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(0));
-
-  bin = nBins_binary;
-  xData_arb_binary.increment(bin);
-  BOOST_CHECK_EQUAL(bin, nBins_binary);
-  bin = 0;
-  xData_arb_binary.decrement(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(0));
-
   // closed values
   BOOST_CHECK_EQUAL(phiData_eq.search(-4.), size_t(4));
   BOOST_CHECK_EQUAL(phiData_eq.search(4.), size_t(0));
@@ -306,27 +283,6 @@ BOOST_AUTO_TEST_CASE(BinningData_open_close) {
   BOOST_CHECK_EQUAL(phiData_arb.search(4.), size_t(0));
   BOOST_CHECK_EQUAL(phiData_arb_binary.search(-4.), (nBins_binary - 1));
   BOOST_CHECK_EQUAL(phiData_arb_binary.search(4.), size_t(0));
-
-  bin = 4;
-  phiData_eq.increment(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(0));
-  bin = 0;
-  phiData_eq.decrement(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(4));
-
-  bin = 4;
-  phiData_arb.increment(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(0));
-  bin = 0;
-  phiData_arb.decrement(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(4));
-
-  bin = nBins_binary;
-  phiData_arb_binary.increment(bin);
-  BOOST_CHECK_EQUAL(bin, size_t(0));
-  bin = 0;
-  phiData_arb_binary.decrement(bin);
-  BOOST_CHECK_EQUAL(bin, (nBins_binary - 1));
 }
 
 // test boundaries
@@ -418,23 +374,23 @@ BOOST_AUTO_TEST_CASE(BinningData_phi_modules) {
   // now test the bin jump 0/maxbin
 
   float firstAngle = (-M_PI + 1.5 * deltaPhi);
-  Vector3D firstBin(cos(firstAngle), sin(firstAngle), 0.);
+  Vector3 firstBin(cos(firstAngle), sin(firstAngle), 0.);
   BOOST_CHECK_EQUAL(phiData_mod.search(firstAngle), size_t(0));
   BOOST_CHECK_EQUAL(phiData_mod.searchGlobal(firstBin), size_t(0));
 
   float firstAngleNeg = (-M_PI + 0.5 * deltaPhi);
-  Vector3D lastBinNeg(cos(firstAngleNeg), sin(firstAngleNeg), 0.);
+  Vector3 lastBinNeg(cos(firstAngleNeg), sin(firstAngleNeg), 0.);
   BOOST_CHECK_EQUAL(phiData_mod.search(firstAngleNeg), size_t(4));
   BOOST_CHECK_EQUAL(phiData_mod.searchGlobal(lastBinNeg), size_t(4));
 
   float lastAnglePos = (M_PI + 0.5 * deltaPhi);
-  Vector3D lastBinPos(cos(lastAnglePos), sin(lastAnglePos), 0.);
+  Vector3 lastBinPos(cos(lastAnglePos), sin(lastAnglePos), 0.);
   BOOST_CHECK_EQUAL(phiData_mod.search(lastAnglePos), size_t(4));
   BOOST_CHECK_EQUAL(phiData_mod.searchGlobal(lastBinPos), size_t(4));
 
   // now test the (remaining) phi scaling
   float underscaledAngle = -M_PI - 0.5 * deltaPhi;
-  Vector3D underscaledPos(cos(underscaledAngle), sin(underscaledAngle), 0.);
+  Vector3 underscaledPos(cos(underscaledAngle), sin(underscaledAngle), 0.);
   BOOST_CHECK_EQUAL(phiData_mod.search(underscaledAngle), size_t(4));
   BOOST_CHECK_EQUAL(phiData_mod.searchGlobal(underscaledPos), size_t(4));
 }

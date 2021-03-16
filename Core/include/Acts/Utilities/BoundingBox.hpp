@@ -8,11 +8,11 @@
 
 #pragma once
 
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Utilities/Frustum.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/Ray.hpp"
-#include "Acts/Visualization/IVisualization.hpp"
+#include "Acts/Visualization/IVisualization3D.hpp"
 
 #include <algorithm>
 #include <array>
@@ -67,7 +67,7 @@ class AxisAlignedBoundingBox {
    * Re-export vertex type based on value type given
    */
 
-  using VertexType = ActsVector<value_t, DIM>;
+  using VertexType = Eigen::Matrix<value_t, DIM, 1>;
   /**
    * Associated array value to `VertexType`
    */
@@ -115,7 +115,7 @@ class AxisAlignedBoundingBox {
    * @param center The center position
    * @param size The size (width and height) of the box.
    * @note The special type @c size is required to disambiguate this constructor
-   * from the other one above. It is a wrapper around a simple @c Vector3D.
+   * from the other one above. It is a wrapper around a simple @c Vector3.
    */
   AxisAlignedBoundingBox(const entity_t* entity, const VertexType& center,
                          const Size& size);
@@ -289,7 +289,8 @@ class AxisAlignedBoundingBox {
    * @param trf An optional transform to apply first.
    */
   template <size_t D = DIM, std::enable_if_t<D == 3, int> = 0>
-  void draw(IVisualization& helper, std::array<int, 3> color = {120, 120, 120},
+  void draw(IVisualization3D& helper,
+            std::array<int, 3> color = {120, 120, 120},
             const transform_type& trf = transform_type::Identity()) const;
 
   /**

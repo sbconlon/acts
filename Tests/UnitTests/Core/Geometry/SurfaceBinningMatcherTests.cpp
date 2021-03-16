@@ -9,11 +9,11 @@
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/SurfaceBinningMatcher.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <boost/format.hpp>
 
@@ -25,7 +25,7 @@ namespace Test {
 GeometryContext tgContext = GeometryContext();
 
 BOOST_AUTO_TEST_CASE(PlaneSurfaceMatcher) {
-  auto identity = std::make_shared<Transform3D>(Transform3D::Identity());
+  auto identity = Transform3::Identity();
 
   double rMin = 5.;
   double rMax = 10.;
@@ -57,18 +57,19 @@ BOOST_AUTO_TEST_CASE(PlaneSurfaceMatcher) {
 
   // Always true
   for (int ib = 0; ib < binValues; ++ib) {
-    BOOST_TEST(
+    BOOST_CHECK(
         sbm(tgContext, (BinningValue)ib, oneSurface.get(), oneSurface.get()));
   }
   // Not matching in R
-  BOOST_TEST(!sbm(tgContext, binR, oneSurface.get(), otherSurface.get()));
+  BOOST_CHECK(!sbm(tgContext, binR, oneSurface.get(), otherSurface.get()));
   // Not matching in phi
-  BOOST_TEST(!sbm(tgContext, binPhi, oneSurface.get(), otherSurface.get()));
+  BOOST_CHECK(!sbm(tgContext, binPhi, oneSurface.get(), otherSurface.get()));
 
   // Good enough matching in R
-  BOOST_TEST(sbm(tgContext, binR, oneSurface.get(), similarRSurface.get()));
+  BOOST_CHECK(sbm(tgContext, binR, oneSurface.get(), similarRSurface.get()));
   // Good enough matching in phi
-  BOOST_TEST(sbm(tgContext, binPhi, oneSurface.get(), similarPhiSurface.get()));
+  BOOST_CHECK(
+      sbm(tgContext, binPhi, oneSurface.get(), similarPhiSurface.get()));
 }
 
 }  // namespace Test

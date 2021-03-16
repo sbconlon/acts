@@ -10,11 +10,11 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Propagator/AbortList.hpp"
 #include "Acts/Propagator/ConstrainedStep.hpp"
 #include "Acts/Propagator/StandardAborters.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Utilities/detail/Extendable.hpp"
 
 namespace bdata = boost::unit_test::data;
@@ -80,6 +80,8 @@ struct PropagatorState {
     /// buffer & formatting for consistent output
     size_t debugPfxWidth = 30;
     size_t debugMsgWidth = 50;
+
+    LoggerWrapper logger{getDummyLogger()};
   };
 
   /// Give some options
@@ -206,7 +208,7 @@ struct AborterWithoutResultInvalid {
 
 template <typename P, typename S, typename... As>
 constexpr bool signature_check =
-    detail::all_of_v<concept ::abort_condition_signature_check_v<As, P, S>...>;
+    detail::all_of_v<Concepts ::abort_condition_signature_check_v<As, P, S>...>;
 
 BOOST_AUTO_TEST_CASE(AbortListSignatureTest) {
   using P = PropagatorState;

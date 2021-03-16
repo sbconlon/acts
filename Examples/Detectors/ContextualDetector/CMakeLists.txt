@@ -10,8 +10,8 @@ target_include_directories(
 target_link_libraries(
   ActsExamplesDetectorContextual
   PUBLIC
-    ActsCore ActsIdentificationPlugin ActsDigitizationPlugin
-    ActsExamplesFramework ActsExamplesDetectorsCommon ActsExamplesDetectorGeneric ActsExamplesMagneticField)
+    ActsCore ActsPluginIdentification ActsPluginDigitization
+    ActsExamplesFramework ActsExamplesDetectorsCommon ActsExamplesDetectorGeneric)
 
 install(
   TARGETS ActsExamplesDetectorContextual

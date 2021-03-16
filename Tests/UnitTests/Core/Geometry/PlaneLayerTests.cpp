@@ -10,7 +10,6 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include "Acts/EventData/SingleTrackParameters.hpp"
 #include "Acts/Geometry/CuboidVolumeBounds.hpp"
 #include "Acts/Geometry/GenericApproachDescriptor.hpp"
 #include "Acts/Geometry/PlaneLayer.hpp"
@@ -36,10 +35,10 @@ BOOST_AUTO_TEST_SUITE(Layers)
 /// Unit test for creating compliant/non-compliant PlaneLayer object
 BOOST_AUTO_TEST_CASE(PlaneLayerConstruction) {
   // default constructor, copy and assignment are all deleted
-  // minimally need a Transform3D and a PlanarBounds object (e.g.
+  // minimally need a Transform3 and a PlanarBounds object (e.g.
   // RectangleBounds) to construct
-  Translation3D translation{0., 1., 2.};
-  auto pTransform = std::make_shared<const Transform3D>(translation);
+  Translation3 translation{0., 1., 2.};
+  auto pTransform = Transform3(translation);
   const double halfX(10.), halfY(5.);  // 20 x 10 rectangle
   auto pRectangle = std::make_shared<const RectangleBounds>(halfX, halfY);
   auto pPlaneLayer = PlaneLayer::create(pTransform, pRectangle);
@@ -48,10 +47,9 @@ BOOST_AUTO_TEST_CASE(PlaneLayerConstruction) {
   // bounds object, rectangle type
   auto rBounds = std::make_shared<const RectangleBounds>(1., 1.);
   /// Constructor with transform pointer
-  std::shared_ptr<const Transform3D> pNullTransform{};
   const std::vector<std::shared_ptr<const Surface>> aSurfaces{
-      Surface::makeShared<PlaneSurface>(pNullTransform, rBounds),
-      Surface::makeShared<PlaneSurface>(pNullTransform, rBounds)};
+      Surface::makeShared<PlaneSurface>(Transform3::Identity(), rBounds),
+      Surface::makeShared<PlaneSurface>(Transform3::Identity(), rBounds)};
   const double thickness(1.0);
   SurfaceArrayCreator sac;
   size_t binsX(2), binsY(4);
@@ -82,8 +80,8 @@ BOOST_AUTO_TEST_CASE(PlaneLayerConstruction) {
 
 /// Unit test for testing Layer properties
 BOOST_AUTO_TEST_CASE(PlaneLayerProperties /*, *utf::expected_failures(1)*/) {
-  Translation3D translation{0., 1., 2.};
-  auto pTransform = std::make_shared<const Transform3D>(translation);
+  Translation3 translation{0., 1., 2.};
+  auto pTransform = Transform3(translation);
   const double halfX(10.), halfY(5.);  // 20 x 10 rectangle
   auto pRectangle = std::make_shared<const RectangleBounds>(halfX, halfY);
   auto pPlaneLayer = PlaneLayer::create(pTransform, pRectangle);

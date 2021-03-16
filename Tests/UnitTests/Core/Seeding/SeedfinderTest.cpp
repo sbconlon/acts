@@ -143,7 +143,7 @@ int main(int argc, char** argv) {
   Acts::Seedfinder<SpacePoint> a(config);
 
   // covariance tool, sets covariances per spacepoint as required
-  auto ct = [=](const SpacePoint& sp, float, float, float) -> Acts::Vector2D {
+  auto ct = [=](const SpacePoint& sp, float, float, float) -> Acts::Vector2 {
     return {sp.varianceR, sp.varianceZ};
   };
 
@@ -188,10 +188,10 @@ int main(int argc, char** argv) {
         std::cout << " (" << sp->x() << ", " << sp->y() << ", " << sp->z()
                   << ") ";
         sp = seed->sp()[1];
-        std::cout << sp->surface << " (" << sp->x() << ", " << sp->y() << ", "
+        std::cout << sp->layer << " (" << sp->x() << ", " << sp->y() << ", "
                   << sp->z() << ") ";
         sp = seed->sp()[2];
-        std::cout << sp->surface << " (" << sp->x() << ", " << sp->y() << ", "
+        std::cout << sp->layer << " (" << sp->x() << ", " << sp->y() << ", "
                   << sp->z() << ") ";
         std::cout << std::endl;
       }

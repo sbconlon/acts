@@ -20,11 +20,12 @@
 #include "Acts/Propagator/PropagatorError.hpp"
 #include "Acts/Propagator/StandardAborters.hpp"
 #include "Acts/Propagator/StepperConcept.hpp"
+#include "Acts/Utilities/Logger.hpp"
 #include "Acts/Propagator/detail/LoopProtection.hpp"
 #include "Acts/Propagator/detail/VoidPropagatorComponents.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Utilities/Result.hpp"
-#include "Acts/Utilities/Units.hpp"
+#include "Acts/Definitions/Units.hpp"
 
 #include <cmath>
 #include <functional>
@@ -46,10 +47,10 @@ struct PropagatorResult : private detail::Extendable<result_list...> {
   using detail::Extendable<result_list...>::get;
 
   /// Final track parameters - initialized to null pointer
-  std::unique_ptr<const parameters_t> endParameters = nullptr;
+  std::unique_ptr<parameters_t> endParameters = nullptr;
 
   /// Full transport jacobian
-  std::unique_ptr<const BoundMatrix> transportJacobian = nullptr;
+  std::unique_ptr<BoundMatrix> transportJacobian = nullptr;
 
   /// Number of propagation steps that were carried out
   unsigned int steps = 0;
@@ -58,68 +59,9 @@ struct PropagatorResult : private detail::Extendable<result_list...> {
   double pathLength = 0.;
 };
 
-/// @brief Options for propagate() call
+/// @brief Class holding the trivial options in propagator options
 ///
-/// @tparam action_list_t List of action types called after each
-///    propagation step with the current propagation and stepper state
-///
-/// @tparam aborter_list_t List of abort conditions tested after each
-///    propagation step using the current propagation and stepper state
-///
-template <typename action_list_t = ActionList<>,
-          typename aborter_list_t = AbortList<>>
-struct PropagatorOptions {
-  using action_list_type = action_list_t;
-  using aborter_list_type = aborter_list_t;
-
-  /// Delete default contructor
-  PropagatorOptions() = delete;
-
-  /// PropagatorOptions copy constructor
-  PropagatorOptions(
-      const PropagatorOptions<action_list_t, aborter_list_t>& po) = default;
-
-  /// PropagatorOptions with context
-  PropagatorOptions(std::reference_wrapper<const GeometryContext> gctx,
-                    std::reference_wrapper<const MagneticFieldContext> mctx)
-      : geoContext(gctx), magFieldContext(mctx) {}
-
-  /// @brief Expand the Options with extended aborters
-  ///
-  /// @tparam extended_aborter_list_t Type of the new aborter list
-  ///
-  /// @param aborters The new aborter list to be used (internally)
-  template <typename extended_aborter_list_t>
-  PropagatorOptions<action_list_t, extended_aborter_list_t> extend(
-      extended_aborter_list_t aborters) const {
-    PropagatorOptions<action_list_t, extended_aborter_list_t> eoptions(
-        geoContext, magFieldContext);
-    // Copy the options over
-    eoptions.direction = direction;
-    eoptions.absPdgCode = absPdgCode;
-    eoptions.mass = mass;
-    eoptions.maxSteps = maxSteps;
-    eoptions.maxRungeKuttaStepTrials = maxRungeKuttaStepTrials;
-    eoptions.maxStepSize = direction * std::abs(maxStepSize);
-    eoptions.targetTolerance = targetTolerance;
-    eoptions.pathLimit = direction * std::abs(pathLimit);
-    eoptions.loopProtection = loopProtection;
-    eoptions.loopFraction = loopFraction;
-    // Output option
-    eoptions.debug = debug;
-    eoptions.debugString = debugString;
-    eoptions.debugPfxWidth = debugPfxWidth;
-    eoptions.debugMsgWidth = debugMsgWidth;
-    // Stepper options
-    eoptions.tolerance = tolerance;
-    eoptions.stepSizeCutOff = stepSizeCutOff;
-    // Action / abort list
-    eoptions.actionList = std::move(actionList);
-    eoptions.abortList = std::move(aborters);
-    // And return the options
-    return eoptions;
-  }
-
+struct PropagatorPlainOptions {
   /// Propagation direction
   NavigationDirection direction = forward;
 
@@ -148,21 +90,90 @@ struct PropagatorOptions {
   bool loopProtection = true;
   double loopFraction = 0.5;  ///< Allowed loop fraction, 1 is a full loop
 
-  /// Debug output steering:
-  //  -> @todo: move to a debug struct
-  // - the string where debug messages are stored (optionally)
-  // - it also has some formatting options
-  bool debug = false;            ///< switch debug on
-  std::string debugString = "";  ///< the string to collect msgs
-  size_t debugPfxWidth = 30;     ///< the prefix width
-  size_t debugMsgWidth = 50;     ///< the mesage width
-
   // Configurations for Stepper
   /// Tolerance for the error of the integration
   double tolerance = 1e-4;
 
   /// Cut-off value for the step size
   double stepSizeCutOff = 0.;
+};
+
+/// @brief Options for propagate() call
+///
+/// @tparam action_list_t List of action types called after each
+///    propagation step with the current propagation and stepper state
+///
+/// @tparam aborter_list_t List of abort conditions tested after each
+///    propagation step using the current propagation and stepper state
+///
+template <typename action_list_t = ActionList<>,
+          typename aborter_list_t = AbortList<>>
+struct PropagatorOptions : public PropagatorPlainOptions {
+  using action_list_type = action_list_t;
+  using aborter_list_type = aborter_list_t;
+
+  /// Delete default contructor
+  PropagatorOptions() = delete;
+
+  /// PropagatorOptions copy constructor
+  PropagatorOptions(
+      const PropagatorOptions<action_list_t, aborter_list_t>& po) = default;
+
+  /// PropagatorOptions with context
+  PropagatorOptions(const GeometryContext& gctx,
+                    const MagneticFieldContext& mctx, LoggerWrapper logger_)
+      : geoContext(gctx), magFieldContext(mctx), logger(logger_) {}
+
+  /// @brief Expand the Options with extended aborters
+  ///
+  /// @tparam extended_aborter_list_t Type of the new aborter list
+  ///
+  /// @param aborters The new aborter list to be used (internally)
+  template <typename extended_aborter_list_t>
+  PropagatorOptions<action_list_t, extended_aborter_list_t> extend(
+      extended_aborter_list_t aborters) const {
+    PropagatorOptions<action_list_t, extended_aborter_list_t> eoptions(
+        geoContext, magFieldContext, logger);
+    // Copy the options over
+    eoptions.direction = direction;
+    eoptions.absPdgCode = absPdgCode;
+    eoptions.mass = mass;
+    eoptions.maxSteps = maxSteps;
+    eoptions.maxRungeKuttaStepTrials = maxRungeKuttaStepTrials;
+    eoptions.maxStepSize = direction * std::abs(maxStepSize);
+    eoptions.targetTolerance = targetTolerance;
+    eoptions.pathLimit = direction * std::abs(pathLimit);
+    eoptions.loopProtection = loopProtection;
+    eoptions.loopFraction = loopFraction;
+
+    // Stepper options
+    eoptions.tolerance = tolerance;
+    eoptions.stepSizeCutOff = stepSizeCutOff;
+    // Action / abort list
+    eoptions.actionList = std::move(actionList);
+    eoptions.abortList = std::move(aborters);
+    // And return the options
+    return eoptions;
+  }
+
+  /// @brief Set the plain options
+  ///
+  /// @param pOptions The plain options
+  void setPlainOptions(const PropagatorPlainOptions& pOptions) {
+    // Copy the options over
+    direction = pOptions.direction;
+    absPdgCode = pOptions.absPdgCode;
+    mass = pOptions.mass;
+    maxSteps = pOptions.maxSteps;
+    maxRungeKuttaStepTrials = pOptions.maxRungeKuttaStepTrials;
+    maxStepSize = direction * std::abs(pOptions.maxStepSize);
+    targetTolerance = pOptions.targetTolerance;
+    pathLimit = direction * std::abs(pOptions.pathLimit);
+    loopProtection = pOptions.loopProtection;
+    loopFraction = pOptions.loopFraction;
+    tolerance = pOptions.tolerance;
+    stepSizeCutOff = pOptions.stepSizeCutOff;
+  }
 
   /// List of actions
   action_list_t actionList;
@@ -175,6 +186,8 @@ struct PropagatorOptions {
 
   /// The context object for the magnetic field
   std::reference_wrapper<const MagneticFieldContext> magFieldContext;
+
+  LoggerWrapper logger;
 };
 
 /// @brief Propagator for particles (optionally in a magnetic field)
@@ -205,8 +218,9 @@ struct PropagatorOptions {
 template <typename stepper_t, typename navigator_t = detail::VoidNavigator>
 class Propagator final {
   using Jacobian = BoundMatrix;
-  using BoundState = std::tuple<BoundParameters, Jacobian, double>;
-  using CurvilinearState = std::tuple<CurvilinearParameters, Jacobian, double>;
+  using BoundState = std::tuple<BoundTrackParameters, Jacobian, double>;
+  using CurvilinearState =
+      std::tuple<CurvilinearTrackParameters, Jacobian, double>;
 
   static_assert(StepperStateConcept<typename stepper_t::State>,
                 "Stepper does not fulfill stepper concept.");
@@ -250,10 +264,10 @@ class Propagator final {
     /// @param start The start parameters, used to initialize stepping state
     /// @param topts The options handed over by the propagate call
     template <typename parameters_t>
-    State(const parameters_t& start, const propagator_options_t& topts)
+    State(const parameters_t& start, const propagator_options_t& topts,
+          StepperState steppingIn)
         : options(topts),
-          stepping(topts.geoContext, topts.magFieldContext, start,
-                   topts.direction, topts.maxStepSize, topts.tolerance),
+          stepping{std::move(steppingIn)},
           geoContext(topts.geoContext) {
       // Setting the start surface
       navigation.startSurface = &start.referenceSurface();
@@ -347,8 +361,9 @@ class Propagator final {
   ///
   template <typename parameters_t, typename propagator_options_t,
             typename path_aborter_t = PathLimitReached>
-  Result<action_list_t_result_t<
-      CurvilinearParameters, typename propagator_options_t::action_list_type>>
+  Result<
+      action_list_t_result_t<CurvilinearTrackParameters,
+                             typename propagator_options_t::action_list_type>>
   propagate(const parameters_t& start,
             const propagator_options_t& options) const;
 
@@ -375,7 +390,7 @@ class Propagator final {
             typename target_aborter_t = SurfaceReached,
             typename path_aborter_t = PathLimitReached>
   Result<action_list_t_result_t<
-      BoundParameters, typename propagator_options_t::action_list_type>>
+      BoundTrackParameters, typename propagator_options_t::action_list_type>>
   propagate(const parameters_t& start, const Surface& target,
             const propagator_options_t& options) const;
 
@@ -385,20 +400,6 @@ class Propagator final {
 
   /// Implementation of navigator
   navigator_t m_navigator;
-
-  /// The private propagation debug logging
-  ///
-  /// It needs to be fed by a lambda function that returns a string,
-  /// that guarantees that the lambda is only called in the
-  /// options.debug == true case in order not to spend time when not needed.
-  ///
-  /// @tparam propagator_state_t Type of the nested propagator state object
-  ///
-  /// @param state the propagator state for the debug flag, prefix/length
-  /// @param logAction is a callable function that returns a streamable object
-  template <typename propagator_state_t>
-  void debugLog(propagator_state_t& state,
-                const std::function<std::string()>& logAction) const;
 };
 
 }  // namespace Acts

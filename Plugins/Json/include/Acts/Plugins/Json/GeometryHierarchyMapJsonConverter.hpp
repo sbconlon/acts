@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2020 CERN for the benefit of the Acts project
+// Copyright (C) 2020-2021 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -52,7 +52,7 @@ class GeometryHierarchyMapJsonConverter {
   ///
   /// @param container Geometry hierarchy map that should be encoded
   /// @return Encoded Json object
-  nlohmann::json toJson(const Container& container) const;
+  nlohmann::ordered_json toJson(const Container& container) const;
 
   /// Decode a Json object into a geometry hierarchy map.
   ///
@@ -70,8 +70,8 @@ class GeometryHierarchyMapJsonConverter {
 
   std::string m_valueIdentifier;
 
-  static nlohmann::json encodeIdentifier(GeometryID id) {
-    nlohmann::json encoded;
+  static nlohmann::ordered_json encodeIdentifier(GeometryIdentifier id) {
+    nlohmann::ordered_json encoded;
     // only store non-zero identifiers
     if (id.volume()) {
       encoded["volume"] = id.volume();
@@ -90,29 +90,30 @@ class GeometryHierarchyMapJsonConverter {
     }
     return encoded;
   }
-  static GeometryID decodeIdentifier(const nlohmann::json& encoded) {
-    return GeometryID()
-        .setVolume(encoded.value("volume", GeometryID::Value(0u)))
-        .setBoundary(encoded.value("boundary", GeometryID::Value(0u)))
-        .setLayer(encoded.value("layer", GeometryID::Value(0u)))
-        .setApproach(encoded.value("approach", GeometryID::Value(0u)))
-        .setSensitive(encoded.value("sensitive", GeometryID::Value(0u)));
+  static GeometryIdentifier decodeIdentifier(const nlohmann::json& encoded) {
+    return GeometryIdentifier()
+        .setVolume(encoded.value("volume", GeometryIdentifier::Value(0u)))
+        .setBoundary(encoded.value("boundary", GeometryIdentifier::Value(0u)))
+        .setLayer(encoded.value("layer", GeometryIdentifier::Value(0u)))
+        .setApproach(encoded.value("approach", GeometryIdentifier::Value(0u)))
+        .setSensitive(
+            encoded.value("sensitive", GeometryIdentifier::Value(0u)));
   }
 };
 
 // implementations
 
 template <typename value_t>
-nlohmann::json GeometryHierarchyMapJsonConverter<value_t>::toJson(
+nlohmann::ordered_json GeometryHierarchyMapJsonConverter<value_t>::toJson(
     const Container& container) const {
   // encode header
-  nlohmann::json encoded = nlohmann::json::object();
+  nlohmann::ordered_json encoded = nlohmann::json::object();
   encoded[kHeaderKey] = {
       {"format-version", kFormatVersion},
       {"value-identifier", m_valueIdentifier},
   };
   // encode entries
-  nlohmann::json entries = nlohmann::json::array();
+  nlohmann::ordered_json entries = nlohmann::json::array();
   for (std::size_t i = 0; i < container.size(); ++i) {
     auto entry = encodeIdentifier(container.idAt(i));
     entry["value"] = nlohmann::json(container.valueAt(i));
@@ -144,7 +145,7 @@ auto GeometryHierarchyMapJsonConverter<value_t>::fromJson(
     throw std::invalid_argument(
         "Missing entries in json geometry hierarchy map");
   }
-  std::vector<std::pair<GeometryID, Value>> elements;
+  std::vector<std::pair<GeometryIdentifier, Value>> elements;
   for (const auto& entry : encoded.at(kEntriesKey)) {
     auto id = decodeIdentifier(entry);
     auto value = entry.at("value").get<Value>();

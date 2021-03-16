@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,13 +8,14 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/BoundarySurfaceFace.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Geometry/ILayerArrayCreator.hpp"
-#include "Acts/Geometry/ITrackingVolumeArrayCreator.hpp"
 #include "Acts/Geometry/ITrackingVolumeHelper.hpp"
+#include "Acts/Utilities/BinningType.hpp"
 #include "Acts/Utilities/Logger.hpp"
 
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,6 +27,8 @@ class TrackingVolume;
 class VolumeBounds;
 class CylinderVolumeBounds;
 class IVolumeMaterial;
+class ILayerArrayCreator;
+class ITrackingVolumeArrayCreator;
 
 /// @class CylinderVolumeHelper
 ///
@@ -57,7 +60,6 @@ class CylinderVolumeHelper : public ITrackingVolumeHelper {
                        std::unique_ptr<const Logger> logger = getDefaultLogger(
                            "CylinderVolumeHelper", Logging::INFO));
 
-  /// Destructor
   ~CylinderVolumeHelper() override = default;
 
   /// Create a TrackingVolume* from a set of layers and (optional) parameters
@@ -78,7 +80,7 @@ class CylinderVolumeHelper : public ITrackingVolumeHelper {
       const GeometryContext& gctx, const LayerVector& layers,
       std::shared_ptr<const IVolumeMaterial> volumeMaterial,
       VolumeBoundsPtr volumeBounds, MutableTrackingVolumeVector mtvVector = {},
-      std::shared_ptr<const Transform3D> transform = nullptr,
+      const Transform3& transform = Transform3::Identity(),
       const std::string& volumeName = "UndefinedVolume",
       BinningType bType = arbitrary) const override;
 
@@ -203,9 +205,9 @@ class CylinderVolumeHelper : public ITrackingVolumeHelper {
   bool estimateAndCheckDimension(
       const GeometryContext& gctx, const LayerVector& layers,
       const CylinderVolumeBounds*& cylinderVolumeBounds,
-      std::shared_ptr<const Transform3D>& transform, double& rMinClean,
-      double& rMaxClean, double& zMinClean, double& zMaxClean,
-      BinningValue& bValue, BinningType bType = arbitrary) const;
+      const Transform3& transform, double& rMinClean, double& rMaxClean,
+      double& zMinClean, double& zMaxClean, BinningValue& bValue,
+      BinningType bType = arbitrary) const;
 
   /// Private method - interglue all volumes contained by a TrackingVolume
   /// and set the outside glue volumes in the descriptor

@@ -3,42 +3,51 @@ add_subdirectory(Common)
 
 # Generic detector
 add_executable(
-  ActsSimFatrasGeneric
+  ActsExampleFatrasGeneric
   GenericFatrasExample.cpp)
 target_link_libraries(
-  ActsSimFatrasGeneric
-  PRIVATE ActsExamplesFatrasCommon ActsExamplesDetectorGeneric)
+  ActsExampleFatrasGeneric
+  PRIVATE ActsExamplesFatrasCommon ActsExamplesDetectorGeneric ActsExamplesIoJson)
 
 # Generic detector with IOV based alignment
 add_executable(
-  ActsSimFatrasAligned
+  ActsExampleFatrasAligned
   AlignedFatrasExample.cpp)
 target_link_libraries(
-  ActsSimFatrasAligned
-  PRIVATE ActsExamplesFatrasCommon ActsExamplesDetectorContextual)
+  ActsExampleFatrasAligned
+  PRIVATE ActsExamplesFatrasCommon ActsExamplesDetectorContextual ActsExamplesIoJson)
 
 # Generic detector with Payload based alignment
 add_executable(
-  ActsSimFatrasPayload
+  ActsExampleFatrasPayload
   PayloadFatrasExample.cpp)
 target_link_libraries(
-  ActsSimFatrasPayload
-  PRIVATE ActsExamplesFatrasCommon ActsExamplesDetectorContextual)
+  ActsExampleFatrasPayload
+  PRIVATE ActsExamplesFatrasCommon ActsExamplesDetectorContextual ActsExamplesIoJson)
 
 # TGeo detector
 add_executable(
-  ActsSimFatrasTGeo
+  ActsExampleFatrasTGeo
   TGeoFatrasExample.cpp)
 target_link_libraries(
-  ActsSimFatrasTGeo
-  PRIVATE ActsExamplesFatrasCommon ActsExamplesDetectorTGeo)
+  ActsExampleFatrasTGeo
+  PRIVATE ActsExamplesFatrasCommon ActsExamplesDetectorTGeo ActsExamplesIoJson)
+
+# Telescope detector
+add_executable(
+  ActsExampleFatrasTelescope
+  TelescopeFatrasExample.cpp)
+target_link_libraries(
+  ActsExampleFatrasTelescope
+  PRIVATE ActsExamplesFatrasCommon ActsExamplesDetectorTelescope ActsExamplesIoJson)
 
 install(
   TARGETS
-    ActsSimFatrasGeneric
-    ActsSimFatrasAligned
-    ActsSimFatrasPayload
-    ActsSimFatrasTGeo
+    ActsExampleFatrasGeneric
+    ActsExampleFatrasAligned
+    ActsExampleFatrasPayload
+    ActsExampleFatrasTGeo
+    ActsExampleFatrasTelescope
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_subdirectory_if(DD4hep ACTS_BUILD_EXAMPLES_DD4HEP)

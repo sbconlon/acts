@@ -10,12 +10,12 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/PlaneLayer.hpp"
 #include "Acts/Material/HomogeneousSurfaceMaterial.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/StrawSurface.hpp"
 #include "Acts/Tests/CommonHelpers/DetectorElementStub.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <limits>
 
@@ -34,13 +34,13 @@ BOOST_AUTO_TEST_SUITE(StrawSurfaces)
 BOOST_AUTO_TEST_CASE(StrawSurfaceConstruction) {
   // StrawSurface default constructor is deleted
   //
-  /// Constructor with transform pointer, null or valid, radius and halfZ
+  /// Constructor with transform, radius and halfZ
   double radius(1.0), halfZ(10.);
-  Translation3D translation{0., 1., 2.};
-  auto pTransform = std::make_shared<const Transform3D>(translation);
-  std::shared_ptr<const Transform3D> pNullTransform{};
+  Translation3 translation{0., 1., 2.};
+  auto pTransform = Transform3(translation);
   BOOST_CHECK_EQUAL(
-      Surface::makeShared<StrawSurface>(pNullTransform, radius, halfZ)->type(),
+      Surface::makeShared<StrawSurface>(Transform3::Identity(), radius, halfZ)
+          ->type(),
       Surface::Straw);
   BOOST_CHECK_EQUAL(
       Surface::makeShared<StrawSurface>(pTransform, radius, halfZ)->type(),
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(StrawSurfaceConstruction) {
   //
   /// Copied and transformed
   auto copiedTransformedStrawSurface = Surface::makeShared<StrawSurface>(
-      tgContext, *strawSurfaceObject, *pTransform);
+      tgContext, *strawSurfaceObject, pTransform);
   BOOST_CHECK_EQUAL(copiedTransformedStrawSurface->type(), Surface::Straw);
 }
 //
@@ -78,8 +78,8 @@ BOOST_AUTO_TEST_CASE(StrawSurfaceConstruction) {
 BOOST_AUTO_TEST_CASE(StrawSurfaceProperties) {
   /// Test clone method
   double radius(1.0), halfZ(10.);
-  Translation3D translation{0., 1., 2.};
-  auto pTransform = std::make_shared<const Transform3D>(translation);
+  Translation3 translation{0., 1., 2.};
+  auto pTransform = Transform3(translation);
   auto strawSurfaceObject =
       Surface::makeShared<StrawSurface>(pTransform, radius, halfZ);
   //
@@ -104,8 +104,8 @@ BOOST_AUTO_TEST_CASE(StrawSurfaceProperties) {
 
 BOOST_AUTO_TEST_CASE(EqualityOperators) {
   double radius(1.0), halfZ(10.);
-  Translation3D translation{0., 1., 2.};
-  auto pTransform = std::make_shared<const Transform3D>(translation);
+  Translation3 translation{0., 1., 2.};
+  auto pTransform = Transform3(translation);
   auto strawSurfaceObject =
       Surface::makeShared<StrawSurface>(pTransform, radius, halfZ);
   //
@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(EqualityOperators) {
       "Create and then assign a StrawSurface object to the existing one");
   /// Test assignment
   auto assignedStrawSurface =
-      Surface::makeShared<StrawSurface>(nullptr, 6.6, 33.33);
+      Surface::makeShared<StrawSurface>(Transform3::Identity(), 6.6, 33.33);
   *assignedStrawSurface = *strawSurfaceObject;
   /// Test equality of assigned to original
   BOOST_CHECK(*assignedStrawSurface == *strawSurfaceObject);

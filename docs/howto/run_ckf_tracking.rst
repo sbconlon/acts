@@ -8,32 +8,8 @@ Acts must be build with activated examples and Pythia8 support
 (``ACTS_BUILD_EXAMPLES_PYTHIA8=on``) to enable the fast simulation. ``<build>``
 is used to identify the path to the build directory.
 
-Generate a simulation dataset
------------------------------
-
-Generate a simulation dataset with ttbar process with an average of 200 additional pile-up interactions based on the generic example detector in a 2T magnetic field:
-
-.. code-block:: console
-
-  $ <build>/bin/ActsSimFatrasGeneric \
-       --evg-input-type=pythia8 \
-       --evg-hard-process Top:qqbar2ttbar=on \
-       --evg-pileup=200 \
-       --select-pt-gev '0.1:' \
-       --select-eta '-2.5:2.5' \
-       --fatras-pmin-gev 0.1 \
-       --remove-neutral 1 \
-       --bf-value=0 0 2 \
-       --output-dir=sim_ttbar_pu200 \
-       --output-csv=1 \
-       --events=10
-
-Setting the output to CSV is necessary since the CKF tracking only reads
-CSV files at the moment. 
-
-The above simulation also includes particle selection at different phase, e.g. only generated particles with pT > 100 MeV 
-(``--select-pt-gev '0.1:'``) and |eta| <= 2.5 (``--select-eta '-2.5:2.5'``) are passed to simulation.
-Further particle selection, e.g. requiring a minimum momentum at 100 MeV (``--fatras-pmin-gev 0.1``) and removing neutral particles (``--remove-neutral 1``), is done during the simulation.
+We assume that you have generated a simulation dataset based on the TrackML detector as described in
+:ref:`simulate-TrackML`. A good example dataset would be e.g. a ttbar sample with pileup 200 in a 2T magnetic field. Suppose the generated ttbar sample is available at ``data/sim_trackML/ttbar_mu200``.
 
 Run the CKF tracking
 ----------------------
@@ -44,24 +20,29 @@ and run the CKF which will perform the track finding and track fitting simultane
 
 Currently, there are two configurable criteria to select compatible source links on a surface with track parameters in CKF:
 
-* Global maximum chi2 of Kalman filtering. This could be set up via ``--ckf-slselection-chi2max``
-* Global maximum number of source links on a surface. This could be set up via ``--ckf-slselection-nmax`` 
+* Global maximum chi2 of Kalman filtering. This could be set up via ``--ckf-selection-chi2max``
+* Global maximum number of measurements on a surface. This could be set up via ``--ckf-selection-nmax`` 
+
+The digitization of the truth hits must also be configured. Since the command-line configuration of this step can get unwieldy,
+an example json configuration file for the smearing digitizer is provided with the source code.
 
 .. code-block:: console
 
-   $ <build>/bin/ActsRecCKFTracks \
-       --input-dir=sim_ttbar_pu200 \
+   $ <build>/bin/ActsExampleCKFTracksGeneric \
+       --input-dir=data/sim_trackML/ttbar_mu200 \
        --bf-value=0 0 2 \
-       --ckf-slselection-chi2max 15 \
-       --ckf-slselection-nmax 10 \
-       --output-dir=rec_ttbar_pu200
+       --ckf-selection-chi2max 15 \
+       --ckf-selection-nmax 10 \
+       --output-dir=data/reco_trackML/ttbar_mu200 \
+       --digi-smear \
+       --digi-config-file <source>/Examples/Algorithms/Digitization/share/default-smearing-config-generic.json
 
 The magnetic field setup should be consistent between simulation and CKF tracking.
 
 Look at the CKF tracking performance
 ----------------------
 
-The CKF tracking will generate a root file named ``performance_ckf.root`` (the name is currently not configurable via the command line) in the ``output-dir``.
+The CKF tracking will generate a root file named ``performance_ckf.root`` (the name is currently not configurable via the command line) in the ``data/reco_trackML/ttbar_mu200``.
 This file includes a few efficiency plots showing the CKF efficiency, fake rate, duplication rate and other plots showing detailed reconstruction info etc.
 
 Example plots to show the CKF efficiency, fake rate and duplication rate for the ttbar sample generated above:

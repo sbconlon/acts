@@ -1,61 +1,75 @@
-add_executable(
-  ActsRecTruthTracks
-  RecTruthTracks.cpp)
+# shared code 
+add_subdirectory(Common)
 
+# Truth fitting for Generic detector 
+add_executable(
+  ActsExampleTruthTracksGeneric
+  GenericRecTruthTracks.cpp)
 target_link_libraries(
-  ActsRecTruthTracks
+  ActsExampleTruthTracksGeneric
   PRIVATE
-    ActsExamplesFramework
-    ActsExamplesCommon
-    ActsExamplesDigitization
-    ActsExamplesFitting
-    ActsExamplesDetectorGeneric
-    ActsExamplesMagneticField
-    ActsExamplesTruthTracking
-    ActsExamplesIoCsv
-    ActsExamplesIoPerformance)
+    ActsExamplesRecTracksCommon 
+    ActsExamplesDetectorGeneric)
 
-install(
-  TARGETS ActsRecTruthTracks
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
+# Truth fitting for Telescope detector
 add_executable(
-    ActsRecCKFTracks
-    RecCKFTracks.cpp)
+  ActsExampleTruthTracksTelescope
+  TelescopeRecTruthTracks.cpp)
 target_link_libraries(
-    ActsRecCKFTracks
-    PRIVATE
-    ActsExamplesFramework
-    ActsExamplesCommon
-    ActsExamplesDigitization
-    ActsExamplesTrackFinding
+  ActsExampleTruthTracksTelescope
+  PRIVATE
+    ActsExamplesRecTracksCommon
+    ActsExamplesDetectorTelescope)
+
+# CKF reco for Generic detector 
+add_executable(
+  ActsExampleCKFTracksGeneric
+  GenericRecCKFTracks.cpp)
+target_link_libraries(
+  ActsExampleCKFTracksGeneric
+  PRIVATE
+    ActsExamplesRecTracksCommon 
+    ActsExamplesDetectorGeneric)
+
+# GNN reco for Generic detector
+add_executable(
+  ActsExampleGNNTracksGeneric
+  GenericRecGNNTracks.cpp)
+target_link_libraries(
+  ActsExampleGNNTracksGeneric
+  PRIVATE
+    ActsExamplesRecTracksCommon
+    ActsExamplesDetectorGeneric)
+
+# CKF reco for Telescope detector 
+add_executable(
+  ActsExampleCKFTracksTelescope
+  TelescopeRecCKFTracks.cpp)
+target_link_libraries(
+  ActsExampleCKFTracksTelescope
+  PRIVATE
+    ActsExamplesRecTracksCommon
+    ActsExamplesDetectorTelescope)
+
+# Seeding for Generic detector
+add_executable(
+  ActsExampleSeedingGeneric
+  GenericSeedingExample.cpp)
+target_link_libraries(
+  ActsExampleSeedingGeneric
+  PRIVATE
+    ActsExamplesRecTracksCommon
     ActsExamplesDetectorGeneric
-    ActsExamplesMagneticField
-    ActsExamplesIoCsv
-    ActsExamplesIoPerformance)
+)
 
 install(
   TARGETS
-  ActsRecCKFTracks
+    ActsExampleTruthTracksGeneric
+    ActsExampleTruthTracksTelescope
+    ActsExampleCKFTracksGeneric
+    ActsExampleGNNTracksGeneric
+    ActsExampleCKFTracksTelescope
+    ActsExampleSeedingGeneric 
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-add_executable(
-    ActsRecGNNTracks
-    RecGNNTracks.cpp)
-target_link_libraries(
-    ActsRecGNNTracks
-    PRIVATE
-    ActsExamplesFramework
-    ActsExamplesCommon
-    ActsExamplesDigitization
-    ActsExamplesTrackFinding
-    ActsExamplesDetectorGeneric
-    ActsExamplesMagneticField
-    ActsExamplesIoCSV
-    ActsExamplesIoPerformance)
-
-install(
-   TARGETS
-   ActsRecGNNTracks
-   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
+add_subdirectory_if(DD4hep ACTS_BUILD_EXAMPLES_DD4HEP)

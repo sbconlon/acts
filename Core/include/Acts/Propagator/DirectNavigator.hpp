@@ -50,7 +50,7 @@ class DirectNavigator {
   /// surface sequence
   struct Initializer {
     /// The Surface sequence
-    SurfaceSequence surfaceSequence = {};
+    SurfaceSequence navSurfaces = {};
 
     /// Actor result / state
     struct this_result {
@@ -73,9 +73,8 @@ class DirectNavigator {
       // Only act once
       if (not r.initialized) {
         // Initialize the surface sequence
-        state.navigation.surfaceSequence = surfaceSequence;
-        state.navigation.nextSurfaceIter =
-            state.navigation.surfaceSequence.begin();
+        state.navigation.navSurfaces = navSurfaces;
+        state.navigation.navSurfaceIter = state.navigation.navSurfaces.begin();
         r.initialized = true;
       }
     }
@@ -94,10 +93,10 @@ class DirectNavigator {
   struct State {
     /// Externally provided surfaces - expected to be ordered
     /// along the path
-    SurfaceSequence surfaceSequence = {};
+    SurfaceSequence navSurfaces = {};
 
     /// Iterator the the next surface
-    SurfaceIter nextSurfaceIter = surfaceSequence.begin();
+    SurfaceIter navSurfaceIter = navSurfaces.begin();
 
     /// Navigation state - external interface: the start surface
     const Surface* startSurface = nullptr;
@@ -105,6 +104,10 @@ class DirectNavigator {
     const Surface* currentSurface = nullptr;
     /// Navigation state - external interface: the target surface
     const Surface* targetSurface = nullptr;
+    /// Navigation state - starting layer
+    const Layer* startLayer = nullptr;
+    /// Navigation state - target layer
+    const Layer* targetLayer = nullptr;
     /// Navigation state: the start volume
     const TrackingVolume* startVolume = nullptr;
     /// Navigation state: the current volume
@@ -127,54 +130,39 @@ class DirectNavigator {
   /// @param [in] stepper Stepper in use
   template <typename propagator_state_t, typename stepper_t>
   void status(propagator_state_t& state, const stepper_t& stepper) const {
+    const auto& logger = state.options.logger;
     // Screen output
-    debugLog(state, [&] { return std::string("Entering navigator::status."); });
+    ACTS_VERBOSE("Entering navigator::status.");
 
     // Navigator status always resets the current surface
     state.navigation.currentSurface = nullptr;
     // Output the position in the sequence
-    debugLog(state, [&] {
-      std::stringstream dstream;
-      dstream << std::distance(state.navigation.nextSurfaceIter,
-                               state.navigation.surfaceSequence.end());
-      dstream << " out of " << state.navigation.surfaceSequence.size();
-      dstream << " surfaces remain to try.";
-      return dstream.str();
-    });
+    ACTS_VERBOSE(std::distance(state.navigation.navSurfaceIter,
+                               state.navigation.navSurfaces.end())
+                 << " out of " << state.navigation.navSurfaces.size()
+                 << " surfaces remain to try.");
+
     // Check if we are on surface
-    if (state.navigation.nextSurfaceIter !=
-        state.navigation.surfaceSequence.end()) {
+    if (state.navigation.navSurfaceIter != state.navigation.navSurfaces.end()) {
       // Establish the surface status
       auto surfaceStatus = stepper.updateSurfaceStatus(
-          state.stepping, **state.navigation.nextSurfaceIter, false);
-      if (surfaceStatus == Intersection::Status::onSurface) {
+          state.stepping, **state.navigation.navSurfaceIter, false);
+      if (surfaceStatus == Intersection3D::Status::onSurface) {
         // Set the current surface
-        state.navigation.currentSurface = *state.navigation.nextSurfaceIter;
-        debugLog(state, [&] {
-          std::stringstream dstream;
-          dstream << "Current surface set to  "
-                  << state.navigation.currentSurface->geoID();
-          return dstream.str();
-        });
+        state.navigation.currentSurface = *state.navigation.navSurfaceIter;
+        ACTS_VERBOSE("Current surface set to  "
+                     << state.navigation.currentSurface->geometryId())
         // Move the sequence to the next surface
-        ++state.navigation.nextSurfaceIter;
-        if (state.navigation.nextSurfaceIter !=
-            state.navigation.surfaceSequence.end()) {
-          debugLog(state, [&] {
-            std::stringstream dstream;
-            dstream << "Next surface candidate is  "
-                    << (*state.navigation.nextSurfaceIter)->geoID();
-            return dstream.str();
-          });
+        ++state.navigation.navSurfaceIter;
+        if (state.navigation.navSurfaceIter !=
+            state.navigation.navSurfaces.end()) {
+          ACTS_VERBOSE("Next surface candidate is  "
+                       << (*state.navigation.navSurfaceIter)->geometryId());
           stepper.releaseStepSize(state.stepping);
         }
-      } else if (surfaceStatus == Intersection::Status::reachable) {
-        debugLog(state, [&] {
-          std::stringstream dstream;
-          dstream << "Next surface reachable at distance  "
-                  << stepper.outputStepSize(state.stepping);
-          return dstream.str();
-        });
+      } else if (surfaceStatus == Intersection3D::Status::reachable) {
+        ACTS_VERBOSE("Next surface reachable at distance  "
+                     << stepper.outputStepSize(state.stepping));
       }
     }
   }
@@ -188,41 +176,31 @@ class DirectNavigator {
   /// @param [in] stepper Stepper in use
   template <typename propagator_state_t, typename stepper_t>
   void target(propagator_state_t& state, const stepper_t& stepper) const {
+    const auto& logger = state.options.logger;
     // Screen output
-    debugLog(state, [&] { return std::string("Entering navigator::target."); });
+    ACTS_VERBOSE("Entering navigator::target.");
 
     // Navigator target always resets the current surface
     state.navigation.currentSurface = nullptr;
     // Output the position in the sequence
-    debugLog(state, [&] {
-      std::stringstream dstream;
-      dstream << std::distance(state.navigation.nextSurfaceIter,
-                               state.navigation.surfaceSequence.end());
-      dstream << " out of " << state.navigation.surfaceSequence.size();
-      dstream << " surfaces remain to try.";
-      return dstream.str();
-    });
-    if (state.navigation.nextSurfaceIter !=
-        state.navigation.surfaceSequence.end()) {
+    ACTS_VERBOSE(std::distance(state.navigation.navSurfaceIter,
+                               state.navigation.navSurfaces.end())
+                 << " out of " << state.navigation.navSurfaces.size()
+                 << " surfaces remain to try.");
+
+    if (state.navigation.navSurfaceIter != state.navigation.navSurfaces.end()) {
       // Establish & update the surface status
       auto surfaceStatus = stepper.updateSurfaceStatus(
-          state.stepping, **state.navigation.nextSurfaceIter, false);
-      if (surfaceStatus == Intersection::Status::unreachable) {
-        debugLog(state, [&] {
-          std::stringstream dstream;
-          dstream << "Surface not reachable anymore, switching to next one in "
-                     "sequence";
-          return dstream.str();
-        });
+          state.stepping, **state.navigation.navSurfaceIter, false);
+      if (surfaceStatus == Intersection3D::Status::unreachable) {
+        ACTS_VERBOSE(
+            "Surface not reachable anymore, switching to next one in "
+            "sequence");
         // Move the sequence to the next surface
-        ++state.navigation.nextSurfaceIter;
+        ++state.navigation.navSurfaceIter;
       } else {
-        debugLog(state, [&] {
-          std::stringstream dstream;
-          dstream << "Navigation stepSize set to ";
-          dstream << stepper.outputStepSize(state.stepping);
-          return dstream.str();
-        });
+        ACTS_VERBOSE("Navigation stepSize set to "
+                     << stepper.outputStepSize(state.stepping));
       }
     } else {
       // Set the navigation break
@@ -231,39 +209,7 @@ class DirectNavigator {
       if (state.navigation.targetSurface == nullptr) {
         state.navigation.targetReached = true;
         // Announce it then
-        debugLog(state,
-                 [&] { return std::string("No target Surface, job done."); });
-      }
-    }
-  }
-
- private:
-  /// The private navigation debug logging
-  ///
-  /// It needs to be fed by a lambda function that returns a string,
-  /// that guarantees that the lambda is only called in the
-  /// state.options.debug == true case in order not to spend time
-  /// when not needed.
-  ///
-  /// @tparam propagator_state_t Type of the propagator state
-  ///
-  /// @param[in,out] state the propagator state for the debug flag,
-  ///      prefix and length
-  /// @param logAction is a callable function that returns a streamable object
-  template <typename propagator_state_t>
-  void debugLog(propagator_state_t& state,
-                const std::function<std::string()>& logAction) const {
-    if (state.options.debug) {
-      std::string vName = "Direct Navigator";
-      std::vector<std::string> lines;
-      std::string input = logAction();
-      boost::split(lines, input, boost::is_any_of("\n"));
-      for (const auto& line : lines) {
-        std::stringstream dstream;
-        dstream << ">>>" << std::setw(state.options.debugPfxWidth) << vName
-                << " | ";
-        dstream << std::setw(state.options.debugMsgWidth) << line << '\n';
-        state.options.debugString += dstream.str();
+        ACTS_VERBOSE("No target Surface, job done.");
       }
     }
   }

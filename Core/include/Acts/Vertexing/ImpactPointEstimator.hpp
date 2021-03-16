@@ -11,6 +11,7 @@
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/MagneticFieldContext.hpp"
+#include "Acts/MagneticField/MagneticFieldProvider.hpp"
 #include "Acts/MagneticField/NullBField.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Utilities/Result.hpp"
@@ -37,38 +38,36 @@ struct ImpactParametersAndSigma {
 template <typename input_track_t, typename propagator_t,
           typename propagator_options_t = PropagatorOptions<>>
 class ImpactPointEstimator {
-  using BField_t = typename propagator_t::Stepper::BField;
-
  public:
   /// @struct State struct
   struct State {
     /// @brief The state constructor
     ///
     /// @param mctx The magnetic field context
-    State(const Acts::MagneticFieldContext& mctx) : fieldCache(mctx) {}
+    State(MagneticFieldProvider::Cache fieldCacheIn)
+        : fieldCache(std::move(fieldCacheIn)) {}
     /// Magnetic field cache
-    typename BField_t::Cache fieldCache;
+    MagneticFieldProvider::Cache fieldCache;
   };
 
-  /// @struct Configuration struct
   struct Config {
     /// @brief Config constructor if magnetic field is present
     ///
     /// @param bIn The magnetic field
     /// @param prop The propagator
-    Config(const BField_t& bIn, std::shared_ptr<propagator_t> prop)
-        : bField(bIn), propagator(std::move(prop)) {}
+    Config(std::shared_ptr<MagneticFieldProvider> bIn,
+           std::shared_ptr<propagator_t> prop)
+        : bField(std::move(bIn)), propagator(std::move(prop)) {}
 
-    /// @brief Config constructor if BField_t == NullBField (no B-Field
+    /// @brief Config constructor without B field -> uses NullBField
     /// provided)
     ///
     /// @param prop The propagator
-    template <typename T = BField_t,
-              std::enable_if_t<std::is_same<T, NullBField>::value, int> = 0>
-    Config(std::shared_ptr<propagator_t> prop) : propagator(std::move(prop)) {}
+    Config(std::shared_ptr<propagator_t> prop)
+        : bField{std::make_shared<NullBField>()}, propagator(std::move(prop)) {}
 
     /// Magnetic field
-    BField_t bField;
+    std::shared_ptr<MagneticFieldProvider> bField;
     /// Propagator
     std::shared_ptr<propagator_t> propagator;
     /// Max. number of iterations in Newton method
@@ -95,9 +94,8 @@ class ImpactPointEstimator {
   ///
   /// @return Distance
   Result<double> calculate3dDistance(const GeometryContext& gctx,
-                                     const BoundParameters& trkParams,
-                                     const Vector3D& vtxPos,
-                                     State& state) const;
+                                     const BoundTrackParameters& trkParams,
+                                     const Vector3& vtxPos, State& state) const;
 
   /// @brief Creates track parameters bound to plane
   /// at point of closest approach in 3d to given
@@ -114,10 +112,11 @@ class ImpactPointEstimator {
   /// @param state The state object
   ///
   /// @return New track params
-  Result<std::unique_ptr<const BoundParameters>> estimate3DImpactParameters(
-      const GeometryContext& gctx, const Acts::MagneticFieldContext& mctx,
-      const BoundParameters& trkParams, const Vector3D& vtxPos,
-      State& state) const;
+  Result<std::unique_ptr<const BoundTrackParameters>>
+  estimate3DImpactParameters(const GeometryContext& gctx,
+                             const Acts::MagneticFieldContext& mctx,
+                             const BoundTrackParameters& trkParams,
+                             const Vector3& vtxPos, State& state) const;
 
   /// @brief Estimates the compatibility of a
   /// track to a vertex position based on the 3d
@@ -130,8 +129,8 @@ class ImpactPointEstimator {
   ///
   /// @return The compatibility value
   Result<double> get3dVertexCompatibility(const GeometryContext& gctx,
-                                          const BoundParameters* trkParams,
-                                          const Vector3D& vertexPos) const;
+                                          const BoundTrackParameters* trkParams,
+                                          const Vector3& vertexPos) const;
 
   /// @brief Estimates the impact parameters and their errors of a given
   /// track w.r.t. a vertex by propagating the trajectory state
@@ -142,7 +141,7 @@ class ImpactPointEstimator {
   /// @param gctx The geometry context
   /// @param mctx The magnetic field context
   Result<ImpactParametersAndSigma> estimateImpactParameters(
-      const BoundParameters& track, const Vertex<input_track_t>& vtx,
+      const BoundTrackParameters& track, const Vertex<input_track_t>& vtx,
       const GeometryContext& gctx, const MagneticFieldContext& mctx) const;
 
  private:
@@ -160,8 +159,8 @@ class ImpactPointEstimator {
   /// @param r     Helix radius
   ///
   /// @return New phi value
-  Result<double> performNewtonApproximation(const Vector3D& trkPos,
-                                            const Vector3D& vtxPos, double phi,
+  Result<double> performNewtonApproximation(const Vector3& trkPos,
+                                            const Vector3& vtxPos, double phi,
                                             double theta, double r) const;
 
   /// @brief Helper function to calculate relative
@@ -177,9 +176,9 @@ class ImpactPointEstimator {
   ///   determined by method
   /// @param state The state object
   Result<void> getDistanceAndMomentum(const GeometryContext& gctx,
-                                      const BoundParameters& trkParams,
-                                      const Vector3D& vtxPos, Vector3D& deltaR,
-                                      Vector3D& momDir, State& state) const;
+                                      const BoundTrackParameters& trkParams,
+                                      const Vector3& vtxPos, Vector3& deltaR,
+                                      Vector3& momDir, State& state) const;
 };
 
 }  // namespace Acts

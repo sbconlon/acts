@@ -6,6 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
@@ -14,7 +15,6 @@
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Tests/CommonHelpers/BenchmarkTools.hpp"
 #include "Acts/Utilities/Logger.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <iostream>
 
@@ -69,19 +69,19 @@ int main(int argc, char* argv[]) {
                            << "GeV in a " << BzInT << "T B-field");
 
   using BField_type = ConstantBField;
-  using Stepper_type = EigenStepper<BField_type>;
+  using Stepper_type = EigenStepper<>;
   using Propagator_type = Propagator<Stepper_type>;
   using Covariance = BoundSymMatrix;
 
-  BField_type bField(0, 0, BzInT * UnitConstants::T);
+  auto bField = std::make_shared<BField_type>(0, 0, BzInT * UnitConstants::T);
   Stepper_type atlas_stepper(std::move(bField));
   Propagator_type propagator(std::move(atlas_stepper));
 
-  PropagatorOptions<> options(tgContext, mfContext);
+  PropagatorOptions<> options(tgContext, mfContext, getDummyLogger());
   options.pathLimit = maxPathInM * UnitConstants::m;
 
-  Vector3D pos(0, 0, 0);
-  Vector3D mom(ptInGeV * UnitConstants::GeV, 0, 0);
+  Vector4 pos4(0, 0, 0, 0);
+  Vector3 dir(1, 0, 0);
   Covariance cov;
   // clang-format off
   cov << 10_mm, 0, 0, 0, 0, 0,
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
   if (withCov) {
     covOpt = cov;
   }
-  CurvilinearParameters pars(covOpt, pos, mom, +1, 0.);
+  CurvilinearTrackParameters pars(pos4, dir, ptInGeV, +1, covOpt);
 
   double totalPathLength = 0;
   size_t num_iters = 0;
@@ -104,11 +104,9 @@ int main(int argc, char* argv[]) {
       [&] {
         auto r = propagator.propagate(pars, options).value();
         if (totalPathLength == 0.) {
-          ACTS_DEBUG("reached position ("
-                     << r.endParameters->position().x() << ", "
-                     << r.endParameters->position().y() << ", "
-                     << r.endParameters->position().z() << ") in " << r.steps
-                     << " steps");
+          ACTS_DEBUG("reached position "
+                     << r.endParameters->position(tgContext).transpose()
+                     << " in " << r.steps << " steps");
         }
         totalPathLength += r.pathLength;
         ++num_iters;

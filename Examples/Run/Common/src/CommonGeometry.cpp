@@ -6,19 +6,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Detector/IBaseDetector.hpp"
-#include "ACTFW/Geometry/MaterialWiper.hpp"
-#include "ACTFW/Io/Root/RootMaterialDecorator.hpp"
+#include "ActsExamples/Detector/IBaseDetector.hpp"
+#include "ActsExamples/Geometry/MaterialWiper.hpp"
+#include "ActsExamples/Io/Root/RootMaterialDecorator.hpp"
 #include <Acts/Material/IMaterialDecorator.hpp>
-#include <Acts/Plugins/Json/JsonGeometryConverter.hpp>
 #include <Acts/Plugins/Json/JsonMaterialDecorator.hpp>
+#include <Acts/Plugins/Json/MaterialMapJsonConverter.hpp>
 #include <Acts/Utilities/Logger.hpp>
 
 #include <string>
 
 #include <boost/program_options.hpp>
 
-namespace FW {
+namespace ActsExamples {
 namespace Geometry {
 
 /// @brief helper method to setup the geometry
@@ -31,7 +31,7 @@ namespace Geometry {
 ///
 /// @return a pair of TrackingGeometry and context decorators
 std::pair<std::shared_ptr<const Acts::TrackingGeometry>,
-          std::vector<std::shared_ptr<FW::IContextDecorator>>>
+          std::vector<std::shared_ptr<ActsExamples::IContextDecorator>>>
 build(const boost::program_options::variables_map& vm,
       IBaseDetector& detector) {
   // Material decoration
@@ -45,16 +45,16 @@ build(const boost::program_options::variables_map& vm,
     // json or root based decorator
     if (fileName.find(".json") != std::string::npos) {
       // Set up the converter first
-      Acts::JsonGeometryConverter::Config jsonGeoConvConfig;
+      Acts::MaterialMapJsonConverter::Config jsonGeoConvConfig;
       // Set up the json-based decorator
       matDeco = std::make_shared<const Acts::JsonMaterialDecorator>(
           jsonGeoConvConfig, fileName);
     } else if (fileName.find(".root") != std::string::npos) {
       // Set up the root-based decorator
-      FW::RootMaterialDecorator::Config rootMatDecConfig;
+      ActsExamples::RootMaterialDecorator::Config rootMatDecConfig;
       rootMatDecConfig.fileName = fileName;
-      matDeco =
-          std::make_shared<const FW::RootMaterialDecorator>(rootMatDecConfig);
+      matDeco = std::make_shared<const ActsExamples::RootMaterialDecorator>(
+          rootMatDecConfig);
     }
   }
 
@@ -63,4 +63,4 @@ build(const boost::program_options::variables_map& vm,
 }
 
 }  // namespace Geometry
-}  // namespace FW
+}  // namespace ActsExamples

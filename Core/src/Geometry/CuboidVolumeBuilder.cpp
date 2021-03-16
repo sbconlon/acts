@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2018 CERN for the benefit of the Acts project
+// Copyright (C) 2018-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,22 +8,32 @@
 
 #include "Acts/Geometry/CuboidVolumeBuilder.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
+#include "Acts/Geometry/BoundarySurfaceFace.hpp"
 #include "Acts/Geometry/CuboidVolumeBounds.hpp"
 #include "Acts/Geometry/Layer.hpp"
 #include "Acts/Geometry/LayerArrayCreator.hpp"
 #include "Acts/Geometry/LayerCreator.hpp"
 #include "Acts/Geometry/PlaneLayer.hpp"
+#include "Acts/Geometry/SurfaceArrayCreator.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
 #include "Acts/Geometry/detail/DefaultDetectorElementBase.hpp"
 #include "Acts/Material/HomogeneousSurfaceMaterial.hpp"
-#include "Acts/Material/MaterialProperties.hpp"
+#include "Acts/Material/MaterialSlab.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
+#include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Surfaces/SurfaceArray.hpp"
+#include "Acts/Utilities/BinUtility.hpp"
 #include "Acts/Utilities/BinnedArray.hpp"
 #include "Acts/Utilities/BinnedArrayXD.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Utilities/BinningData.hpp"
+#include "Acts/Utilities/Logger.hpp"
+
+#include <limits>
+#include <optional>
 
 std::shared_ptr<const Acts::PlaneSurface>
 Acts::CuboidVolumeBuilder::buildSurface(
@@ -32,18 +42,16 @@ Acts::CuboidVolumeBuilder::buildSurface(
   std::shared_ptr<PlaneSurface> surface;
 
   // Build transformation
-  Transform3D trafo(Transform3D::Identity() * cfg.rotation);
+  Transform3 trafo(Transform3::Identity() * cfg.rotation);
   trafo.translation() = cfg.position;
 
   // Create and store surface
   if (cfg.detElementConstructor) {
     surface = Surface::makeShared<PlaneSurface>(
         cfg.rBounds,
-        *(cfg.detElementConstructor(std::make_shared<const Transform3D>(trafo),
-                                    cfg.rBounds, cfg.thickness)));
+        *(cfg.detElementConstructor(trafo, cfg.rBounds, cfg.thickness)));
   } else {
-    surface = Surface::makeShared<PlaneSurface>(
-        std::make_shared<const Transform3D>(trafo), cfg.rBounds);
+    surface = Surface::makeShared<PlaneSurface>(trafo, cfg.rBounds);
   }
   surface->assignSurfaceMaterial(cfg.surMat);
   return surface;
@@ -57,16 +65,14 @@ std::shared_ptr<const Acts::Layer> Acts::CuboidVolumeBuilder::buildLayer(
     cfg.surface = buildSurface(gctx, cfg.surfaceCfg);
   }
   // Build transformation centered at the surface position
-  Transform3D trafo(Transform3D::Identity() * cfg.surfaceCfg.rotation);
+  Transform3 trafo(Transform3::Identity() * cfg.surfaceCfg.rotation);
   trafo.translation() = cfg.surfaceCfg.position;
 
   LayerCreator::Config lCfg;
   lCfg.surfaceArrayCreator = std::make_shared<const SurfaceArrayCreator>();
   LayerCreator layerCreator(lCfg);
-
   return layerCreator.planeLayer(gctx, {cfg.surface}, cfg.binsY, cfg.binsZ,
-                                 BinningValue::binX, std::nullopt,
-                                 std::make_shared<const Transform3D>(trafo));
+                                 BinningValue::binX, std::nullopt, trafo);
 }
 
 std::pair<double, double> Acts::CuboidVolumeBuilder::binningRange(
@@ -77,12 +83,16 @@ std::pair<double, double> Acts::CuboidVolumeBuilder::binningRange(
   std::pair<double, double> minMax = std::make_pair(
       std::numeric_limits<double>::max(), -std::numeric_limits<double>::max());
   for (const auto& layercfg : cfg.layerCfg) {
+    auto surfacePosMin = layercfg.surfaceCfg.position.x() -
+                         layercfg.surfaceCfg.thickness / 2. - 1._um;
+    auto surfacePosMax = layercfg.surfaceCfg.position.x() +
+                         layercfg.surfaceCfg.thickness / 2. + 1._um;
     // Test if new extreme is found and set it
-    if (layercfg.surfaceCfg.position.x() - 1_um < minMax.first) {
-      minMax.first = layercfg.surfaceCfg.position.x() - 1_um;
+    if (surfacePosMin < minMax.first) {
+      minMax.first = surfacePosMin;
     }
-    if (layercfg.surfaceCfg.position.x() + 1_um > minMax.second) {
-      minMax.second = layercfg.surfaceCfg.position.x() + 1_um;
+    if (surfacePosMax > minMax.second) {
+      minMax.second = surfacePosMax;
     }
   }
   return minMax;
@@ -92,7 +102,7 @@ std::shared_ptr<Acts::TrackingVolume> Acts::CuboidVolumeBuilder::buildVolume(
     const GeometryContext& gctx,
     Acts::CuboidVolumeBuilder::VolumeConfig& cfg) const {
   // Build transformation
-  Transform3D trafo(Transform3D::Identity());
+  Transform3 trafo(Transform3::Identity());
   trafo.translation() = cfg.position;
   // Set bounds
   auto bounds = std::make_shared<const CuboidVolumeBounds>(
@@ -103,9 +113,9 @@ std::shared_ptr<Acts::TrackingVolume> Acts::CuboidVolumeBuilder::buildVolume(
     SurfaceConfig sCfg;
     sCfg.position = cfg.position;
     // Rotation of the surfaces: +pi/2 around axis y
-    Vector3D xPos(0., 0., 1.);
-    Vector3D yPos(0., 1., 0.);
-    Vector3D zPos(-1., 0., 0.);
+    Vector3 xPos(0., 0., 1.);
+    Vector3 yPos(0., 1., 0.);
+    Vector3 zPos(-1., 0., 0.);
     sCfg.rotation.col(0) = xPos;
     sCfg.rotation.col(1) = yPos;
     sCfg.rotation.col(2) = zPos;
@@ -151,14 +161,14 @@ std::shared_ptr<Acts::TrackingVolume> Acts::CuboidVolumeBuilder::buildVolume(
   std::shared_ptr<TrackingVolume> trackVolume;
   if (layVec.empty()) {
     // Build TrackingVolume
-    trackVolume = TrackingVolume::create(
-        std::make_shared<const Transform3D>(trafo), bounds, cfg.volumeMaterial,
-        nullptr, nullptr, cfg.trackingVolumes, cfg.name);
+    trackVolume =
+        TrackingVolume::create(trafo, bounds, cfg.volumeMaterial, nullptr,
+                               nullptr, cfg.trackingVolumes, cfg.name);
   } else {
     // Build TrackingVolume
-    trackVolume = TrackingVolume::create(
-        std::make_shared<const Transform3D>(trafo), bounds, cfg.volumeMaterial,
-        std::move(layArr), nullptr, cfg.trackingVolumes, cfg.name);
+    trackVolume = TrackingVolume::create(trafo, bounds, cfg.volumeMaterial,
+                                         std::move(layArr), nullptr,
+                                         cfg.trackingVolumes, cfg.name);
   }
   return trackVolume;
 }
@@ -184,7 +194,7 @@ Acts::MutableTrackingVolumePtr Acts::CuboidVolumeBuilder::trackingVolume(
   }
 
   // Translation
-  Transform3D trafo(Transform3D::Identity());
+  Transform3 trafo(Transform3::Identity());
   trafo.translation() = m_cfg.position;
 
   // Size of the volume
@@ -192,7 +202,7 @@ Acts::MutableTrackingVolumePtr Acts::CuboidVolumeBuilder::trackingVolume(
       m_cfg.length.x() * 0.5, m_cfg.length.y() * 0.5, m_cfg.length.z() * 0.5);
 
   // Build vector of confined volumes
-  std::vector<std::pair<TrackingVolumePtr, Vector3D>> tapVec;
+  std::vector<std::pair<TrackingVolumePtr, Vector3>> tapVec;
   tapVec.reserve(m_cfg.volumeCfg.size());
   for (auto& tVol : volumes) {
     tapVec.push_back(std::make_pair(tVol, tVol->center()));
@@ -216,8 +226,8 @@ Acts::MutableTrackingVolumePtr Acts::CuboidVolumeBuilder::trackingVolume(
       new BinnedArrayXD<TrackingVolumePtr>(tapVec, std::move(bu)));
 
   // Create world volume
-  MutableTrackingVolumePtr mtvp(TrackingVolume::create(
-      std::make_shared<const Transform3D>(trafo), volume, trVolArr, "World"));
+  MutableTrackingVolumePtr mtvp(
+      TrackingVolume::create(trafo, volume, trVolArr, "World"));
 
   return mtvp;
 }

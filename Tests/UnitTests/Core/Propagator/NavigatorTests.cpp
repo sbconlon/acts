@@ -10,6 +10,8 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Propagator/ConstrainedStep.hpp"
@@ -18,11 +20,10 @@
 #include "Acts/Propagator/StraightLineStepper.hpp"
 #include "Acts/Propagator/detail/SteppingHelper.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
+#include "Acts/Tests/CommonHelpers/CubicBVHTrackingGeometry.hpp"
 #include "Acts/Tests/CommonHelpers/CylindricalTrackingGeometry.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Intersection.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include <memory>
 
@@ -45,9 +46,9 @@ struct PropagatorState {
     // comply with concept
     using Jacobian = BoundMatrix;
     using Covariance = BoundSymMatrix;
-    using BoundState = std::tuple<BoundParameters, Jacobian, double>;
+    using BoundState = std::tuple<BoundTrackParameters, Jacobian, double>;
     using CurvilinearState =
-        std::tuple<CurvilinearParameters, Jacobian, double>;
+        std::tuple<CurvilinearTrackParameters, Jacobian, double>;
     using BField = int;
 
     template <typename, typename>
@@ -57,19 +58,16 @@ struct PropagatorState {
     /// Stepper cache in the propagation
     struct State {
       /// Position
-      Vector3D pos = Vector3D(0., 0., 0.);
+      Vector4 pos4 = Vector4(0., 0., 0., 0.);
 
       /// Direction
-      Vector3D dir = Vector3D(1., 0., 0.);
+      Vector3 dir = Vector3(1., 0., 0.);
 
       /// Momentum
       double p;
 
       /// Charge
       double q;
-
-      /// Time
-      double t;
 
       /// the navigation direction
       NavigationDirection navDir = forward;
@@ -96,10 +94,15 @@ struct PropagatorState {
                     const double /*unused*/) const {}
 
     /// Global particle position accessor
-    Vector3D position(const State& state) const { return state.pos; }
+    Vector3 position(const State& state) const {
+      return state.pos4.segment<3>(Acts::ePos0);
+    }
+
+    /// Time access
+    double time(const State& state) const { return state.pos4[Acts::eTime]; }
 
     /// Momentum direction accessor
-    Vector3D direction(const State& state) const { return state.dir; }
+    Vector3 direction(const State& state) const { return state.dir; }
 
     /// Momentum accessor
     double momentum(const State& state) const { return state.p; }
@@ -107,15 +110,12 @@ struct PropagatorState {
     /// Charge access
     double charge(const State& state) const { return state.q; }
 
-    /// Time access
-    double time(const State& state) const { return state.t; }
-
     /// Overstep limit access
     double overstepLimit(const State& /*state*/) const {
       return s_onSurfaceTolerance;
     }
 
-    Intersection::Status updateSurfaceStatus(
+    Intersection3D::Status updateSurfaceStatus(
         State& state, const Surface& surface,
         const BoundaryCheck& bcheck) const {
       return detail::updateSingleSurfaceStatus<Stepper>(*this, state, surface,
@@ -144,18 +144,24 @@ struct PropagatorState {
       return state.stepSize.toString();
     }
 
-    BoundState boundState(State& state, const Surface& surface) const {
-      BoundParameters parameters(tgContext, std::nullopt, state.pos,
-                                 state.p * state.dir, state.q, state.t,
-                                 surface.getSharedPtr());
-      BoundState bState{std::move(parameters), Jacobian::Identity(),
+    Result<BoundState> boundState(State& state, const Surface& surface,
+                                  bool /*unused*/
+    ) const {
+      auto bound =
+          BoundTrackParameters::create(surface.getSharedPtr(), tgContext,
+                                       state.pos4, state.dir, state.p, state.q);
+      if (!bound.ok()) {
+        return bound.error();
+      }
+      BoundState bState{std::move(*bound), Jacobian::Identity(),
                         state.pathAccumulated};
       return bState;
     }
 
-    CurvilinearState curvilinearState(State& state) const {
-      CurvilinearParameters parameters(std::nullopt, state.pos,
-                                       state.p * state.dir, state.q, state.t);
+    CurvilinearState curvilinearState(State& state, bool /*unused*/
+    ) const {
+      CurvilinearTrackParameters parameters(state.pos4, state.dir, state.p,
+                                            state.q);
       // Create the bound state
       CurvilinearState curvState{std::move(parameters), Jacobian::Identity(),
                                  state.pathAccumulated};
@@ -165,8 +171,8 @@ struct PropagatorState {
     void update(State& /*state*/, const FreeVector& /*pars*/,
                 const Covariance& /*cov*/) const {}
 
-    void update(State& /*state*/, const Vector3D& /*uposition*/,
-                const Vector3D& /*udirection*/, double /*up*/,
+    void update(State& /*state*/, const Vector3& /*uposition*/,
+                const Vector3& /*udirection*/, double /*up*/,
                 double /*time*/) const {}
 
     void covarianceTransport(State& /*state*/) const {}
@@ -174,9 +180,9 @@ struct PropagatorState {
     void covarianceTransport(State& /*unused*/,
                              const Surface& /*surface*/) const {}
 
-    Vector3D getField(State& /*state*/, const Vector3D& /*pos*/) const {
+    Vector3 getField(State& /*state*/, const Vector3& /*pos*/) const {
       // get the field from the cell
-      return Vector3D(0., 0., 0.);
+      return Vector3(0., 0., 0.);
     }
   };
 
@@ -192,6 +198,8 @@ struct PropagatorState {
     /// buffer & formatting for consistent output
     size_t debugPfxWidth = 30;
     size_t debugMsgWidth = 50;
+
+    LoggerWrapper logger{getDummyLogger()};
   };
 
   /// Navigation cache: the start surface
@@ -220,7 +228,9 @@ struct PropagatorState {
 template <typename stepper_state_t>
 void step(stepper_state_t& sstate) {
   // update the cache position
-  sstate.pos = sstate.pos + sstate.stepSize * sstate.dir;
+  sstate.pos4[Acts::ePos0] += sstate.stepSize * sstate.dir[Acts::eMom0];
+  sstate.pos4[Acts::ePos1] += sstate.stepSize * sstate.dir[Acts::eMom1];
+  sstate.pos4[Acts::ePos2] += sstate.stepSize * sstate.dir[Acts::eMom2];
   // create navigation parameters
   return;
 }
@@ -281,15 +291,15 @@ BOOST_AUTO_TEST_CASE(Navigator_status_methods) {
   navigator.resolvePassive = false;
 
   // position and direction vector
-  Vector3D position(0., 0., 0);
-  Vector3D momentum(1., 1., 0);
+  Vector4 position4(0., 0., 0, 0);
+  Vector3 momentum(1., 1., 0);
 
   // the propagator cache
   PropagatorState state;
   state.options.debug = debug;
 
   // the stepper cache
-  state.stepping.pos = position;
+  state.stepping.pos4 = position4;
   state.stepping.dir = momentum.normalized();
 
   // Stepper
@@ -300,18 +310,18 @@ BOOST_AUTO_TEST_CASE(Navigator_status_methods) {
   //
   // Run without anything present
   navigator.status(state, stepper);
-  BOOST_TEST(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
-  BOOST_TEST(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
-                                        nullptr, nullptr, nullptr, nullptr,
-                                        nullptr, nullptr, nullptr));
+  BOOST_CHECK(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
+  BOOST_CHECK(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
+                                         nullptr, nullptr, nullptr, nullptr,
+                                         nullptr, nullptr, nullptr));
 
   // Run with geometry but without resolving
   navigator.trackingGeometry = tGeometry;
   navigator.status(state, stepper);
-  BOOST_TEST(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
-  BOOST_TEST(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
-                                        nullptr, nullptr, nullptr, nullptr,
-                                        nullptr, nullptr, nullptr));
+  BOOST_CHECK(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
+  BOOST_CHECK(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
+                                         nullptr, nullptr, nullptr, nullptr,
+                                         nullptr, nullptr, nullptr));
 
   // Run with geometry and resolving but broken navigation for various reasons
   navigator.resolveSensitive = true;
@@ -321,63 +331,64 @@ BOOST_AUTO_TEST_CASE(Navigator_status_methods) {
   // a) Because target is reached
   state.navigation.targetReached = true;
   navigator.status(state, stepper);
-  BOOST_TEST(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
-  BOOST_TEST(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
-                                        nullptr, nullptr, nullptr, nullptr,
-                                        nullptr, nullptr, nullptr));
+  BOOST_CHECK(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
+  BOOST_CHECK(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
+                                         nullptr, nullptr, nullptr, nullptr,
+                                         nullptr, nullptr, nullptr));
   // b) Beacause of no target surface
   state.navigation.targetReached = false;
   state.navigation.targetSurface = nullptr;
   navigator.status(state, stepper);
-  BOOST_TEST(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
-  BOOST_TEST(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
-                                        nullptr, nullptr, nullptr, nullptr,
-                                        nullptr, nullptr, nullptr));
+  BOOST_CHECK(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
+  BOOST_CHECK(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
+                                         nullptr, nullptr, nullptr, nullptr,
+                                         nullptr, nullptr, nullptr));
   // c) Because the target surface is reached
   const Surface* startSurf = tGeometry->getBeamline();
-  state.stepping.pos = startSurf->center(state.geoContext);
+  state.stepping.pos4.segment<3>(Acts::ePos0) =
+      startSurf->center(state.geoContext);
   const Surface* targetSurf = startSurf;
   state.navigation.targetSurface = targetSurf;
   navigator.status(state, stepper);
-  BOOST_TEST(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
-  BOOST_TEST(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
-                                        nullptr, nullptr, targetSurf, nullptr,
-                                        nullptr, nullptr, targetSurf));
+  BOOST_CHECK(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
+  BOOST_CHECK(testNavigatorStatePointers(state.navigation, nullptr, nullptr,
+                                         nullptr, nullptr, targetSurf, nullptr,
+                                         nullptr, nullptr, targetSurf));
 
   //
   // (2) Test the initialisation
   //
   // a) Initialise without additional information
   state.navigation = Navigator::State();
-  state.stepping.pos << 0., 0., 0.;
+  state.stepping.pos4 << 0., 0., 0., 0.;
   const TrackingVolume* worldVol = tGeometry->highestTrackingVolume();
   const TrackingVolume* startVol = tGeometry->lowestTrackingVolume(
       state.geoContext, stepper.position(state.stepping));
   const Layer* startLay = startVol->associatedLayer(
       state.geoContext, stepper.position(state.stepping));
   navigator.status(state, stepper);
-  BOOST_TEST(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
-  BOOST_TEST(testNavigatorStatePointers(state.navigation, worldVol, startVol,
-                                        startLay, nullptr, nullptr, startVol,
-                                        nullptr, nullptr, nullptr));
+  BOOST_CHECK(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
+  BOOST_CHECK(testNavigatorStatePointers(state.navigation, worldVol, startVol,
+                                         startLay, nullptr, nullptr, startVol,
+                                         nullptr, nullptr, nullptr));
 
   // b) Initialise having a start surface
   state.navigation = Navigator::State();
   state.navigation.startSurface = startSurf;
   navigator.status(state, stepper);
-  BOOST_TEST(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
-  BOOST_TEST(testNavigatorStatePointers(state.navigation, worldVol, startVol,
-                                        startLay, startSurf, startSurf,
-                                        startVol, nullptr, nullptr, nullptr));
+  BOOST_CHECK(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
+  BOOST_CHECK(testNavigatorStatePointers(state.navigation, worldVol, startVol,
+                                         startLay, startSurf, startSurf,
+                                         startVol, nullptr, nullptr, nullptr));
 
   // c) Initialise having a start volume
   state.navigation = Navigator::State();
   state.navigation.startVolume = startVol;
   navigator.status(state, stepper);
-  BOOST_TEST(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
-  BOOST_TEST(testNavigatorStatePointers(state.navigation, worldVol, startVol,
-                                        startLay, nullptr, nullptr, startVol,
-                                        nullptr, nullptr, nullptr));
+  BOOST_CHECK(testNavigatorStateVectors(state.navigation, 0u, 0u, 0u, 0u));
+  BOOST_CHECK(testNavigatorStatePointers(state.navigation, worldVol, startVol,
+                                         startLay, nullptr, nullptr, startVol,
+                                         nullptr, nullptr, nullptr));
 }
 
 BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
@@ -388,16 +399,24 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
   navigator.resolveMaterial = true;
   navigator.resolvePassive = false;
 
+  // create a navigator for the Bounding Volume Hierarchy test
+  CubicBVHTrackingGeometry grid(20, 1000, 5);
+  Navigator BVHNavigator;
+  BVHNavigator.trackingGeometry = grid.trackingGeometry;
+  BVHNavigator.resolveSensitive = true;
+  BVHNavigator.resolveMaterial = true;
+  BVHNavigator.resolvePassive = false;
+
   // position and direction vector
-  Vector3D position(0., 0., 0);
-  Vector3D momentum(1., 1., 0);
+  Vector4 position4(0., 0., 0, 0);
+  Vector3 momentum(1., 1., 0);
 
   // the propagator cache
   PropagatorState state;
   state.options.debug = debug;
 
   // the stepper cache
-  state.stepping.pos = position;
+  state.stepping.pos4 = position4;
   state.stepping.dir = momentum.normalized();
 
   // foward navigation ----------------------------------------------
@@ -435,7 +454,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
   CHECK_CLOSE_ABS(state.stepping.stepSize, beamPipeR, s_onSurfaceTolerance);
   if (debug) {
     std::cout << "<<< Test 1a >>> initialize at "
-              << toString(state.stepping.pos) << std::endl;
+              << toString(state.stepping.pos4) << std::endl;
     std::cout << state.options.debugString << std::endl;
     // Clear the debug string for the next test
     state.options.debugString = "";
@@ -460,7 +479,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
   if (debug) {
     std::cout << "<<< Test 1b >>> step to the BeamPipe at  "
-              << toString(state.stepping.pos) << std::endl;
+              << toString(state.stepping.pos4) << std::endl;
     std::cout << state.options.debugString << std::endl;
     state.options.debugString = "";
   }
@@ -476,7 +495,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
   if (debug) {
     std::cout << "<<< Test 1c >>> step to the Boundary at  "
-              << toString(state.stepping.pos) << std::endl;
+              << toString(state.stepping.pos4) << std::endl;
     std::cout << state.options.debugString << std::endl;
     state.options.debugString = "";
   }
@@ -491,7 +510,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
   if (debug) {
     std::cout << "<<< Test 1d >>> step to 1st layer at  "
-              << toString(state.stepping.pos) << std::endl;
+              << toString(state.stepping.pos4) << std::endl;
     std::cout << state.options.debugString << std::endl;
     state.options.debugString = "";
   }
@@ -507,7 +526,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
     if (debug) {
       std::cout << "<<< Test 1e-1i >>> step within 1st layer at  "
-                << toString(state.stepping.pos) << std::endl;
+                << toString(state.stepping.pos4) << std::endl;
       std::cout << state.options.debugString << std::endl;
       state.options.debugString = "";
     }
@@ -523,7 +542,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
   if (debug) {
     std::cout << "<<< Test 1j >>> step to 2nd layer at  "
-              << toString(state.stepping.pos) << std::endl;
+              << toString(state.stepping.pos4) << std::endl;
     std::cout << state.options.debugString << std::endl;
     state.options.debugString = "";
   }
@@ -539,7 +558,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
     if (debug) {
       std::cout << "<<< Test 1k-1o >>> step within 2nd layer at  "
-                << toString(state.stepping.pos) << std::endl;
+                << toString(state.stepping.pos4) << std::endl;
       std::cout << state.options.debugString << std::endl;
       state.options.debugString = "";
     }
@@ -555,7 +574,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
   if (debug) {
     std::cout << "<<< Test 1p >>> step to 3rd layer at  "
-              << toString(state.stepping.pos) << std::endl;
+              << toString(state.stepping.pos4) << std::endl;
     std::cout << state.options.debugString << std::endl;
     state.options.debugString = "";
   }
@@ -571,7 +590,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
     if (debug) {
       std::cout << "<<< Test 1q-1s >>> step within 3rd layer at  "
-                << toString(state.stepping.pos) << std::endl;
+                << toString(state.stepping.pos4) << std::endl;
       std::cout << state.options.debugString << std::endl;
       state.options.debugString = "";
     }
@@ -587,7 +606,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
   if (debug) {
     std::cout << "<<< Test 1t >>> step to 4th layer at  "
-              << toString(state.stepping.pos) << std::endl;
+              << toString(state.stepping.pos4) << std::endl;
     std::cout << state.options.debugString << std::endl;
     state.options.debugString = "";
   }
@@ -603,7 +622,7 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
     if (debug) {
       std::cout << "<<< Test 1t-1v >>> step within 4th layer at  "
-                << toString(state.stepping.pos) << std::endl;
+                << toString(state.stepping.pos4) << std::endl;
       std::cout << state.options.debugString << std::endl;
       state.options.debugString = "";
     }
@@ -619,10 +638,50 @@ BOOST_AUTO_TEST_CASE(Navigator_target_methods) {
 
   if (debug) {
     std::cout << "<<< Test 1w >>> step to boundary at  "
-              << toString(state.stepping.pos) << std::endl;
+              << toString(state.stepping.pos4) << std::endl;
     std::cout << state.options.debugString << std::endl;
     state.options.debugString = "";
   }
+
+  // test the navigation in a bounding volume hierarchy
+  // ----------------------------------------------
+  if (debug) {
+    std::cout << "<<<<<<<<<<<<<<<<<<<<< BVH Navigation >>>>>>>>>>>>>>>>>>"
+              << std::endl;
+  }
+
+  // position and direction vector
+  Vector4 BVHPosition4(0., 0., 0, 0);
+  Vector3 BVHMomentum(1., 1., 0.);
+
+  // the propagator cache
+  PropagatorState BVHState;
+  BVHState.options.debug = debug;
+
+  // the stepper cache
+  BVHState.stepping.pos4 = BVHPosition4;
+  BVHState.stepping.dir = BVHMomentum.normalized();
+
+  // Stepper
+  PropagatorState::Stepper BVHStepper;
+
+  BVHNavigator.status(BVHState, BVHStepper);
+
+  // Check that the currentVolume is set
+  BOOST_CHECK_NE(BVHState.navigation.currentVolume, nullptr);
+  // Check that the currentVolume is the startVolume
+  BOOST_CHECK_EQUAL(BVHState.navigation.currentVolume,
+                    BVHState.navigation.startVolume);
+  // Check that the currentSurface is reset to:
+  BOOST_CHECK_EQUAL(BVHState.navigation.currentSurface, nullptr);
+  // No layer has been found
+  BOOST_CHECK_EQUAL(BVHState.navigation.navLayers.size(), 0u);
+  // ACTORS-ABORTERS-TARGET
+  navigator.target(BVHState, BVHStepper);
+  // Still no layer
+  BOOST_CHECK_EQUAL(BVHState.navigation.navLayers.size(), 0u);
+  // Surfaces have been found
+  BOOST_CHECK_EQUAL(BVHState.navigation.navSurfaces.size(), 42u);
 }
 
 }  // namespace Test

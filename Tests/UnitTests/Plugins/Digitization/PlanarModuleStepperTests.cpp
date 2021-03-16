@@ -9,6 +9,7 @@
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Plugins/Digitization/CartesianSegmentation.hpp"
 #include "Acts/Plugins/Digitization/DigitizationModule.hpp"
@@ -17,7 +18,6 @@
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 namespace bdata = boost::unit_test::data;
 namespace tt = boost::test_tools;
@@ -77,14 +77,14 @@ BOOST_DATA_TEST_CASE(
   (void)index;
 
   // Entry and exit point
-  Vector3D entry(entryX, entryY, -hThickness);
-  Vector3D exit(exitX, exitY, hThickness);
+  Vector3 entry(entryX, entryY, -hThickness);
+  Vector3 exit(exitX, exitY, hThickness);
 
   // test the module flavours
   for (auto& dm : testModules) {
     // retrieve the digitiztion steps
     auto cSteps = pmStepper.cellSteps(tgContext, dm, entry, exit);
-    BOOST_TEST(cSteps.size() != 0);
+    BOOST_CHECK_NE(cSteps.size(), 0);
 
     // Test if the longitudinal distance between first and last step
     // is equal/close to the thickness of the module

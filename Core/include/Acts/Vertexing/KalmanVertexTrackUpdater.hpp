@@ -22,11 +22,10 @@ namespace KalmanVertexTrackUpdater {
 /// @brief Refits a single track with the knowledge of
 /// the vertex it has originated from
 ///
-/// @param gctx The Geometry Context
 /// @param track Track to update
 /// @param vtx Vertex `track` belongs to
 template <typename input_track_t>
-void update(const GeometryContext& gctx, TrackAtVertex<input_track_t>& track,
+void update(TrackAtVertex<input_track_t>& track,
             const Vertex<input_track_t>& vtx);
 
 namespace detail {
@@ -39,10 +38,10 @@ namespace detail {
 /// @param vtxWeight Vertex weight matrix
 /// @param vtxCov Vertex covariance matrix
 /// @param newTrkParams New track parameter
-inline BoundMatrix createFullTrackCovariance(const SymMatrix3D& sMat,
-                                             const ActsMatrixD<4, 3>& newTrkCov,
-                                             const SymMatrix4D& vtxWeight,
-                                             const SymMatrix4D& vtxCov,
+inline BoundMatrix createFullTrackCovariance(const SymMatrix3& sMat,
+                                             const ActsMatrix<4, 3>& newTrkCov,
+                                             const SymMatrix4& vtxWeight,
+                                             const SymMatrix4& vtxCov,
                                              const BoundVector& newTrkParams);
 
 }  // Namespace detail

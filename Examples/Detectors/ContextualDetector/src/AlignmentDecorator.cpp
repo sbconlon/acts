@@ -6,18 +6,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/ContextualDetector/AlignmentDecorator.hpp"
+#include "ActsExamples/ContextualDetector/AlignmentDecorator.hpp"
 
 #include <Acts/Geometry/TrackingGeometry.hpp>
 
 #include <random>
 
-FW::Contextual::AlignmentDecorator::AlignmentDecorator(
-    const FW::Contextual::AlignmentDecorator::Config& cfg,
+ActsExamples::Contextual::AlignmentDecorator::AlignmentDecorator(
+    const ActsExamples::Contextual::AlignmentDecorator::Config& cfg,
     std::unique_ptr<const Acts::Logger> logger)
     : m_cfg(cfg), m_logger(std::move(logger)) {}
 
-FW::ProcessCode FW::Contextual::AlignmentDecorator::decorate(
+ActsExamples::ProcessCode
+ActsExamples::Contextual::AlignmentDecorator::decorate(
     AlgorithmContext& context) {
   // We need to lock the Decorator
   std::lock_guard<std::mutex> alignmentLock(m_alignmentMutex);
@@ -49,7 +50,7 @@ FW::ProcessCode FW::Contextual::AlignmentDecorator::decorate(
           // get the nominal transform
           auto& tForm = ldet->nominalTransform(context.geoContext);
           // create a new transform
-          auto atForm = std::make_unique<Acts::Transform3D>(tForm);
+          auto atForm = std::make_unique<Acts::Transform3>(tForm);
           if (iov != 0 or not m_cfg.firstIovNominal) {
             // the shifts in x, y, z
             double tx = m_cfg.gSigmaX != 0 ? m_cfg.gSigmaX * gauss(rng) : 0.;
@@ -61,22 +62,22 @@ FW::ProcessCode FW::Contextual::AlignmentDecorator::decorate(
               auto colX = tMatrix.block<3, 1>(0, 0).transpose();
               auto colY = tMatrix.block<3, 1>(0, 1).transpose();
               auto colZ = tMatrix.block<3, 1>(0, 2).transpose();
-              Acts::Vector3D newCenter = tMatrix.block<3, 1>(0, 3).transpose() +
-                                         tx * colX + ty * colY + tz * colZ;
+              Acts::Vector3 newCenter = tMatrix.block<3, 1>(0, 3).transpose() +
+                                        tx * colX + ty * colY + tz * colZ;
               atForm->translation() = newCenter;
             }
             // now modify it - rotation around local X
             if (m_cfg.aSigmaX != 0.) {
-              (*atForm) *= Acts::AngleAxis3D(m_cfg.aSigmaX * gauss(rng),
-                                             Acts::Vector3D::UnitX());
+              (*atForm) *= Acts::AngleAxis3(m_cfg.aSigmaX * gauss(rng),
+                                            Acts::Vector3::UnitX());
             }
             if (m_cfg.aSigmaY != 0.) {
-              (*atForm) *= Acts::AngleAxis3D(m_cfg.aSigmaY * gauss(rng),
-                                             Acts::Vector3D::UnitY());
+              (*atForm) *= Acts::AngleAxis3(m_cfg.aSigmaY * gauss(rng),
+                                            Acts::Vector3::UnitY());
             }
             if (m_cfg.aSigmaZ != 0.) {
-              (*atForm) *= Acts::AngleAxis3D(m_cfg.aSigmaZ * gauss(rng),
-                                             Acts::Vector3D::UnitZ());
+              (*atForm) *= Acts::AngleAxis3(m_cfg.aSigmaZ * gauss(rng),
+                                            Acts::Vector3::UnitZ());
             }
           }
           // put it back into the store
@@ -89,8 +90,7 @@ FW::ProcessCode FW::Contextual::AlignmentDecorator::decorate(
   }
   // Set the geometry context
   AlignedDetectorElement::ContextType alignedContext{iov};
-  context.geoContext =
-      std::make_any<AlignedDetectorElement::ContextType>(alignedContext);
+  context.geoContext = alignedContext;
 
   return ProcessCode::SUCCESS;
 }

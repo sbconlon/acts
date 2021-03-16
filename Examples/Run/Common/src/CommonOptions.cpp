@@ -1,14 +1,15 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2019-2021 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Options/CommonOptions.hpp"
+#include "ActsExamples/Options/CommonOptions.hpp"
 
-#include "ACTFW/Utilities/Options.hpp"
+#include "Acts/Utilities/Helpers.hpp"
+#include "ActsExamples/Utilities/Options.hpp"
 
 #include <exception>
 #include <fstream>
@@ -17,8 +18,8 @@
 
 using namespace boost::program_options;
 
-boost::program_options::options_description FW::Options::makeDefaultOptions(
-    std::string caption) {
+boost::program_options::options_description
+ActsExamples::Options::makeDefaultOptions(std::string caption) {
   options_description opt(caption);
 
   opt.add_options()("help,h", "Produce help message");
@@ -33,7 +34,7 @@ boost::program_options::options_description FW::Options::makeDefaultOptions(
   return opt;
 }
 
-void FW::Options::addSequencerOptions(
+void ActsExamples::Options::addSequencerOptions(
     boost::program_options::options_description& opt) {
   // sequencer options
   opt.add_options()("events,n", value<size_t>(),
@@ -45,25 +46,23 @@ void FW::Options::addSequencerOptions(
       "Number of parallel jobs, negative for automatic.");
 }
 
-void FW::Options::addRandomNumbersOptions(
+void ActsExamples::Options::addRandomNumbersOptions(
     boost::program_options::options_description& opt) {
   opt.add_options()("rnd-seed", value<uint64_t>()->default_value(1234567890u),
                     "Random numbers seed.");
 }
 
-void FW::Options::addGeometryOptions(
+void ActsExamples::Options::addGeometryOptions(
     boost::program_options::options_description& opt) {
   opt.add_options()("geo-surface-loglevel", value<size_t>()->default_value(3),
                     "The outoput log level for the surface building.")(
       "geo-layer-loglevel", value<size_t>()->default_value(3),
       "The output log level for the layer building.")(
       "geo-volume-loglevel", value<size_t>()->default_value(3),
-      "The output log level for the volume building.")(
-      "geo-detector-volume", value<read_strings>()->default_value({{}}),
-      "Sub detectors for the output writing");
+      "The output log level for the volume building.");
 }
 
-void FW::Options::addMaterialOptions(
+void ActsExamples::Options::addMaterialOptions(
     boost::program_options::options_description& opt) {
   opt.add_options()(
       "mat-input-type", value<std::string>()->default_value("build"),
@@ -84,38 +83,47 @@ void FW::Options::addMaterialOptions(
       "Write material information of volumes.")(
       "mat-output-dense-volumes", value<bool>()->default_value(false),
       "Write material information of dense volumes.")(
-      "mat-output-data", value<bool>()->default_value(true),
-      "Output the data field(s).")(
       "mat-output-allmaterial", value<bool>()->default_value(false),
       "Add protoMaterial to all surfaces and volume for the mapping.");
 }
 
-void FW::Options::addOutputOptions(
-    boost::program_options::options_description& opt) {
+void ActsExamples::Options::addOutputOptions(
+    boost::program_options::options_description& opt,
+    OutputFormat formatFlags) {
   // Add specific options for this example
   opt.add_options()("output-dir", value<std::string>()->default_value(""),
-                    "Output directory location.")(
-      "output-root", value<bool>()->default_value(false),
-      "Switch on to write '.root' output file(s).")(
-      "output-csv", value<bool>()->default_value(false),
-      "Switch on to write '.csv' output file(s).")(
-      "output-obj", value<bool>()->default_value(false),
-      "Switch on to write '.obj' ouput file(s).")(
-      "output-json", value<bool>()->default_value(false),
-      "Switch on to write '.json' ouput file(s).")(
-      "output-txt", value<bool>()->default_value(false),
-      "Switch on to write '.txt' ouput file(s).");
+                    "Output directory location.");
+
+  if (ACTS_CHECK_BIT(formatFlags, OutputFormat::Root))
+    opt.add_options()("output-root", bool_switch(),
+                      "Switch on to write '.root' output file(s).");
+
+  if (ACTS_CHECK_BIT(formatFlags, OutputFormat::Csv))
+    opt.add_options()("output-csv", bool_switch(),
+                      "Switch on to write '.csv' output file(s).");
+
+  if (ACTS_CHECK_BIT(formatFlags, OutputFormat::Obj))
+    opt.add_options()("output-obj", bool_switch(),
+                      "Switch on to write '.obj' ouput file(s).");
+
+  if (ACTS_CHECK_BIT(formatFlags, OutputFormat::Json))
+    opt.add_options()("output-json", bool_switch(),
+                      "Switch on to write '.json' ouput file(s).");
+
+  if (ACTS_CHECK_BIT(formatFlags, OutputFormat::Txt))
+    opt.add_options()("output-txt", bool_switch(),
+                      "Switch on to write '.txt' ouput file(s).");
 }
 
-void FW::Options::addInputOptions(
+void ActsExamples::Options::addInputOptions(
     boost::program_options::options_description& opt) {
   // Add specific options for this example
   opt.add_options()("input-dir", value<std::string>()->default_value(""),
                     "Input directory location.")(
-      "input-files", value<read_strings>()->multitoken()->default_value({}),
-      "Input files, space separated.")("input-root",
-                                       value<bool>()->default_value(false),
-                                       "Switch on to read '.root' file(s).")(
+      "input-files", value<std::vector<std::string>>(),
+      "Input files, can occur multiple times.")(
+      "input-root", value<bool>()->default_value(false),
+      "Switch on to read '.root' file(s).")(
       "input-csv", value<bool>()->default_value(false),
       "Switch on to read '.csv' file(s).")("input-obj",
                                            value<bool>()->default_value(false),
@@ -124,7 +132,7 @@ void FW::Options::addInputOptions(
       "Switch on to read '.json' file(s).");
 }
 
-boost::program_options::variables_map FW::Options::parse(
+boost::program_options::variables_map ActsExamples::Options::parse(
     const boost::program_options::options_description& opt, int argc,
     char* argv[]) noexcept(false) {
   variables_map vm;
@@ -165,12 +173,12 @@ boost::program_options::variables_map FW::Options::parse(
   return vm;
 }
 
-Acts::Logging::Level FW::Options::readLogLevel(
+Acts::Logging::Level ActsExamples::Options::readLogLevel(
     const boost::program_options::variables_map& vm) {
   return Acts::Logging::Level(vm["loglevel"].as<size_t>());
 }
 
-FW::Sequencer::Config FW::Options::readSequencerConfig(
+ActsExamples::Sequencer::Config ActsExamples::Options::readSequencerConfig(
     const boost::program_options::variables_map& vm) {
   Sequencer::Config cfg;
   cfg.skip = vm["skip"].as<size_t>();
@@ -186,9 +194,10 @@ FW::Sequencer::Config FW::Options::readSequencerConfig(
 }
 
 // Read the random numbers config.
-FW::RandomNumbers::Config FW::Options::readRandomNumbersConfig(
+ActsExamples::RandomNumbers::Config
+ActsExamples::Options::readRandomNumbersConfig(
     const boost::program_options::variables_map& vm) {
-  FW::RandomNumbers::Config cfg;
+  ActsExamples::RandomNumbers::Config cfg;
   cfg.seed = vm["rnd-seed"].as<uint64_t>();
   return cfg;
 }

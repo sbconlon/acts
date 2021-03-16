@@ -1,9 +1,11 @@
 add_library(
   ActsExamplesVertexing SHARED
-  src/VertexFitAlgorithm.cpp
-  src/IterativeVertexFinderAlgorithm.cpp
   src/AdaptiveMultiVertexFinderAlgorithm.cpp
-  src/TutorialAMVFAlgorithm.cpp)
+  src/IterativeVertexFinderAlgorithm.cpp
+  src/TutorialVertexFinderAlgorithm.cpp
+  src/VertexFitterAlgorithm.cpp
+  src/VertexingOptions.cpp
+)
 target_include_directories(
   ActsExamplesVertexing
   PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)

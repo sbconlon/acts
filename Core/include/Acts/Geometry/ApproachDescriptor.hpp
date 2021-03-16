@@ -1,19 +1,15 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-///////////////////////////////////////////////////////////////////
-// ApproachDescriptor.h, Acts project
-///////////////////////////////////////////////////////////////////
-
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 #include "Acts/Utilities/Intersection.hpp"
 
 #include <vector>
@@ -32,8 +28,6 @@ class BoundaryCheck;
 class ApproachDescriptor {
  public:
   ApproachDescriptor() = default;
-
-  /// Virtual destructor
   virtual ~ApproachDescriptor() = default;
 
   /// @brief Register Layer
@@ -51,8 +45,8 @@ class ApproachDescriptor {
   ///
   /// @return is a surface intersection
   virtual ObjectIntersection<Surface> approachSurface(
-      const GeometryContext& gctx, const Vector3D& position,
-      const Vector3D& direction, const BoundaryCheck& bcheck) const = 0;
+      const GeometryContext& gctx, const Vector3& position,
+      const Vector3& direction, const BoundaryCheck& bcheck) const = 0;
 
   /// Get all the contained surfaces
   /// @return all contained surfaces of this approach descriptor

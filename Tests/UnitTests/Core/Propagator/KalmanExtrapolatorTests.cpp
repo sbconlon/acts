@@ -8,6 +8,7 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
@@ -20,7 +21,6 @@
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Tests/CommonHelpers/CubicTrackingGeometry.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <cmath>
 #include <random>
@@ -68,7 +68,7 @@ struct StepWiseActor {
     auto surface = state.navigation.currentSurface;
     if (surface and surface->associatedDetectorElement()) {
       // Create a bound state and log the jacobian
-      auto boundState = stepper.boundState(state.stepping, *surface);
+      auto boundState = stepper.boundState(state.stepping, *surface).value();
       result.jacobians.push_back(std::move(std::get<Jacobian>(boundState)));
       result.paths.push_back(std::get<double>(boundState));
     }
@@ -111,8 +111,8 @@ BOOST_AUTO_TEST_CASE(kalman_extrapolator) {
   navigator.resolveSensitive = true;
 
   // Configure propagation with deactivated B-field
-  ConstantBField bField(Vector3D(0., 0., 0.));
-  using Stepper = EigenStepper<ConstantBField>;
+  auto bField = std::make_shared<ConstantBField>(Vector3(0., 0., 0.));
+  using Stepper = EigenStepper<>;
   Stepper stepper(bField);
   using Propagator = Propagator<Stepper, Navigator>;
   Propagator propagator(stepper, navigator);
@@ -122,10 +122,9 @@ BOOST_AUTO_TEST_CASE(kalman_extrapolator) {
   cov << 10_mm, 0, 0.123, 0, 0.5, 0, 0, 10_mm, 0, 0.162, 0, 0, 0.123, 0, 0.1, 0,
       0, 0, 0, 0.162, 0, 0.1, 0, 0, 0.5, 0, 0, 0, 1. / (10_GeV), 0, 0, 0, 0, 0,
       0, 0;
-
-  // The start position and start parameters
-  Vector3D pos(-3_m, 0., 0.), mom(1_GeV, 0., 0);
-  SingleCurvilinearTrackParameters<ChargedPolicy> start(cov, pos, mom, 1., 42.);
+  // The start parameters
+  CurvilinearTrackParameters start(Vector4(-3_m, 0, 0, 42_ns), 0_degree,
+                                   90_degree, 1_GeV, 1_e, cov);
 
   // Create the ActionList and AbortList
   using StepWiseResult = StepWiseActor::result_type;
@@ -134,11 +133,11 @@ BOOST_AUTO_TEST_CASE(kalman_extrapolator) {
 
   // Create some options
   using StepWiseOptions = PropagatorOptions<StepWiseActors, Aborters>;
-  StepWiseOptions swOptions(tgContext, mfContext);
+  StepWiseOptions swOptions(tgContext, mfContext, getDummyLogger());
 
   using PlainActors = ActionList<>;
   using PlainOptions = PropagatorOptions<PlainActors, Aborters>;
-  PlainOptions pOptions(tgContext, mfContext);
+  PlainOptions pOptions(tgContext, mfContext, getDummyLogger());
 
   // Run the standard propagation
   const auto& pResult = propagator.propagate(start, pOptions).value();

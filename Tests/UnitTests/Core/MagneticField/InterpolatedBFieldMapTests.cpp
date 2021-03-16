@@ -31,21 +31,21 @@ MagneticFieldContext mfContext = MagneticFieldContext();
 BOOST_AUTO_TEST_CASE(InterpolatedBFieldMap_rz) {
   // definition of dummy BField
   struct BField {
-    static Vector3D value(const std::array<double, 2>& rz) {
+    static Vector3 value(const std::array<double, 2>& rz) {
       double r = rz.at(0);
       double z = rz.at(1);
       // linear in r and z so interpolation should be exact
-      return Vector3D(r * z, 3 * r, -2 * z);
+      return Vector3(r * z, 3 * r, -2 * z);
     }
   };
 
   // map (x,y,z) -> (r,z)
-  auto transformPos = [](const Vector3D& pos) {
-    return Vector2D(perp(pos), pos.z());
+  auto transformPos = [](const Vector3& pos) {
+    return Vector2(perp(pos), pos.z());
   };
 
   // map (Bx,By,Bz) -> (Bx,By,Bz)
-  auto transformBField = [](const Vector3D& field, const Vector3D&) {
+  auto transformBField = [](const Vector3& field, const Vector3&) {
     return field;
   };
 
@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE(InterpolatedBFieldMap_rz) {
   detail::EquidistantAxis z(-5, 5, 5u);
 
   using Grid_t =
-      detail::Grid<Vector3D, detail::EquidistantAxis, detail::EquidistantAxis>;
+      detail::Grid<Vector3, detail::EquidistantAxis, detail::EquidistantAxis>;
   using Mapper_t = InterpolatedBFieldMapper<Grid_t>;
   using BField_t = InterpolatedBFieldMap<Mapper_t>;
 
@@ -77,30 +77,33 @@ BOOST_AUTO_TEST_CASE(InterpolatedBFieldMap_rz) {
   // create BField service
   BField_t b(std::move(config));
 
-  Vector3D pos;
+  Vector3 pos;
   pos << -3, 2.5, 1.7;
   // test the cache interface
-  BField_t::Cache bCache(mfContext);
-  CHECK_CLOSE_REL(b.getField(pos, bCache),
+  auto bCacheAny = b.makeCache(mfContext);
+  BField_t::Cache& bCache = bCacheAny.get<BField_t::Cache>();
+  CHECK_CLOSE_REL(b.getField(pos, bCacheAny),
                   BField::value({{perp(pos), pos.z()}}), 1e-6);
 
-  CHECK_CLOSE_REL(b.getField(pos, bCache),
+  CHECK_CLOSE_REL(b.getField(pos, bCacheAny),
                   BField::value({{perp(pos), pos.z()}}), 1e-6);
   auto& c = *bCache.fieldCell;
   BOOST_CHECK(c.isInside(pos));
   CHECK_CLOSE_REL(c.getField(pos), BField::value({{perp(pos), pos.z()}}), 1e-6);
 
   pos << 0, 1.5, -2.5;
-  BField_t::Cache bCache2(mfContext);
-  CHECK_CLOSE_REL(b.getField(pos, bCache2),
+  bCacheAny = b.makeCache(mfContext);
+  BField_t::Cache& bCache2 = bCacheAny.get<BField_t::Cache>();
+  CHECK_CLOSE_REL(b.getField(pos, bCacheAny),
                   BField::value({{perp(pos), pos.z()}}), 1e-6);
   c = *bCache2.fieldCell;
   BOOST_CHECK(c.isInside(pos));
   CHECK_CLOSE_REL(c.getField(pos), BField::value({{perp(pos), pos.z()}}), 1e-6);
 
   pos << 2, 3, -4;
-  BField_t::Cache bCache3(mfContext);
-  CHECK_CLOSE_REL(b.getField(pos, bCache3),
+  bCacheAny = b.makeCache(mfContext);
+  BField_t::Cache& bCache3 = bCacheAny.get<BField_t::Cache>();
+  CHECK_CLOSE_REL(b.getField(pos, bCacheAny),
                   BField::value({{perp(pos), pos.z()}}), 1e-6);
   c = *bCache3.fieldCell;
   BOOST_CHECK(c.isInside(pos));

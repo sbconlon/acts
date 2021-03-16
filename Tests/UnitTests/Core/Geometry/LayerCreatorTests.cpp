@@ -9,6 +9,7 @@
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/CylinderLayer.hpp"
 #include "Acts/Geometry/DiscLayer.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
@@ -21,7 +22,6 @@
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
 #include "Acts/Utilities/BinningType.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <fstream>
 #include <random>
@@ -40,7 +40,7 @@ GeometryContext tgContext = GeometryContext();
 
 #define CHECK_ROTATION_ANGLE(t, a, tolerance)               \
   {                                                         \
-    Vector3D v = (*t) * Vector3D(1, 0, 0);                  \
+    Vector3 v = (*t) * Vector3(1, 0, 0);                    \
     CHECK_CLOSE_ABS(VectorHelpers::phi(v), (a), tolerance); \
   }
 
@@ -60,8 +60,8 @@ void draw_surfaces(const SrfVec& surfaces, const std::string& fname) {
         dynamic_cast<const PlanarBounds*>(&srf->bounds());
 
     for (const auto& vtxloc : bounds->vertices()) {
-      Vector3D vtx =
-          srf->transform(tgContext) * Vector3D(vtxloc.x(), vtxloc.y(), 0);
+      Vector3 vtx =
+          srf->transform(tgContext) * Vector3(vtxloc.x(), vtxloc.y(), 0);
       os << "v " << vtx.x() << " " << vtx.y() << " " << vtx.z() << "\n";
     }
 
@@ -123,16 +123,14 @@ struct LayerCreatorFixture {
     for (size_t i = 0; i < n; ++i) {
       double z = zbase + ((i % 2 == 0) ? 1 : -1) * 0.2;
 
-      Transform3D trans;
+      Transform3 trans;
       trans.setIdentity();
-      trans.rotate(Eigen::AngleAxisd(i * phiStep + shift, Vector3D(0, 0, 1)));
-      trans.translate(Vector3D(r, 0, z));
+      trans.rotate(Eigen::AngleAxisd(i * phiStep + shift, Vector3(0, 0, 1)));
+      trans.translate(Vector3(r, 0, z));
 
       auto bounds = std::make_shared<const RectangleBounds>(2, 1);
-
-      auto transptr = std::make_shared<const Transform3D>(trans);
       std::shared_ptr<PlaneSurface> srf =
-          Surface::makeShared<PlaneSurface>(transptr, bounds);
+          Surface::makeShared<PlaneSurface>(trans, bounds);
 
       res.push_back(srf);
       m_surfaces.push_back(
@@ -151,18 +149,16 @@ struct LayerCreatorFixture {
     for (int i = 0; i < n; ++i) {
       double z = zbase;
 
-      Transform3D trans;
+      Transform3 trans;
       trans.setIdentity();
-      trans.rotate(Eigen::AngleAxisd(i * phiStep + shift, Vector3D(0, 0, 1)));
-      trans.translate(Vector3D(10, 0, z));
-      trans.rotate(Eigen::AngleAxisd(incl, Vector3D(0, 0, 1)));
-      trans.rotate(Eigen::AngleAxisd(M_PI / 2., Vector3D(0, 1, 0)));
+      trans.rotate(Eigen::AngleAxisd(i * phiStep + shift, Vector3(0, 0, 1)));
+      trans.translate(Vector3(10, 0, z));
+      trans.rotate(Eigen::AngleAxisd(incl, Vector3(0, 0, 1)));
+      trans.rotate(Eigen::AngleAxisd(M_PI / 2., Vector3(0, 1, 0)));
 
       auto bounds = std::make_shared<const RectangleBounds>(w, h);
-
-      auto transptr = std::make_shared<const Transform3D>(trans);
       std::shared_ptr<PlaneSurface> srf =
-          Surface::makeShared<PlaneSurface>(transptr, bounds);
+          Surface::makeShared<PlaneSurface>(trans, bounds);
 
       res.push_back(srf);
       m_surfaces.push_back(
@@ -199,26 +195,22 @@ struct LayerCreatorFixture {
 
       double phiStep = 2 * M_PI / nPhi;
       for (int j = 0; j < nPhi; ++j) {
-        Transform3D trans;
+        Transform3 trans;
         trans.setIdentity();
-        trans.rotate(Eigen::AngleAxisd(j * phiStep + shift, Vector3D(0, 0, 1)));
-        trans.translate(Vector3D(10, 0, z));
-        trans.rotate(Eigen::AngleAxisd(incl, Vector3D(0, 0, 1)));
-        trans.rotate(Eigen::AngleAxisd(M_PI / 2., Vector3D(0, 1, 0)));
+        trans.rotate(Eigen::AngleAxisd(j * phiStep + shift, Vector3(0, 0, 1)));
+        trans.translate(Vector3(10, 0, z));
+        trans.rotate(Eigen::AngleAxisd(incl, Vector3(0, 0, 1)));
+        trans.rotate(Eigen::AngleAxisd(M_PI / 2., Vector3(0, 1, 0)));
 
         auto bounds = std::make_shared<const RectangleBounds>(w, h);
-
-        auto transAptr = std::make_shared<const Transform3D>(trans);
-
         std::shared_ptr<PlaneSurface> srfA =
-            Surface::makeShared<PlaneSurface>(transAptr, bounds);
+            Surface::makeShared<PlaneSurface>(trans, bounds);
 
-        Vector3D nrm = srfA->normal(tgContext);
-        Transform3D transB = trans;
+        Vector3 nrm = srfA->normal(tgContext);
+        Transform3 transB = trans;
         transB.pretranslate(nrm * 0.1);
-        auto transBptr = std::make_shared<const Transform3D>(transB);
         std::shared_ptr<PlaneSurface> srfB =
-            Surface::makeShared<PlaneSurface>(transBptr, bounds);
+            Surface::makeShared<PlaneSurface>(transB, bounds);
 
         pairs.push_back(std::make_pair(srfA.get(), srfB.get()));
 
@@ -360,7 +352,7 @@ BOOST_FIXTURE_TEST_CASE(LayerCreator_createDiscLayer, LayerCreatorFixture) {
 
   // check that it's applying a rotation transform to improve phi binning
   // BOOST_CHECK_NE(bu->transform(), nullptr);
-  // double actAngle = ((*bu->transform()) * Vector3D(1, 0, 0)).phi();
+  // double actAngle = ((*bu->transform()) * Vector3(1, 0, 0)).phi();
   // double expAngle = -2 * M_PI / 30 / 2.;
   // CHECK_CLOSE_REL(actAngle, expAngle, 1e-3);
 
@@ -389,7 +381,7 @@ BOOST_FIXTURE_TEST_CASE(LayerCreator_createDiscLayer, LayerCreatorFixture) {
 
   // check that it's applying a rotation transform to improve phi binning
   // BOOST_CHECK_NE(bu->transform(), nullptr);
-  // actAngle = ((*bu->transform()) * Vector3D(1, 0, 0)).phi();
+  // actAngle = ((*bu->transform()) * Vector3(1, 0, 0)).phi();
   // expAngle = -2 * M_PI / 30 / 2.;
   // CHECK_CLOSE_REL(actAngle, expAngle, 1e-3);
 
@@ -411,7 +403,7 @@ BOOST_FIXTURE_TEST_CASE(LayerCreator_createDiscLayer, LayerCreatorFixture) {
 
   // check that it's applying a rotation transform to improve phi binning
   // BOOST_CHECK_NE(bu->transform(), nullptr);
-  // actAngle = ((*bu->transform()) * Vector3D(1, 0, 0)).phi();
+  // actAngle = ((*bu->transform()) * Vector3(1, 0, 0)).phi();
   // expAngle = -2 * M_PI / 30 / 2.;
   // CHECK_CLOSE_REL(actAngle, expAngle, 1e-3);
 }
@@ -443,7 +435,7 @@ BOOST_FIXTURE_TEST_CASE(LayerCreator_barrelStagger, LayerCreatorFixture) {
     // std::cout << "dPHi = " << A->center().phi() - B->center().phi() <<
     // std::endl;
 
-    Vector3D ctr = A->binningPosition(tgContext, binR);
+    Vector3 ctr = A->binningPosition(tgContext, binR);
     auto binContent = layer->surfaceArray()->at(ctr);
     BOOST_CHECK_EQUAL(binContent.size(), 2u);
     std::set<const Surface*> act;

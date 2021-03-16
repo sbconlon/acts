@@ -12,8 +12,10 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Surfaces/RadialBounds.hpp"
+#include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/BinUtility.hpp"
 
@@ -27,9 +29,11 @@ namespace Acts {
 /// @param rBounds the Radial bounds to adjust to
 ///
 /// @return new updated BinUtiltiy
-BinUtility adjustBinUtility(const BinUtility& bu, const RadialBounds& rBounds) {
+BinUtility adjustBinUtility(const BinUtility& bu, const RadialBounds& rBounds,
+                            const Transform3& transform) {
   // Default constructor
-  BinUtility uBinUtil;
+  BinUtility uBinUtil(transform);
+
   // The parameters from the cylinder bounds
   double minR = rBounds.get(RadialBounds::eMinR);
   double maxR = rBounds.get(RadialBounds::eMaxR);
@@ -73,10 +77,11 @@ BinUtility adjustBinUtility(const BinUtility& bu, const RadialBounds& rBounds) {
 /// @param cBounds the Cylinder bounds to adjust to
 ///
 /// @return new updated BinUtiltiy
-BinUtility adjustBinUtility(const BinUtility& bu,
-                            const CylinderBounds& cBounds) {
+BinUtility adjustBinUtility(const BinUtility& bu, const CylinderBounds& cBounds,
+                            const Transform3& transform) {
   // Default constructor
-  BinUtility uBinUtil;
+  BinUtility uBinUtil(transform);
+
   // The parameters from the cylinder bounds
   double cR = cBounds.get(CylinderBounds::eR);
   double cHz = cBounds.get(CylinderBounds::eHalfLengthZ);
@@ -84,7 +89,7 @@ BinUtility adjustBinUtility(const BinUtility& bu,
   double halfPhi = cBounds.get(CylinderBounds::eHalfPhiSector);
   double minPhi = avgPhi - halfPhi;
   double maxPhi = avgPhi + halfPhi;
-  ;
+
   // Retrieve the binning data
   const std::vector<BinningData>& bData = bu.binningData();
   // Loop over the binning data and adjust the dimensions
@@ -118,6 +123,55 @@ BinUtility adjustBinUtility(const BinUtility& bu,
   return uBinUtil;
 }
 
+/// @brief adjust the BinUtility bu to the dimensions of plane bounds
+///
+/// @param bu BinUtility at source
+/// @param pBounds the Rectangle bounds to adjust to
+///
+/// @return new updated BinUtiltiy
+BinUtility adjustBinUtility(const BinUtility& bu,
+                            const RectangleBounds& pBounds,
+                            const Transform3& transform) {
+  // Default constructor
+  BinUtility uBinUtil(transform);
+
+  // The parameters from the cylinder bounds
+  double minX = pBounds.get(RectangleBounds::eMinX);
+  double minY = pBounds.get(RectangleBounds::eMinY);
+  double maxX = pBounds.get(RectangleBounds::eMaxX);
+  double maxY = pBounds.get(RectangleBounds::eMaxY);
+
+  // Retrieve the binning data
+  const std::vector<BinningData>& bData = bu.binningData();
+  // Loop over the binning data and adjust the dimensions
+  for (auto& bd : bData) {
+    // The binning value
+    BinningValue bval = bd.binvalue;
+    // Throw exceptions if stuff doesn't make sense:
+    // - not the right binning value
+    // - not equidistant
+    if (bd.type == arbitrary) {
+      throw std::invalid_argument("Arbitrary binning can not be adjusted.");
+    } else if (bval != binX and bval != binY) {
+      throw std::invalid_argument("Rectangle binning must be: x, y. ");
+    }
+    float min, max = 0.;
+    // Perform the value adjustment
+    if (bval == binX) {
+      min = minX;
+      max = maxX;
+    } else {
+      min = minY;
+      max = maxY;
+    }
+    // Create the updated BinningData
+    BinningData uBinData(bd.option, bval, bd.bins(), min, max);
+    uBinUtil += BinUtility(uBinData);
+  }
+
+  return uBinUtil;
+}
+
 /// @brief adjust the BinUtility bu to a surface
 ///
 /// @param bu BinUtility at source
@@ -130,13 +184,24 @@ BinUtility adjustBinUtility(const BinUtility& bu, const Surface& surface) {
     // Cast to Cylinder bounds and return
     auto cBounds = dynamic_cast<const CylinderBounds*>(&(surface.bounds()));
     // Return specific adjustment
-    return adjustBinUtility(bu, *cBounds);
+    return adjustBinUtility(bu, *cBounds, surface.transform(GeometryContext()));
 
   } else if (surface.type() == Surface::Disc) {
     // Cast to Cylinder bounds and return
     auto rBounds = dynamic_cast<const RadialBounds*>(&(surface.bounds()));
     // Return specific adjustment
-    return adjustBinUtility(bu, *rBounds);
+    return adjustBinUtility(bu, *rBounds, surface.transform(GeometryContext()));
+  } else if (surface.type() == Surface::Plane) {
+    if (surface.bounds().type() == SurfaceBounds::eRectangle) {
+      // Cast to Plane bounds and return
+      auto pBounds = dynamic_cast<const RectangleBounds*>(&(surface.bounds()));
+      // Return specific adjustment
+      return adjustBinUtility(bu, *pBounds,
+                              surface.transform(GeometryContext()));
+    } else {
+      throw std::invalid_argument(
+          "Bin adjustment not implemented for this type of plane surface yet!");
+    }
   }
 
   throw std::invalid_argument(

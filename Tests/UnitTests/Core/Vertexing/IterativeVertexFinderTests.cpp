@@ -10,6 +10,8 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/MagneticField/ConstantBField.hpp"
 #include "Acts/Propagator/EigenStepper.hpp"
@@ -17,8 +19,6 @@
 #include "Acts/Surfaces/PerigeeSurface.hpp"
 #include "Acts/Tests/CommonHelpers/DataDirectory.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 #include "Acts/Vertexing/FsmwMode1dFinder.hpp"
 #include "Acts/Vertexing/FullBilloirVertexFitter.hpp"
 #include "Acts/Vertexing/HelicalTrackLinearizer.hpp"
@@ -36,7 +36,7 @@ namespace Acts {
 namespace Test {
 
 using Covariance = BoundSymMatrix;
-using Propagator = Propagator<EigenStepper<ConstantBField>>;
+using Propagator = Acts::Propagator<EigenStepper<>>;
 using Linearizer = HelicalTrackLinearizer<Propagator>;
 
 // Create a test context
@@ -74,18 +74,18 @@ std::uniform_int_distribution<> nTracksDist(5, 15);
 
 // Dummy user-defined InputTrack type
 struct InputTrack {
-  InputTrack(const BoundParameters& params) : m_parameters(params) {}
+  InputTrack(const BoundTrackParameters& params) : m_parameters(params) {}
 
-  const BoundParameters& parameters() const { return m_parameters; }
+  const BoundTrackParameters& parameters() const { return m_parameters; }
 
   // store e.g. link to original objects here
 
  private:
-  BoundParameters m_parameters;
+  BoundTrackParameters m_parameters;
 };
 
 ///
-/// @brief Unit test for IterativeVertexFinder for BoundParameters
+/// @brief Unit test for IterativeVertexFinder for BoundTrackParameters
 ///
 BOOST_AUTO_TEST_CASE(iterative_finder_test) {
   bool debug = false;
@@ -99,19 +99,20 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
 
   for (unsigned int iEvent = 0; iEvent < nEvents; ++iEvent) {
     // Set up constant B-Field
-    ConstantBField bField(0.0, 0.0, 1_T);
+    auto bField = std::make_shared<ConstantBField>(0.0, 0.0, 1_T);
 
     // Set up Eigenstepper
-    EigenStepper<ConstantBField> stepper(bField);
+    EigenStepper<> stepper(bField);
 
     // Set up propagator with void navigator
     auto propagator = std::make_shared<Propagator>(stepper);
 
-    // Linearizer for BoundParameters type test
+    // Linearizer for BoundTrackParameters type test
     Linearizer::Config ltConfig(bField, propagator);
     Linearizer linearizer(ltConfig);
 
-    using BilloirFitter = FullBilloirVertexFitter<BoundParameters, Linearizer>;
+    using BilloirFitter =
+        FullBilloirVertexFitter<BoundTrackParameters, Linearizer>;
 
     // Set up Billoir Vertex Fitter
     BilloirFitter::Config vertexFitterCfg;
@@ -119,7 +120,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
     BilloirFitter bFitter(vertexFitterCfg);
 
     // Impact point estimator
-    using IPEstimator = ImpactPointEstimator<BoundParameters, Propagator>;
+    using IPEstimator = ImpactPointEstimator<BoundTrackParameters, Propagator>;
 
     IPEstimator::Config ipEstimatorCfg(bField, propagator);
     IPEstimator ipEstimator(ipEstimatorCfg);
@@ -145,15 +146,15 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
     cfg.reassignTracksAfterFirstFit = true;
 
     VertexFinder finder(cfg);
-    VertexFinder::State state(magFieldContext);
+    VertexFinder::State state(*bField, magFieldContext);
 
     // Vector to be filled with all tracks in current event
-    std::vector<std::unique_ptr<const BoundParameters>> tracks;
+    std::vector<std::unique_ptr<const BoundTrackParameters>> tracks;
 
-    std::vector<const BoundParameters*> tracksPtr;
+    std::vector<const BoundTrackParameters*> tracksPtr;
 
     // Vector to be filled with truth vertices for later comparison
-    std::vector<Vertex<BoundParameters>> trueVertices;
+    std::vector<Vertex<BoundTrackParameters>> trueVertices;
 
     // start creating event with nVertices vertices
     unsigned int nVertices = nVertexDist(gen);
@@ -168,7 +169,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
       }
       // Create perigee surface
       std::shared_ptr<PerigeeSurface> perigeeSurface =
-          Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+          Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
       // Create position of vertex and perigee surface
       double x = vXYDist(gen);
@@ -176,8 +177,8 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
       double z = vZDist(gen);
 
       // True vertex
-      Vertex<BoundParameters> trueV(Vector3D(x, y, z));
-      std::vector<TrackAtVertex<BoundParameters>> tracksAtTrueVtx;
+      Vertex<BoundTrackParameters> trueV(Vector3(x, y, z));
+      std::vector<TrackAtVertex<BoundTrackParameters>> tracksAtTrueVtx;
 
       // Calculate d0 and z0 corresponding to vertex position
       double d0_v = sqrt(x * x + y * y);
@@ -208,12 +209,13 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
             0., 0., 0., 0., 0., res_ph * res_ph, 0., 0., 0., 0., 0., 0.,
             res_th * res_th, 0., 0., 0., 0., 0., 0., res_qp * res_qp, 0., 0.,
             0., 0., 0., 0., 1.;
-        auto params = BoundParameters(geoContext, std::move(covMat), paramVec,
-                                      perigeeSurface);
+        auto params =
+            BoundTrackParameters(perigeeSurface, paramVec, std::move(covMat));
 
-        tracks.push_back(std::make_unique<BoundParameters>(params));
+        tracks.push_back(std::make_unique<BoundTrackParameters>(params));
 
-        TrackAtVertex<BoundParameters> trAtVt(0., params, tracks.back().get());
+        TrackAtVertex<BoundTrackParameters> trAtVt(0., params,
+                                                   tracks.back().get());
         tracksAtTrueVtx.push_back(trAtVt);
       }
 
@@ -229,8 +231,8 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
       tracksPtr.push_back(trk.get());
     }
 
-    VertexingOptions<BoundParameters> vertexingOptions(geoContext,
-                                                       magFieldContext);
+    VertexingOptions<BoundTrackParameters> vertexingOptions(geoContext,
+                                                            magFieldContext);
 
     // find vertices
     auto res = finder.find(tracksPtr, vertexingOptions, state);
@@ -257,7 +259,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
       int count = 1;
       std::cout << "----- True vertices -----" << std::endl;
       for (const auto& vertex : trueVertices) {
-        Vector3D pos = vertex.position();
+        Vector3 pos = vertex.position();
         std::cout << count << ". True Vertex:\t Position:"
                   << "(" << pos[eX] << "," << pos[eY] << "," << pos[eZ] << ")"
                   << std::endl;
@@ -268,7 +270,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
       std::cout << "----- Reco vertices -----" << std::endl;
       count = 1;
       for (const auto& vertex : vertexCollection) {
-        Vector3D pos = vertex.position();
+        Vector3 pos = vertex.position();
         std::cout << count << ". Reco Vertex:\t Position:"
                   << "(" << pos[eX] << "," << pos[eY] << "," << pos[eZ] << ")"
                   << std::endl;
@@ -281,10 +283,10 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
     // Check if all vertices have been found with close z-values
     bool allVerticesFound = true;
     for (const auto& trueVertex : trueVertices) {
-      Vector4D truePos = trueVertex.fullPosition();
+      Vector4 truePos = trueVertex.fullPosition();
       bool currentVertexFound = false;
       for (const auto& recoVertex : vertexCollection) {
-        Vector4D recoPos = recoVertex.fullPosition();
+        Vector4 recoPos = recoVertex.fullPosition();
         // check only for close z distance
         double zDistance = std::abs(truePos[eZ] - recoPos[eZ]);
         if (zDistance < 2_mm) {
@@ -297,7 +299,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test) {
     }
 
     // check if found vertices have compatible z values
-    BOOST_TEST(allVerticesFound);
+    BOOST_CHECK(allVerticesFound);
   }
 }
 
@@ -317,10 +319,10 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
 
   for (unsigned int iEvent = 0; iEvent < nEvents; ++iEvent) {
     // Set up constant B-Field
-    ConstantBField bField(0.0, 0.0, 1_T);
+    auto bField = std::make_shared<ConstantBField>(0.0, 0.0, 1_T);
 
     // Set up Eigenstepper
-    EigenStepper<ConstantBField> stepper(bField);
+    EigenStepper<> stepper(bField);
 
     // Set up propagator with void navigator
     auto propagator = std::make_shared<Propagator>(stepper);
@@ -332,9 +334,9 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
     // Set up vertex fitter for user track type
     using BilloirFitter = FullBilloirVertexFitter<InputTrack, Linearizer>;
 
-    // Create a custom std::function to extract BoundParameters from
+    // Create a custom std::function to extract BoundTrackParameters from
     // user-defined InputTrack
-    std::function<BoundParameters(InputTrack)> extractParameters =
+    std::function<BoundTrackParameters(InputTrack)> extractParameters =
         [](InputTrack params) { return params.parameters(); };
 
     // Set up Billoir Vertex Fitter
@@ -360,7 +362,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
     cfg.reassignTracksAfterFirstFit = true;
 
     VertexFinder finder(cfg, extractParameters);
-    VertexFinder::State state(magFieldContext);
+    VertexFinder::State state(*bField, magFieldContext);
 
     // Same for user track type tracks
     std::vector<std::unique_ptr<const InputTrack>> tracks;
@@ -383,7 +385,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
       }
       // Create perigee surface
       std::shared_ptr<PerigeeSurface> perigeeSurface =
-          Surface::makeShared<PerigeeSurface>(Vector3D(0., 0., 0.));
+          Surface::makeShared<PerigeeSurface>(Vector3(0., 0., 0.));
 
       // Create position of vertex and perigee surface
       double x = vXYDist(gen);
@@ -391,7 +393,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
       double z = vZDist(gen);
 
       // True vertex
-      Vertex<InputTrack> trueV(Vector3D(x, y, z));
+      Vertex<InputTrack> trueV(Vector3(x, y, z));
       std::vector<TrackAtVertex<InputTrack>> tracksAtTrueVtx;
 
       // Calculate d0 and z0 corresponding to vertex position
@@ -424,8 +426,8 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
             0., 0., 0., 0., 0., res_ph * res_ph, 0., 0., 0., 0., 0., 0.,
             res_th * res_th, 0., 0., 0., 0., 0., 0., res_qp * res_qp, 0., 0.,
             0., 0., 0., 0., 1.;
-        auto paramsUT = InputTrack(BoundParameters(
-            geoContext, std::move(covMat), paramVec, perigeeSurface));
+        auto paramsUT = InputTrack(
+            BoundTrackParameters(perigeeSurface, paramVec, std::move(covMat)));
 
         tracks.push_back(std::make_unique<InputTrack>(paramsUT));
 
@@ -475,7 +477,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
       int count = 1;
       std::cout << "----- True vertices -----" << std::endl;
       for (const auto& vertex : trueVertices) {
-        Vector3D pos = vertex.position();
+        Vector3 pos = vertex.position();
         std::cout << count << ". True Vertex:\t Position:"
                   << "(" << pos[eX] << "," << pos[eY] << "," << pos[eZ] << ")"
                   << std::endl;
@@ -486,7 +488,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
       std::cout << "----- Reco vertices -----" << std::endl;
       count = 1;
       for (const auto& vertex : vertexCollectionUT) {
-        Vector3D pos = vertex.position();
+        Vector3 pos = vertex.position();
         std::cout << count << ". Reco Vertex:\t Position:"
                   << "(" << pos[eX] << "," << pos[eY] << "," << pos[eZ] << ")"
                   << std::endl;
@@ -499,10 +501,10 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
     // Check if all vertices have been found with close z-values
     bool allVerticesFound = true;
     for (const auto& trueVertex : trueVertices) {
-      Vector4D truePos = trueVertex.fullPosition();
+      Vector4 truePos = trueVertex.fullPosition();
       bool currentVertexFound = false;
       for (const auto& recoVertex : vertexCollectionUT) {
-        Vector4D recoPos = recoVertex.fullPosition();
+        Vector4 recoPos = recoVertex.fullPosition();
         // check only for close z distance
         double zDistance = std::abs(truePos[eZ] - recoPos[eZ]);
         if (zDistance < 2_mm) {
@@ -515,7 +517,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
     }
 
     // check if found vertices have compatible z values
-    BOOST_TEST(allVerticesFound);
+    BOOST_CHECK(allVerticesFound);
   }
 }
 
@@ -524,19 +526,20 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_user_track_type) {
 ///
 BOOST_AUTO_TEST_CASE(iterative_finder_test_athena_reference) {
   // Set up constant B-Field
-  ConstantBField bField(0.0, 0.0, 2_T);
+  auto bField = std::make_shared<ConstantBField>(0.0, 0.0, 2_T);
 
   // Set up Eigenstepper
-  EigenStepper<ConstantBField> stepper(bField);
+  EigenStepper<> stepper(bField);
 
   // Set up propagator with void navigator
   auto propagator = std::make_shared<Propagator>(stepper);
 
-  // Linearizer for BoundParameters type test
+  // Linearizer for BoundTrackParameters type test
   Linearizer::Config ltConfig(bField, propagator);
   Linearizer linearizer(ltConfig);
 
-  using BilloirFitter = FullBilloirVertexFitter<BoundParameters, Linearizer>;
+  using BilloirFitter =
+      FullBilloirVertexFitter<BoundTrackParameters, Linearizer>;
 
   // Set up Billoir Vertex Fitter
   BilloirFitter::Config vertexFitterCfg;
@@ -544,7 +547,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_athena_reference) {
   BilloirFitter bFitter(vertexFitterCfg);
 
   // Impact point estimator
-  using IPEstimator = ImpactPointEstimator<BoundParameters, Propagator>;
+  using IPEstimator = ImpactPointEstimator<BoundTrackParameters, Propagator>;
 
   IPEstimator::Config ipEstimatorCfg(bField, propagator);
   IPEstimator ipEstimator(ipEstimatorCfg);
@@ -573,18 +576,18 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_athena_reference) {
   cfg.significanceCutSeeding = 12;
 
   VertexFinder finder(cfg);
-  VertexFinder::State state(magFieldContext);
+  VertexFinder::State state(*bField, magFieldContext);
 
   auto csvData = readTracksAndVertexCSV(toolString);
   auto tracks = std::get<TracksData>(csvData);
 
-  std::vector<const BoundParameters*> tracksPtr;
+  std::vector<const BoundTrackParameters*> tracksPtr;
   for (const auto& trk : tracks) {
     tracksPtr.push_back(&trk);
   }
 
-  VertexingOptions<BoundParameters> vertexingOptions(geoContext,
-                                                     magFieldContext);
+  VertexingOptions<BoundTrackParameters> vertexingOptions(geoContext,
+                                                          magFieldContext);
 
   vertexingOptions.vertexConstraint = std::get<BeamSpotData>(csvData);
 
@@ -598,7 +601,7 @@ BOOST_AUTO_TEST_CASE(iterative_finder_test_athena_reference) {
   }
 
   // Retrieve vertices found by vertex finder
-  // std::vector<Vertex<BoundParameters>> allVertices = *findResult;
+  // std::vector<Vertex<BoundTrackParameters>> allVertices = *findResult;
 
   // Test expected outcomes from athena implementation
   // Number of reconstructed vertices

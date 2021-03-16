@@ -1,29 +1,28 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2016-2018 CERN for the benefit of the Acts project
+// Copyright (C) 2016-2020 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-///////////////////////////////////////////////////////////////////
-// CylinderLayer.cpp, Acts project
-///////////////////////////////////////////////////////////////////
-
 #include "Acts/Geometry/CylinderLayer.hpp"
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/AbstractVolume.hpp"
 #include "Acts/Geometry/BoundarySurfaceFace.hpp"
+#include "Acts/Geometry/BoundarySurfaceT.hpp"
 #include "Acts/Geometry/CylinderVolumeBounds.hpp"
 #include "Acts/Geometry/GenericApproachDescriptor.hpp"
-#include "Acts/Surfaces/CylinderBounds.hpp"
-#include "Acts/Utilities/BinUtility.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Surfaces/Surface.hpp"
+#include "Acts/Utilities/Helpers.hpp"
+
+#include <vector>
 
 using Acts::VectorHelpers::phi;
 
 Acts::CylinderLayer::CylinderLayer(
-    const std::shared_ptr<const Transform3D>& transform,
+    const Transform3& transform,
     const std::shared_ptr<const CylinderBounds>& cBounds,
     std::unique_ptr<SurfaceArray> surfaceArray, double thickness,
     std::unique_ptr<ApproachDescriptor> ades, LayerType laytyp)

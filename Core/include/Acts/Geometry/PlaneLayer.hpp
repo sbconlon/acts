@@ -7,15 +7,18 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #pragma once
+
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Geometry/ApproachDescriptor.hpp"
 #include "Acts/Geometry/Layer.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
+#include "Acts/Surfaces/SurfaceArray.hpp"
 
-#include <algorithm>
+#include <memory>
 
 namespace Acts {
 
-class ApproachDescriptor;
+class PlanarBounds;
 
 /// @class PlaneLayer
 ///
@@ -35,27 +38,19 @@ class PlaneLayer : virtual public PlaneSurface, public Layer {
   ///
   /// @return shared pointer to a PlaneLayer
   static MutableLayerPtr create(
-      std::shared_ptr<const Transform3D> transform,
-      std::shared_ptr<const PlanarBounds> pbounds,
+      const Transform3& transform, std::shared_ptr<const PlanarBounds> pbounds,
       std::unique_ptr<SurfaceArray> surfaceArray = nullptr,
       double thickness = 0., std::unique_ptr<ApproachDescriptor> ad = nullptr,
       LayerType laytyp = Acts::active) {
-    return MutableLayerPtr(new PlaneLayer(std::move(transform), pbounds,
+    return MutableLayerPtr(new PlaneLayer(transform, pbounds,
                                           std::move(surfaceArray), thickness,
                                           std::move(ad), laytyp));
   }
 
-  /// Default Constructor - deleted
   PlaneLayer() = delete;
-
-  /// Copy constructor of PlaneLayer - deleted
   PlaneLayer(const PlaneLayer& pla) = delete;
-
-  /// Assignment operator for PlaneLayers - deleted
-  PlaneLayer& operator=(const PlaneLayer&) = delete;
-
-  /// Destructor
   ~PlaneLayer() override = default;
+  PlaneLayer& operator=(const PlaneLayer&) = delete;
 
   /// Transforms the layer into a Surface representation for extrapolation
   /// @return returns a reference to a PlaneSurface
@@ -79,7 +74,7 @@ class PlaneLayer : virtual public PlaneSurface, public Layer {
   /// @param laytyp is the layer type
   ///
   /// @return shared pointer to a PlaneLayer
-  PlaneLayer(std::shared_ptr<const Transform3D> transform,
+  PlaneLayer(const Transform3& transform,
              std::shared_ptr<const PlanarBounds>& pbounds,
              std::unique_ptr<SurfaceArray> surfaceArray = nullptr,
              double thickness = 0.,
@@ -90,7 +85,7 @@ class PlaneLayer : virtual public PlaneSurface, public Layer {
   ///
   /// @param pla is the plain layer to be coped
   /// @param shift is the additional shift applied after copying
-  PlaneLayer(const PlaneLayer& pla, const Transform3D& shift);
+  PlaneLayer(const PlaneLayer& pla, const Transform3& shift);
 };
 
 }  // namespace Acts

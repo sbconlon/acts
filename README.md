@@ -84,7 +84,6 @@
 ```sh
 export PYTHONPATH=/path/to/inference_dir:$PYTHONPATH
 ```
-
   2) Run
   
   For TrackML data format:
@@ -92,4 +91,4 @@ export PYTHONPATH=/path/to/inference_dir:$PYTHONPATH
 ./ActsUnitTestExatrkxSeeding -f /path/to/data/event000000000
 ```
   
-- `-f`: path to file containing data
+- `-f`: path to file containing TrackML event

@@ -6,16 +6,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/GenericDetector/GenericDetectorElement.hpp"
+#include "ActsExamples/GenericDetector/GenericDetectorElement.hpp"
 
 #include "Acts/Surfaces/DiscBounds.hpp"
 #include "Acts/Surfaces/DiscSurface.hpp"
 #include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/PlaneSurface.hpp"
 
-FW::Generic::GenericDetectorElement::GenericDetectorElement(
+ActsExamples::Generic::GenericDetectorElement::GenericDetectorElement(
     const Identifier identifier,
-    std::shared_ptr<const Acts::Transform3D> transform,
+    std::shared_ptr<const Acts::Transform3> transform,
     std::shared_ptr<const Acts::PlanarBounds> pBounds, double thickness,
     std::shared_ptr<const Acts::ISurfaceMaterial> material,
     std::shared_ptr<const Acts::DigitizationModule> digitizationModule)
@@ -33,9 +33,9 @@ FW::Generic::GenericDetectorElement::GenericDetectorElement(
   mutableSurface->assignSurfaceMaterial(material);
 }
 
-FW::Generic::GenericDetectorElement::GenericDetectorElement(
+ActsExamples::Generic::GenericDetectorElement::GenericDetectorElement(
     const Identifier identifier,
-    std::shared_ptr<const Acts::Transform3D> transform,
+    std::shared_ptr<const Acts::Transform3> transform,
     std::shared_ptr<const Acts::DiscBounds> dBounds, double thickness,
     std::shared_ptr<const Acts::ISurfaceMaterial> material,
     std::shared_ptr<const Acts::DigitizationModule> digitizationModule)

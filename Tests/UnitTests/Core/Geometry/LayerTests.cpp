@@ -10,7 +10,6 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include "Acts/EventData/SingleTrackParameters.hpp"
 #include "Acts/Geometry/CuboidVolumeBounds.hpp"
 #include "Acts/Geometry/GenericApproachDescriptor.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
@@ -60,11 +59,10 @@ BOOST_AUTO_TEST_CASE(LayerProperties, *utf::expected_failures(1)) {
   // Make a dummy layer to play with
   // bounds object, rectangle type
   auto rBounds = std::make_shared<const RectangleBounds>(1., 1.);
-  /// Constructor with transform pointer
-  std::shared_ptr<const Transform3D> pNullTransform{};
+  /// Constructor
   const std::vector<std::shared_ptr<const Surface>> aSurfaces{
-      Surface::makeShared<PlaneSurface>(pNullTransform, rBounds),
-      Surface::makeShared<PlaneSurface>(pNullTransform, rBounds)};
+      Surface::makeShared<PlaneSurface>(Transform3::Identity(), rBounds),
+      Surface::makeShared<PlaneSurface>(Transform3::Identity(), rBounds)};
   std::unique_ptr<ApproachDescriptor> ad(
       new GenericApproachDescriptor(aSurfaces));
   auto adPtr = ad.get();
@@ -77,16 +75,16 @@ BOOST_AUTO_TEST_CASE(LayerProperties, *utf::expected_failures(1)) {
   BOOST_CHECK_EQUAL(layerStub.thickness(), thickness);
   // onLayer() is templated; can't find implementation!
   /// isOnLayer() (delegates to the Surface 'isOnSurface()')
-  const Vector3D pos{0.0, 0.0, 0.0};
-  const Vector3D pos2{100., 100., std::nan("")};
+  const Vector3 pos{0.0, 0.0, 0.0};
+  const Vector3 pos2{100., 100., std::nan("")};
   BOOST_CHECK(layerStub.isOnLayer(tgContext, pos));
   // this should fail, but does not, but possibly my fault in SurfaceStub
   // implementation:
   BOOST_CHECK(!layerStub.isOnLayer(tgContext, pos2));
   /// approachDescriptor(), retrieved as a pointer.
   BOOST_CHECK_EQUAL(layerStub.approachDescriptor(), adPtr);
-  const Vector3D gpos{0., 0., 1.0};
-  const Vector3D direction{0., 0., -1.};
+  const Vector3 gpos{0., 0., 1.0};
+  const Vector3 direction{0., 0., -1.};
   /// nextLayer()
   BOOST_CHECK(!(layerStub.nextLayer(tgContext, gpos, direction)));
   /// trackingVolume()

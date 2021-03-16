@@ -8,8 +8,12 @@
 
 #pragma once
 
+#include "Acts/Utilities/EnumBitwiseOperators.hpp"
+
 #include <limits>
 #include <type_traits>
+
+namespace Acts {
 
 /// Collection of bit masks to enable steering which components of a track state
 /// should be initialized, and which should be left invalid.
@@ -32,52 +36,6 @@ enum struct TrackStatePropMask : uint8_t {
   All = std::numeric_limits<uint8_t>::max(),  // should be all ones
 };
 
-constexpr TrackStatePropMask operator|(TrackStatePropMask lhs,
-                                       TrackStatePropMask rhs) {
-  return static_cast<TrackStatePropMask>(
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(lhs) |
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(rhs));
-}
+ACTS_DEFINE_ENUM_BITWISE_OPERATORS(TrackStatePropMask)
 
-constexpr TrackStatePropMask operator&(TrackStatePropMask lhs,
-                                       TrackStatePropMask rhs) {
-  return static_cast<TrackStatePropMask>(
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(lhs) &
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(rhs));
-}
-
-constexpr TrackStatePropMask operator^(TrackStatePropMask lhs,
-                                       TrackStatePropMask rhs) {
-  return static_cast<TrackStatePropMask>(
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(lhs) ^
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(rhs));
-}
-
-constexpr TrackStatePropMask operator~(TrackStatePropMask op) {
-  return static_cast<TrackStatePropMask>(
-      ~static_cast<std::underlying_type<TrackStatePropMask>::type>(op));
-}
-
-constexpr TrackStatePropMask& operator|=(TrackStatePropMask& lhs,
-                                         TrackStatePropMask rhs) {
-  lhs = static_cast<TrackStatePropMask>(
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(lhs) |
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(rhs));
-  return lhs;
-}
-
-constexpr TrackStatePropMask& operator&=(TrackStatePropMask& lhs,
-                                         TrackStatePropMask rhs) {
-  lhs = static_cast<TrackStatePropMask>(
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(lhs) &
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(rhs));
-  return lhs;
-}
-
-constexpr TrackStatePropMask& operator^=(TrackStatePropMask& lhs,
-                                         TrackStatePropMask rhs) {
-  lhs = static_cast<TrackStatePropMask>(
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(lhs) ^
-      static_cast<std::underlying_type<TrackStatePropMask>::type>(rhs));
-  return lhs;
-}
+}  // namespace Acts

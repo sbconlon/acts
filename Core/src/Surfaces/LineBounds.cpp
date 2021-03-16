@@ -15,18 +15,12 @@ Acts::SurfaceBounds::BoundsType Acts::LineBounds::type() const {
   return SurfaceBounds::eLine;
 }
 
-bool Acts::LineBounds::inside(const Acts::Vector2D& lposition,
+bool Acts::LineBounds::inside(const Acts::Vector2& lposition,
                               const Acts::BoundaryCheck& bcheck) const {
   double r = get(LineBounds::eR);
   double halfLengthZ = get(LineBounds::eHalfLengthZ);
-  return bcheck.isInside(lposition, Vector2D(-r, -halfLengthZ),
-                         Vector2D(r, halfLengthZ));
-}
-
-double Acts::LineBounds::distanceToBoundary(
-    const Acts::Vector2D& lposition) const {
-  // per definition the min Distance of a correct local position is r
-  return lposition[Acts::eLOC_R];
+  return bcheck.isInside(lposition, Vector2(-r, -halfLengthZ),
+                         Vector2(r, halfLengthZ));
 }
 
 // ostream operator overload

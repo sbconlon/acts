@@ -6,23 +6,23 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/DD4hepDetector/DD4hepDetectorHelper.hpp"
+#include "ActsExamples/DD4hepDetector/DD4hepDetectorHelper.hpp"
 
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Plugins/Digitization/CartesianSegmentation.hpp"
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/TrapezoidBounds.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 #include "DD4hep/CartesianGridXY.h"
 
-using namespace FW::DD4hep;
+using namespace ActsExamples::DD4hep;
 
 std::shared_ptr<const Acts::DigitizationModule>
 DD4hepDetectorHelper::rectangleDigiModule(
     double halflengthX, double halflengthY, double thickness,
     const dd4hep::Segmentation& segmentation) {
   // convert to Acts units
-  double scalor = Acts::units::_cm;
+  double scalor = Acts::UnitConstants::cm;
   halflengthX *= scalor;
   halflengthY *= scalor;
   thickness *= scalor;
@@ -55,7 +55,7 @@ DD4hepDetectorHelper::trapezoidalDigiModule(
     double minHalflengthX, double maxHalflengthX, double halflengthY,
     double thickness, const dd4hep::Segmentation& segmentation) {
   // convert to Acts units
-  double scalor = Acts::units::_cm;
+  double scalor = Acts::UnitConstants::cm;
   minHalflengthX *= scalor;
   maxHalflengthX *= scalor;
   halflengthY *= scalor;

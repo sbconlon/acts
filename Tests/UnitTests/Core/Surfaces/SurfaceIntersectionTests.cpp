@@ -10,6 +10,8 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/ConeSurface.hpp"
 #include "Acts/Surfaces/CylinderSurface.hpp"
@@ -17,8 +19,6 @@
 #include "Acts/Surfaces/RectangleBounds.hpp"
 #include "Acts/Surfaces/StrawSurface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Utilities/Units.hpp"
 
 namespace Acts {
 
@@ -28,9 +28,9 @@ using namespace UnitLiterals;
 GeometryContext tgContext = GeometryContext();
 
 // Some random transform
-Transform3D aTransform = Transform3D::Identity() *
-                         Translation3D(30_cm, 7_m, -87_mm) *
-                         AngleAxis3D(0.42, Vector3D(-3., 1., 8).normalized());
+Transform3 aTransform = Transform3::Identity() *
+                        Translation3(30_cm, 7_m, -87_mm) *
+                        AngleAxis3(0.42, Vector3(-3., 1., 8).normalized());
 
 namespace Test {
 
@@ -42,23 +42,23 @@ BOOST_AUTO_TEST_CASE(CylinderIntersectionTests) {
   double radius = 1_m;
   double halfZ = 10_m;
 
-  auto testCylinderIntersection = [&](const Transform3D& transform) -> void {
+  auto testCylinderIntersection = [&](const Transform3& transform) -> void {
     // A cylinder created alinged with a provided transform
-    auto aCylinder = Surface::makeShared<CylinderSurface>(
-        std::make_shared<Transform3D>(transform), radius, halfZ);
+    auto aCylinder =
+        Surface::makeShared<CylinderSurface>(transform, radius, halfZ);
 
     // Linear transform
     auto lTransform = transform.linear();
 
     // An onCylinder solution
-    Vector3D onCylinder = transform * Vector3D(radius, 0., 0.);
-    Vector3D outCylinder = transform * Vector3D(-radius, 0.6 * radius, 90_cm);
-    Vector3D atCenter = transform * Vector3D(0., 0., 0.);
-    Vector3D atEdge = transform * Vector3D(0.5 * radius, 0., 0.99 * halfZ);
+    Vector3 onCylinder = transform * Vector3(radius, 0., 0.);
+    Vector3 outCylinder = transform * Vector3(-radius, 0.6 * radius, 90_cm);
+    Vector3 atCenter = transform * Vector3(0., 0., 0.);
+    Vector3 atEdge = transform * Vector3(0.5 * radius, 0., 0.99 * halfZ);
     // Simply along the x axis
-    Vector3D alongX = lTransform * Vector3D(1., 0., 0.);
-    Vector3D transXY = lTransform * Vector3D(1., 1., 0).normalized();
-    Vector3D transTZ = lTransform * Vector3D(1., 0., 1.).normalized();
+    Vector3 alongX = lTransform * Vector3(1., 0., 0.);
+    Vector3 transXY = lTransform * Vector3(1., 1., 0).normalized();
+    Vector3 transTZ = lTransform * Vector3(1., 0., 1.).normalized();
 
     // Intersect without boundary check
     auto aIntersection =
@@ -68,12 +68,12 @@ BOOST_AUTO_TEST_CASE(CylinderIntersectionTests) {
     BOOST_CHECK(aIntersection);
     // The status of this one should be on surface
     BOOST_CHECK(aIntersection.intersection.status ==
-                Intersection::Status::onSurface);
+                Intersection3D::Status::onSurface);
     // There MUST be a second solution
     BOOST_CHECK(aIntersection.alternative);
     // The other intersection MUST be reachable
     BOOST_CHECK(aIntersection.alternative.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // The other intersection is at 2 meter distance
     CHECK_CLOSE_ABS(aIntersection.alternative.pathLength, -2_m,
                     s_onSurfaceTolerance);
@@ -86,12 +86,12 @@ BOOST_AUTO_TEST_CASE(CylinderIntersectionTests) {
     BOOST_CHECK(cIntersection);
     // The status of this one MUST be reachable
     BOOST_CHECK(cIntersection.intersection.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // There MUST be a second solution
     BOOST_CHECK(cIntersection.alternative);
     // The other intersection MUST be reachable
     BOOST_CHECK(cIntersection.alternative.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // There MUST be one forward one backwards solution
     BOOST_CHECK(cIntersection.alternative.pathLength *
                     cIntersection.intersection.pathLength <
@@ -105,12 +105,12 @@ BOOST_AUTO_TEST_CASE(CylinderIntersectionTests) {
     BOOST_CHECK(oIntersection);
     // The status of this one MUST be reachable
     BOOST_CHECK(oIntersection.intersection.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // There MUST be a second solution
     BOOST_CHECK(oIntersection.alternative);
     // The other intersection MUST be reachable
     BOOST_CHECK(oIntersection.alternative.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // There MUST be one forward one backwards solution
     BOOST_CHECK(oIntersection.alternative.pathLength *
                     oIntersection.intersection.pathLength >
@@ -133,12 +133,12 @@ BOOST_AUTO_TEST_CASE(CylinderIntersectionTests) {
     BOOST_CHECK(eIntersection.intersection.pathLength > 0.);
     // The status of this one should be reachable
     BOOST_CHECK(eIntersection.intersection.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // There MUST be a second solution
     BOOST_CHECK(eIntersection.alternative);
     // The other intersection MUST be reachable
     BOOST_CHECK(eIntersection.alternative.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // And be the negative one
     BOOST_CHECK(eIntersection.alternative.pathLength < 0.);
 
@@ -148,18 +148,18 @@ BOOST_AUTO_TEST_CASE(CylinderIntersectionTests) {
     BOOST_CHECK(eIntersection.intersection.pathLength < 0.);
     // The status of this one should be reachable
     BOOST_CHECK(eIntersection.intersection.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // There MUST be a second solution
     BOOST_CHECK(!eIntersection.alternative);
     // The other intersection MUST NOT be reachable
     BOOST_CHECK(eIntersection.alternative.status ==
-                Intersection::Status::missed);
+                Intersection3D::Status::missed);
     // And be the positive one
     BOOST_CHECK(eIntersection.alternative.pathLength > 0.);
   };
 
   // In a nominal world
-  testCylinderIntersection(Transform3D::Identity());
+  testCylinderIntersection(Transform3::Identity());
 
   // In a system somewhere away
   testCylinderIntersection(aTransform);
@@ -170,20 +170,19 @@ BOOST_AUTO_TEST_CASE(CylinderIntersectionTests) {
 BOOST_AUTO_TEST_CASE(ConeIntersectionTest) {
   double alpha = 0.25 * M_PI;
 
-  auto testConeIntersection = [&](const Transform3D& transform) -> void {
+  auto testConeIntersection = [&](const Transform3& transform) -> void {
     // A cone suface ready to use
-    auto aCone = Surface::makeShared<ConeSurface>(
-        std::make_shared<Transform3D>(transform), alpha, true);
+    auto aCone = Surface::makeShared<ConeSurface>(transform, alpha, true);
 
     // Linear transform
     auto lTransform = transform.linear();
 
     // An onCylinder solution
-    Vector3D onCone = transform * Vector3D(std::sqrt(2.), std::sqrt(2.), 2.);
-    Vector3D outCone = transform * Vector3D(std::sqrt(4.), std::sqrt(4.), 2.);
+    Vector3 onCone = transform * Vector3(std::sqrt(2.), std::sqrt(2.), 2.);
+    Vector3 outCone = transform * Vector3(std::sqrt(4.), std::sqrt(4.), 2.);
     // Simply along the x axis
-    Vector3D perpXY = lTransform * Vector3D(1., -1., 0.).normalized();
-    Vector3D transXY = lTransform * Vector3D(1., 1., 0).normalized();
+    Vector3 perpXY = lTransform * Vector3(1., -1., 0.).normalized();
+    Vector3 transXY = lTransform * Vector3(1., 1., 0).normalized();
 
     // Intersect without boundary check with an on solution
     BOOST_CHECK(aCone->isOnSurface(tgContext, onCone, transXY, false));
@@ -193,13 +192,13 @@ BOOST_AUTO_TEST_CASE(ConeIntersectionTest) {
     BOOST_CHECK(aIntersection);
     // The status of this one should be on surface
     BOOST_CHECK(aIntersection.intersection.status ==
-                Intersection::Status::onSurface);
+                Intersection3D::Status::onSurface);
 
     // There MUST be a second solution
     BOOST_CHECK(aIntersection.alternative);
     // The other intersection MUST be reachable
     BOOST_CHECK(aIntersection.alternative.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // The other intersection is at 2 meter distance
     CHECK_CLOSE_ABS(aIntersection.alternative.pathLength, -4.,
                     s_onSurfaceTolerance);
@@ -212,7 +211,7 @@ BOOST_AUTO_TEST_CASE(ConeIntersectionTest) {
   };
 
   // In a nominal world
-  testConeIntersection(Transform3D::Identity());
+  testConeIntersection(Transform3::Identity());
 
   // In a system somewhere away
   testConeIntersection(aTransform);
@@ -226,24 +225,23 @@ BOOST_AUTO_TEST_CASE(PlanarIntersectionTest) {
   double halfX = 1_m;
   double halfY = 10_m;
 
-  auto testPlanarIntersection = [&](const Transform3D& transform) -> void {
+  auto testPlanarIntersection = [&](const Transform3& transform) -> void {
     // A Plane created with a specific transform
     auto aPlane = Surface::makeShared<PlaneSurface>(
-        std::make_shared<Transform3D>(transform),
-        std::make_shared<RectangleBounds>(halfX, halfY));
+        transform, std::make_shared<RectangleBounds>(halfX, halfY));
 
     /// Forward interseciton test
-    Vector3D before = transform * Vector3D(-50_cm, -1_m, -1_m);
-    Vector3D onit = transform * Vector3D(11_cm, -22_cm, 0_m);
-    Vector3D after = transform * Vector3D(33_cm, 12_mm, 1_m);
-    Vector3D outside = transform * Vector3D(2. * halfX, 2 * halfY, -1_mm);
+    Vector3 before = transform * Vector3(-50_cm, -1_m, -1_m);
+    Vector3 onit = transform * Vector3(11_cm, -22_cm, 0_m);
+    Vector3 after = transform * Vector3(33_cm, 12_mm, 1_m);
+    Vector3 outside = transform * Vector3(2. * halfX, 2 * halfY, -1_mm);
 
     // Linear transform
     auto lTransform = transform.linear();
 
     // A direction that is non trivial
-    Vector3D direction = lTransform * Vector3D(4_mm, 8_mm, 50_cm).normalized();
-    Vector3D parallel = lTransform * Vector3D(1., 1., 0.).normalized();
+    Vector3 direction = lTransform * Vector3(4_mm, 8_mm, 50_cm).normalized();
+    Vector3 parallel = lTransform * Vector3(1., 1., 0.).normalized();
 
     // Intersect forward
     auto fIntersection = aPlane->intersect(tgContext, before, direction, true);
@@ -252,7 +250,7 @@ BOOST_AUTO_TEST_CASE(PlanarIntersectionTest) {
     BOOST_CHECK(fIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(fIntersection.intersection.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // The path length MUST be positive
     BOOST_CHECK(fIntersection.intersection.pathLength > 0.);
     // The intersection MUST be unique
@@ -264,7 +262,7 @@ BOOST_AUTO_TEST_CASE(PlanarIntersectionTest) {
     BOOST_CHECK(oIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(oIntersection.intersection.status ==
-                Intersection::Status::onSurface);
+                Intersection3D::Status::onSurface);
     // The path length MUST be positive
     BOOST_CHECK(std::abs(oIntersection.intersection.pathLength) <
                 s_onSurfaceTolerance);
@@ -277,7 +275,7 @@ BOOST_AUTO_TEST_CASE(PlanarIntersectionTest) {
     BOOST_CHECK(bIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(bIntersection.intersection.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // The path length MUST be negative
     BOOST_CHECK(bIntersection.intersection.pathLength < 0.);
     // The intersection MUST be unique
@@ -289,7 +287,7 @@ BOOST_AUTO_TEST_CASE(PlanarIntersectionTest) {
     BOOST_CHECK(!mIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(mIntersection.intersection.status ==
-                Intersection::Status::missed);
+                Intersection3D::Status::missed);
     // The path length MUST be negative
     BOOST_CHECK(mIntersection.intersection.pathLength > 0.);
     // The intersection MUST be unique
@@ -301,13 +299,13 @@ BOOST_AUTO_TEST_CASE(PlanarIntersectionTest) {
     BOOST_CHECK(!iIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(iIntersection.intersection.status ==
-                Intersection::Status::unreachable);
+                Intersection3D::Status::unreachable);
     // The intersection MUST be unique
     BOOST_CHECK(!iIntersection.alternative);
   };
 
   // In a nominal world
-  testPlanarIntersection(Transform3D::Identity());
+  testPlanarIntersection(Transform3::Identity());
 
   // In a system somewhere away
   testPlanarIntersection(aTransform);
@@ -321,23 +319,22 @@ BOOST_AUTO_TEST_CASE(LineIntersectionTest) {
   double radius = 1_m;
   double halfZ = 10_m;
 
-  auto testLineAppraoch = [&](const Transform3D& transform) -> void {
+  auto testLineAppraoch = [&](const Transform3& transform) -> void {
     // A Plane created with a specific transform
-    auto aLine = Surface::makeShared<StrawSurface>(
-        std::make_shared<Transform3D>(transform), radius, halfZ);
+    auto aLine = Surface::makeShared<StrawSurface>(transform, radius, halfZ);
 
     /// Forward interseciton test
-    Vector3D before = transform * Vector3D(-50_cm, -1_m, -1_m);
-    Vector3D onit1 = transform * Vector3D(0_m, 0_m, 0_m);
-    Vector3D onitP = transform * Vector3D(1_cm, 0_m, 23_um);
-    Vector3D after = transform * Vector3D(33_cm, 12_mm, 1_m);
-    Vector3D outside = transform * Vector3D(2., 0., 100_m);
+    Vector3 before = transform * Vector3(-50_cm, -1_m, -1_m);
+    Vector3 onit1 = transform * Vector3(0_m, 0_m, 0_m);
+    Vector3 onitP = transform * Vector3(1_cm, 0_m, 23_um);
+    Vector3 after = transform * Vector3(33_cm, 12_mm, 1_m);
+    Vector3 outside = transform * Vector3(2., 0., 100_m);
 
     // Linear transform
     auto lTransform = transform.linear();
-    Vector3D direction = lTransform * Vector3D(2_cm, 3_cm, 5_cm).normalized();
-    Vector3D normalP = lTransform * Vector3D(0, 1., 0.).normalized();
-    Vector3D parallel = lTransform * Vector3D(0, 0., 1.).normalized();
+    Vector3 direction = lTransform * Vector3(2_cm, 3_cm, 5_cm).normalized();
+    Vector3 normalP = lTransform * Vector3(0, 1., 0.).normalized();
+    Vector3 parallel = lTransform * Vector3(0, 0., 1.).normalized();
 
     // A random intersection form backward
     // Intersect forward
@@ -346,7 +343,7 @@ BOOST_AUTO_TEST_CASE(LineIntersectionTest) {
     BOOST_CHECK(fIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(fIntersection.intersection.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // The path length MUST be positive
     BOOST_CHECK(fIntersection.intersection.pathLength > 0.);
     // The intersection MUST be unique
@@ -358,7 +355,7 @@ BOOST_AUTO_TEST_CASE(LineIntersectionTest) {
     BOOST_CHECK(oIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(oIntersection.intersection.status ==
-                Intersection::Status::onSurface);
+                Intersection3D::Status::onSurface);
     // The path length MUST be positive
     BOOST_CHECK(std::abs(oIntersection.intersection.pathLength) <
                 s_onSurfaceTolerance);
@@ -371,7 +368,7 @@ BOOST_AUTO_TEST_CASE(LineIntersectionTest) {
     BOOST_CHECK(oIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(oIntersection.intersection.status ==
-                Intersection::Status::onSurface);
+                Intersection3D::Status::onSurface);
     // The path length MUST be positive
     BOOST_CHECK(std::abs(oIntersection.intersection.pathLength) <
                 s_onSurfaceTolerance);
@@ -384,7 +381,7 @@ BOOST_AUTO_TEST_CASE(LineIntersectionTest) {
     BOOST_CHECK(bIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(bIntersection.intersection.status ==
-                Intersection::Status::reachable);
+                Intersection3D::Status::reachable);
     // The path length MUST be negative
     BOOST_CHECK(bIntersection.intersection.pathLength < 0.);
     // The intersection MUST be unique
@@ -396,7 +393,7 @@ BOOST_AUTO_TEST_CASE(LineIntersectionTest) {
     BOOST_CHECK(!mIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(mIntersection.intersection.status ==
-                Intersection::Status::missed);
+                Intersection3D::Status::missed);
     // The path length MUST be negative
     BOOST_CHECK(mIntersection.intersection.pathLength < 0.);
     // The intersection MUST be unique
@@ -408,13 +405,13 @@ BOOST_AUTO_TEST_CASE(LineIntersectionTest) {
     BOOST_CHECK(!iIntersection);
     // The intersection MUST be reachable
     BOOST_CHECK(iIntersection.intersection.status ==
-                Intersection::Status::unreachable);
+                Intersection3D::Status::unreachable);
     // The intersection MUST be unique
     BOOST_CHECK(!iIntersection.alternative);
   };
 
   // In a nominal world
-  testLineAppraoch(Transform3D::Identity());
+  testLineAppraoch(Transform3::Identity());
 
   // In a system somewhere away
   testLineAppraoch(aTransform);

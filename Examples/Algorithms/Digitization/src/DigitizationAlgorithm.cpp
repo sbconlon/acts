@@ -1,170 +1,323 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2017 CERN for the benefit of the Acts project
+// Copyright (C) 2021 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Digitization/DigitizationAlgorithm.hpp"
+#include "ActsExamples/Digitization/DigitizationAlgorithm.hpp"
 
-#include "ACTFW/EventData/GeometryContainers.hpp"
-#include "ACTFW/EventData/SimHit.hpp"
-#include "ACTFW/EventData/SimParticle.hpp"
-#include "ACTFW/EventData/SimVertex.hpp"
-#include "ACTFW/Framework/WhiteBoard.hpp"
-#include "Acts/EventData/TrackParameters.hpp"
-#include "Acts/Geometry/DetectorElementBase.hpp"
-#include "Acts/Geometry/GeometryID.hpp"
+#include "Acts/Definitions/Algebra.hpp"
+#include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
-#include "Acts/Plugins/Digitization/DigitizationModule.hpp"
-#include "Acts/Plugins/Digitization/PlanarModuleCluster.hpp"
-#include "Acts/Plugins/Digitization/PlanarModuleStepper.hpp"
-#include "Acts/Plugins/Digitization/Segmentation.hpp"
-#include "Acts/Plugins/Identification/IdentifiedDetectorElement.hpp"
-#include "Acts/Surfaces/Surface.hpp"
-#include "Acts/Utilities/ParameterDefinitions.hpp"
-#include "Acts/Utilities/Units.hpp"
+#include "ActsExamples/EventData/GeometryContainers.hpp"
+#include "ActsExamples/EventData/Index.hpp"
+#include "ActsExamples/EventData/IndexSourceLink.hpp"
+#include "ActsExamples/EventData/SimHit.hpp"
+#include "ActsExamples/Framework/WhiteBoard.hpp"
+#include "ActsFatras/Digitization/UncorrelatedHitSmearer.hpp"
 
-#include <iostream>
+#include <algorithm>
 #include <stdexcept>
+#include <string>
+#include <type_traits>
 
-FW::DigitizationAlgorithm::DigitizationAlgorithm(
-    FW::DigitizationAlgorithm::Config cfg, Acts::Logging::Level lvl)
-    : FW::BareAlgorithm("DigitizationAlgorithm", lvl), m_cfg(std::move(cfg)) {
-  if (m_cfg.inputSimulatedHits.empty()) {
-    throw std::invalid_argument("Missing input hits collection");
+ActsExamples::DigitizationAlgorithm::DigitizationAlgorithm(
+    DigitizationConfig cfg, Acts::Logging::Level lvl)
+    : ActsExamples::BareAlgorithm("DigitizationAlgorithm", lvl),
+      m_cfg(std::move(cfg)) {
+  if (m_cfg.inputSimHits.empty()) {
+    throw std::invalid_argument("Missing simulated hits input collection");
   }
-  if (m_cfg.outputClusters.empty()) {
-    throw std::invalid_argument("Missing output clusters collection");
+  if (m_cfg.outputMeasurements.empty()) {
+    throw std::invalid_argument("Missing measurements output collection");
+  }
+  if (m_cfg.outputSourceLinks.empty()) {
+    throw std::invalid_argument("Missing source links output collection");
+  }
+  if (m_cfg.outputMeasurementParticlesMap.empty()) {
+    throw std::invalid_argument(
+        "Missing hit-to-particles map output collection");
+  }
+  if (m_cfg.outputMeasurementSimHitsMap.empty()) {
+    throw std::invalid_argument(
+        "Missing hit-to-simulated-hits map output collection");
   }
   if (not m_cfg.trackingGeometry) {
     throw std::invalid_argument("Missing tracking geometry");
   }
-  if (!m_cfg.planarModuleStepper) {
-    throw std::invalid_argument("Missing planar module stepper");
-  }
-  if (!m_cfg.randomNumbers) {
+  if (not m_cfg.randomNumbers) {
     throw std::invalid_argument("Missing random numbers tool");
   }
-  // fill the digitizables map to allow lookup by geometry id only
-  m_cfg.trackingGeometry->visitSurfaces([this](const Acts::Surface* surface) {
-    Digitizable dg;
-    // require a valid surface
-    dg.surface = surface;
-    if (not dg.surface) {
-      return;
-    }
-    // require an associated detector element
-    dg.detectorElement = dynamic_cast<const Acts::IdentifiedDetectorElement*>(
-        dg.surface->associatedDetectorElement());
-    if (not dg.detectorElement) {
-      return;
-    }
-    // require an associated digitization module
-    dg.digitizer = dg.detectorElement->digitizationModule().get();
-    if (not dg.digitizer) {
-      return;
-    }
-    // record all valid surfaces
-    this->m_digitizables.insert_or_assign(surface->geoID(), dg);
-  });
-}
 
-FW::ProcessCode FW::DigitizationAlgorithm::execute(
-    const AlgorithmContext& ctx) const {
-  // Prepare the input and output collections
-  const auto& hits =
-      ctx.eventStore.get<SimHitContainer>(m_cfg.inputSimulatedHits);
-  FW::GeometryIdMultimap<Acts::PlanarModuleCluster> clusters;
+  if (m_cfg.digitizationConfigs.empty()) {
+    throw std::invalid_argument("Missing digitization configuration");
+  }
 
-  for (auto&& [moduleGeoId, moduleHits] : groupByModule(hits)) {
-    // can only digitize hits on digitizable surfaces
-    const auto it = m_digitizables.find(moduleGeoId);
-    if (it == m_digitizables.end()) {
-      continue;
+  // create the smearers from the configuration
+  std::vector<std::pair<Acts::GeometryIdentifier, Digitizer>> digitizerInput;
+
+  for (size_t i = 0; i < m_cfg.digitizationConfigs.size(); ++i) {
+    GeometricConfig geoCfg;
+    Acts::GeometryIdentifier geoId = m_cfg.digitizationConfigs.idAt(i);
+
+    const auto& digiCfg = m_cfg.digitizationConfigs.valueAt(i);
+    geoCfg = digiCfg.geometricDigiConfig;
+    // Copy so we can sort in-place
+    SmearingConfig smCfg = digiCfg.smearingDigiConfig;
+
+    std::vector<Acts::BoundIndices> indices;
+    for (auto& gcf : smCfg) {
+      indices.push_back(gcf.index);
+    }
+    indices.insert(indices.begin(), geoCfg.indices.begin(),
+                   geoCfg.indices.end());
+
+    // Make sure the configured input parameter indices are sorted and unique
+    std::sort(indices.begin(), indices.end());
+
+    auto dup = std::adjacent_find(indices.begin(), indices.end());
+    if (dup != indices.end()) {
+      std::invalid_argument(
+          "Digitization configuration contains duplicate parameter indices");
     }
 
-    const auto& dg = it->second;
-    // local intersection / direction
-    const auto invTransfrom = dg.surface->transform(ctx.geoContext).inverse();
-
-    // use iterators manually so we can retrieve the hit index in the container
-    for (auto ih = moduleHits.begin(); ih != moduleHits.end(); ++ih) {
-      const auto& hit = *ih;
-      const auto idx = hits.index_of(ih);
-
-      Acts::Vector2D localIntersect = (invTransfrom * hit.position()).head<2>();
-      Acts::Vector3D localDirection =
-          invTransfrom.linear() * hit.unitDirection();
-
-      // compute digitization steps
-      const auto thickness = dg.detectorElement->thickness();
-      const auto lorentzAngle = dg.digitizer->lorentzAngle();
-      auto lorentzShift = thickness * std::tan(lorentzAngle);
-      lorentzShift *= -(dg.digitizer->readoutDirection());
-      // now calculate the steps through the silicon
-      std::vector<Acts::DigitizationStep> dSteps =
-          m_cfg.planarModuleStepper->cellSteps(ctx.geoContext, *dg.digitizer,
-                                               localIntersect, localDirection);
-      // everything under threshold or edge effects
-      if (!dSteps.size()) {
-        ACTS_VERBOSE("No steps returned from stepper.");
-        continue;
-      }
-
-      // lets create a cluster - centroid method
-      double localX = 0.;
-      double localY = 0.;
-      double totalPath = 0.;
-      // the cells to be used
-      std::vector<Acts::DigitizationCell> usedCells;
-      usedCells.reserve(dSteps.size());
-      // loop over the steps
-      for (auto dStep : dSteps) {
-        // @todo implement smearing
-        localX += dStep.stepLength * dStep.stepCellCenter.x();
-        localY += dStep.stepLength * dStep.stepCellCenter.y();
-        totalPath += dStep.stepLength;
-        usedCells.push_back(Acts::DigitizationCell(dStep.stepCell.channel0,
-                                                   dStep.stepCell.channel1,
-                                                   dStep.stepLength));
-      }
-      // divide by the total path
-      localX /= totalPath;
-      localX += lorentzShift;
-      localY /= totalPath;
-
-      // get the segmentation & find the corresponding cell id
-      const Acts::Segmentation& segmentation = dg.digitizer->segmentation();
-      auto binUtility = segmentation.binUtility();
-      Acts::Vector2D localPosition(localX, localY);
-      // @todo remove unneccesary conversion
-      // size_t bin0 = binUtility.bin(localPosition, 0);
-      // size_t bin1 = binUtility.bin(localPosition, 1);
-      // size_t binSerialized = binUtility.serialize({{bin0, bin1, 0}});
-
-      // the covariance is currently set to 0.
-      Acts::ActsSymMatrixD<3> cov;
-      cov << 0.05, 0., 0., 0., 0.05, 0., 0., 0.,
-          900. * Acts::UnitConstants::ps * Acts::UnitConstants::ps;
-
-      // create the planar cluster
-      Acts::PlanarModuleCluster pCluster(
-          dg.surface->getSharedPtr(), Identifier(identifier_type(idx), {idx}),
-          std::move(cov), localX, localY, hit.time(), std::move(usedCells));
-
-      // insert into the cluster container. since the input data is already
-      // sorted by geoId, we should always be able to add at the end.
-      clusters.emplace_hint(clusters.end(), hit.geometryId(),
-                            std::move(pCluster));
+    switch (smCfg.size()) {
+      case 0u:
+        digitizerInput.emplace_back(geoId, makeDigitizer<0u>(digiCfg));
+        break;
+      case 1u:
+        digitizerInput.emplace_back(geoId, makeDigitizer<1u>(digiCfg));
+        break;
+      case 2u:
+        digitizerInput.emplace_back(geoId, makeDigitizer<2u>(digiCfg));
+        break;
+      case 3u:
+        digitizerInput.emplace_back(geoId, makeDigitizer<3u>(digiCfg));
+        break;
+      case 4u:
+        digitizerInput.emplace_back(geoId, makeDigitizer<4u>(digiCfg));
+        break;
+      default:
+        throw std::invalid_argument("Unsupported smearer size");
     }
   }
 
-  ACTS_DEBUG("digitized " << hits.size() << " hits into " << clusters.size()
-                          << " clusters");
+  m_digitizers = Acts::GeometryHierarchyMap<Digitizer>(digitizerInput);
+}
 
-  // write the clusters to the EventStore
+ActsExamples::ProcessCode ActsExamples::DigitizationAlgorithm::execute(
+    const AlgorithmContext& ctx) const {
+  // Retrieve input
+  const auto& simHits = ctx.eventStore.get<SimHitContainer>(m_cfg.inputSimHits);
+
+  // Prepare output containers
+  IndexSourceLinkContainer sourceLinks;
+  MeasurementContainer measurements;
+  ClusterContainer clusters;
+  IndexMultimap<ActsFatras::Barcode> measurementParticlesMap;
+  IndexMultimap<Index> measurementSimHitsMap;
+  sourceLinks.reserve(simHits.size());
+  measurements.reserve(simHits.size());
+  measurementParticlesMap.reserve(simHits.size());
+  measurementSimHitsMap.reserve(simHits.size());
+
+  // Setup random number generator
+  auto rng = m_cfg.randomNumbers->spawnGenerator(ctx);
+
+  ACTS_DEBUG("Starting loop over modules ...");
+  for (auto simHitsGroup : groupByModule(simHits)) {
+    // Manual pair unpacking instead of using
+    //   auto [moduleGeoId, moduleSimHits] : ...
+    // otherwise clang on macos complains that it is unable to capture the local
+    // binding in the lambda used for visiting the smearer below.
+    Acts::GeometryIdentifier moduleGeoId = simHitsGroup.first;
+    const auto& moduleSimHits = simHitsGroup.second;
+
+    const Acts::Surface* surfacePtr =
+        m_cfg.trackingGeometry->findSurface(moduleGeoId);
+
+    if (not surfacePtr) {
+      // this is either an invalid geometry id or a misconfigured smearer
+      // setup; both cases can not be handled and should be fatal.
+      ACTS_ERROR("Could not find surface " << moduleGeoId
+                                           << " for configured smearer");
+      return ProcessCode::ABORT;
+    }
+
+    auto digitizerItr = m_digitizers.find(moduleGeoId);
+    if (digitizerItr == m_digitizers.end()) {
+      ACTS_DEBUG("No digitizer present for module " << moduleGeoId);
+      continue;
+    } else {
+      ACTS_DEBUG("Digitizer found for module " << moduleGeoId);
+    }
+
+    // Run the digitizer. Iterate over the hits for this surface inside the
+    // visitor so we do not need to lookup the variant object per-hit.
+    std::visit(
+        [&](const auto& digitizer) {
+          for (auto h = moduleSimHits.begin(); h != moduleSimHits.end(); ++h) {
+            const auto& simHit = *h;
+            const auto simHitIdx = simHits.index_of(h);
+
+            DigitizedParameters dParameters;
+
+            // Geometric part - 0, 1, 2 local parameters are possible
+            if (not digitizer.geometric.indices.empty()) {
+              ACTS_VERBOSE("Configured to geometric digitize "
+                           << digitizer.geometric.indices.size()
+                           << " parameters.");
+              auto channels = channelizing(digitizer.geometric, simHit,
+                                           *surfacePtr, ctx.geoContext, rng);
+              if (channels.empty()) {
+                ACTS_DEBUG(
+                    "Geometric channelization did not work, skipping this hit.")
+                continue;
+              }
+              ACTS_VERBOSE("Activated " << channels.size()
+                                        << " channels for this hit.");
+              dParameters = localParameters(digitizer.geometric, channels, rng);
+            }
+
+            // Smearing part - (optionally) rest
+            if (not digitizer.smearing.indices.empty()) {
+              ACTS_VERBOSE("Configured to smear "
+                           << digitizer.smearing.indices.size()
+                           << " parameters.");
+              auto res =
+                  digitizer.smearing(rng, simHit, *surfacePtr, ctx.geoContext);
+              if (not res.ok()) {
+                ACTS_DEBUG("Problem in hit smearing, skipping this hit.")
+                continue;
+              }
+              const auto& [par, cov] = res.value();
+              for (Eigen::Index ip = 0; ip < par.rows(); ++ip) {
+                dParameters.indices.push_back(digitizer.smearing.indices[ip]);
+                dParameters.values.push_back(par[ip]);
+                dParameters.variances.push_back(cov(ip, ip));
+              }
+            }
+
+            // Check on success - threshold could have eliminated all channels
+            if (dParameters.values.empty()) {
+              ACTS_VERBOSE(
+                  "Parameter digitization did not yield a measurement.")
+              continue;
+            }
+
+            // The measurement container is unordered and the index under which
+            // the measurement will be stored is known before adding it.
+            Index measurementIdx = measurements.size();
+            IndexSourceLink sourceLink(moduleGeoId, measurementIdx);
+
+            // Add to output containers:
+            // index map and source link container are geometry-ordered.
+            // since the input is also geometry-ordered, new items can
+            // be added at the end.
+            sourceLinks.emplace_hint(sourceLinks.end(), std::move(sourceLink));
+            measurements.emplace_back(
+                createMeasurement(dParameters, sourceLink));
+            clusters.emplace_back(std::move(dParameters.cluster));
+            // this digitization does not do hit merging so there is only one
+            // mapping entry for each digitized hit.
+            measurementParticlesMap.emplace_hint(measurementParticlesMap.end(),
+                                                 measurementIdx,
+                                                 simHit.particleId());
+            measurementSimHitsMap.emplace_hint(measurementSimHitsMap.end(),
+                                               measurementIdx, simHitIdx);
+          }
+        },
+        *digitizerItr);
+  }
+
+  ctx.eventStore.add(m_cfg.outputSourceLinks, std::move(sourceLinks));
+  ctx.eventStore.add(m_cfg.outputMeasurements, std::move(measurements));
   ctx.eventStore.add(m_cfg.outputClusters, std::move(clusters));
-  return FW::ProcessCode::SUCCESS;
+  ctx.eventStore.add(m_cfg.outputMeasurementParticlesMap,
+                     std::move(measurementParticlesMap));
+  ctx.eventStore.add(m_cfg.outputMeasurementSimHitsMap,
+                     std::move(measurementSimHitsMap));
+  return ProcessCode::SUCCESS;
+}
+
+std::vector<ActsFatras::Channelizer::ChannelSegment>
+ActsExamples::DigitizationAlgorithm::channelizing(
+    const GeometricConfig& geoCfg, const SimHit& hit,
+    const Acts::Surface& surface, const Acts::GeometryContext& gctx,
+    RandomEngine& rng) const {
+  Acts::Vector3 driftDir = geoCfg.drift(hit.position(), rng);
+
+  auto driftedSegment =
+      m_surfaceDrift.toReadout(gctx, surface, geoCfg.thickness, hit.position(),
+                               hit.unitDirection(), driftDir);
+  auto maskedSegmentRes = m_surfaceMask.apply(surface, driftedSegment);
+  if (maskedSegmentRes.ok()) {
+    auto maskedSegment = maskedSegmentRes.value();
+    // Now Channelize
+    return m_channelizer.segments(gctx, surface, geoCfg.segmentation,
+                                  maskedSegment);
+  }
+  return {};
+}
+
+ActsExamples::DigitizedParameters
+ActsExamples::DigitizationAlgorithm::localParameters(
+    const GeometricConfig& geoCfg,
+    const std::vector<ActsFatras::Channelizer::ChannelSegment>& channels,
+    RandomEngine& rng) const {
+  DigitizedParameters dParameters;
+
+  const auto& binningData = geoCfg.segmentation.binningData();
+
+  Acts::ActsScalar totalWeight = 0.;
+  Acts::Vector2 m(0., 0.);
+  size_t b0min = SIZE_MAX;
+  size_t b0max = 0;
+  size_t b1min = SIZE_MAX;
+  size_t b1max = 0;
+  // Combine the channels
+  for (const auto& ch : channels) {
+    auto bin = ch.bin;
+    Acts::ActsScalar charge =
+        geoCfg.digital ? 1. : geoCfg.charge(ch.activation, ch.activation, rng);
+    if (geoCfg.digital or charge > geoCfg.threshold) {
+      totalWeight += charge;
+      size_t b0 = bin[0];
+      size_t b1 = bin[1];
+      m += Acts::Vector2(charge * binningData[0].center(b0),
+                         charge * binningData[1].center(b1));
+      b0min = std::min(b0min, b0);
+      b0max = std::max(b0max, b0);
+      b1min = std::min(b1min, b1);
+      b1max = std::max(b1max, b1);
+      // Create a copy of the channel, as activation may change
+      auto chdig = ch;
+      chdig.bin = ch.bin;
+      chdig.activation = charge;
+      dParameters.cluster.channels.push_back(chdig);
+    }
+  }
+  if (totalWeight > 0.) {
+    m *= 1. / totalWeight;
+    dParameters.indices = geoCfg.indices;
+    for (auto idx : dParameters.indices) {
+      dParameters.values.push_back(m[idx]);
+    }
+    size_t size0 = static_cast<size_t>(b0max - b0min + 1);
+    size_t size1 = static_cast<size_t>(b1max - b1min + 1);
+    auto variances = geoCfg.variances(size0, size1, rng);
+    if (variances.size() == dParameters.indices.size()) {
+      dParameters.variances = variances;
+    } else {
+      dParameters.variances =
+          std::vector<Acts::ActsScalar>(dParameters.indices.size(), -1.);
+    }
+
+    dParameters.cluster.sizeLoc0 = size0;
+    dParameters.cluster.sizeLoc1 = size1;
+  }
+
+  return dParameters;
 }

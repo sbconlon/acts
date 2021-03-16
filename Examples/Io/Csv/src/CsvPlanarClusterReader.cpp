@@ -6,29 +6,29 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ACTFW/Io/Csv/CsvPlanarClusterReader.hpp"
+#include "ActsExamples/Io/Csv/CsvPlanarClusterReader.hpp"
 
-#include "ACTFW/EventData/GeometryContainers.hpp"
-#include "ACTFW/EventData/IndexContainers.hpp"
-#include "ACTFW/EventData/SimHit.hpp"
-#include "ACTFW/EventData/SimIdentifier.hpp"
-#include "ACTFW/EventData/SimParticle.hpp"
-#include "ACTFW/Framework/WhiteBoard.hpp"
-#include "ACTFW/Utilities/Paths.hpp"
-#include "ACTFW/Utilities/Range.hpp"
+#include "Acts/Definitions/Units.hpp"
 #include "Acts/Plugins/Digitization/PlanarModuleCluster.hpp"
 #include "Acts/Plugins/Identification/IdentifiedDetectorElement.hpp"
-#include "Acts/Utilities/Units.hpp"
+#include "Acts/Surfaces/Surface.hpp"
+#include "ActsExamples/EventData/GeometryContainers.hpp"
+#include "ActsExamples/EventData/Index.hpp"
+#include "ActsExamples/EventData/SimHit.hpp"
+#include "ActsExamples/EventData/SimParticle.hpp"
+#include "ActsExamples/Framework/WhiteBoard.hpp"
+#include "ActsExamples/Utilities/Paths.hpp"
+#include "ActsExamples/Utilities/Range.hpp"
 
 #include <dfe/dfe_io_dsv.hpp>
 
-#include "TrackMlData.hpp"
+#include "CsvOutputData.hpp"
 
-FW::CsvPlanarClusterReader::CsvPlanarClusterReader(
-    const FW::CsvPlanarClusterReader::Config& cfg, Acts::Logging::Level lvl)
-    : m_cfg(cfg)
+ActsExamples::CsvPlanarClusterReader::CsvPlanarClusterReader(
+    const ActsExamples::CsvPlanarClusterReader::Config& cfg,
+    Acts::Logging::Level lvl)
+    : m_cfg(cfg),
       // TODO check that all files (hits,cells,truth) exists
-      ,
       m_eventsRange(determineEventFilesRange(cfg.inputDir, "hits.csv")),
       m_logger(Acts::getDefaultLogger("CsvPlanarClusterReader", lvl)) {
   if (m_cfg.outputClusters.empty()) {
@@ -37,26 +37,24 @@ FW::CsvPlanarClusterReader::CsvPlanarClusterReader(
   if (m_cfg.outputHitIds.empty()) {
     throw std::invalid_argument("Missing hit id output collection");
   }
-  if (m_cfg.outputHitParticlesMap.empty()) {
+  if (m_cfg.outputMeasurementParticlesMap.empty()) {
     throw std::invalid_argument("Missing hit-particles map output collection");
   }
-  if (m_cfg.outputSimulatedHits.empty()) {
+  if (m_cfg.outputSimHits.empty()) {
     throw std::invalid_argument("Missing simulated hits output collection");
   }
   if (not m_cfg.trackingGeometry) {
     throw std::invalid_argument("Missing tracking geometry");
   }
-  // fill the geo id to surface map once to speed up lookups later on
-  m_cfg.trackingGeometry->visitSurfaces([this](const Acts::Surface* surface) {
-    this->m_surfaces[surface->geoID()] = surface;
-  });
 }
 
-std::string FW::CsvPlanarClusterReader::CsvPlanarClusterReader::name() const {
+std::string ActsExamples::CsvPlanarClusterReader::CsvPlanarClusterReader::name()
+    const {
   return "CsvPlanarClusterReader";
 }
 
-std::pair<size_t, size_t> FW::CsvPlanarClusterReader::availableEvents() const {
+std::pair<size_t, size_t>
+ActsExamples::CsvPlanarClusterReader::availableEvents() const {
   return m_eventsRange;
 }
 
@@ -79,21 +77,14 @@ struct CompareHitId {
 };
 
 /// Convert separate volume/layer/module id into a single geometry identifier.
-inline Acts::GeometryID extractGeometryId(const FW::HitData& data) {
-  // if available, use the encoded geometry directly
-  if (data.geometry_id != 0u) {
-    return data.geometry_id;
-  }
-  // otherwise, reconstruct it from the available components
-  Acts::GeometryID geoId;
-  geoId.setVolume(data.volume_id);
-  geoId.setLayer(data.layer_id);
-  geoId.setSensitive(data.module_id);
-  return geoId;
+inline Acts::GeometryIdentifier extractGeometryId(
+    const ActsExamples::HitData& data) {
+  return data.geometry_id;
 }
 
 struct CompareGeometryId {
-  bool operator()(const FW::HitData& left, const FW::HitData& right) const {
+  bool operator()(const ActsExamples::HitData& left,
+                  const ActsExamples::HitData& right) const {
     auto leftId = extractGeometryId(left).value();
     auto rightId = extractGeometryId(right).value();
     return leftId < rightId;
@@ -104,7 +95,7 @@ template <typename Data>
 inline std::vector<Data> readEverything(
     const std::string& inputDir, const std::string& filename,
     const std::vector<std::string>& optionalColumns, size_t event) {
-  std::string path = FW::perEventFilepath(inputDir, filename, event);
+  std::string path = ActsExamples::perEventFilepath(inputDir, filename, event);
   dfe::NamedTupleCsvReader<Data> reader(path, optionalColumns);
 
   std::vector<Data> everything;
@@ -116,35 +107,35 @@ inline std::vector<Data> readEverything(
   return everything;
 }
 
-std::vector<FW::HitData> readHitsByGeoId(const std::string& inputDir,
-                                         size_t event) {
+std::vector<ActsExamples::HitData> readHitsByGeometryId(
+    const std::string& inputDir, size_t event) {
   // geometry_id and t are optional columns
-  auto hits = readEverything<FW::HitData>(inputDir, "hits.csv",
-                                          {"geometry_id", "t"}, event);
+  auto hits = readEverything<ActsExamples::HitData>(
+      inputDir, "hits.csv", {"geometry_id", "t"}, event);
   // sort same way they will be sorted in the output container
   std::sort(hits.begin(), hits.end(), CompareGeometryId{});
   return hits;
 }
 
-std::vector<FW::CellData> readCellsByHitId(const std::string& inputDir,
-                                           size_t event) {
+std::vector<ActsExamples::CellData> readCellsByHitId(
+    const std::string& inputDir, size_t event) {
   // timestamp is an optional element
-  auto cells =
-      readEverything<FW::CellData>(inputDir, "cells.csv", {"timestamp"}, event);
+  auto cells = readEverything<ActsExamples::CellData>(inputDir, "cells.csv",
+                                                      {"timestamp"}, event);
   // sort for fast hit id look up
   std::sort(cells.begin(), cells.end(), CompareHitId{});
   return cells;
 }
 
-std::vector<FW::TruthHitData> readTruthHitsByHitId(const std::string& inputDir,
-                                                   size_t event) {
+std::vector<ActsExamples::TruthHitData> readTruthHitsByHitId(
+    const std::string& inputDir, size_t event) {
   // define all optional columns
   std::vector<std::string> optionalColumns = {
       "geometry_id", "tt",      "te",     "deltapx",
       "deltapy",     "deltapz", "deltae", "index",
   };
-  auto truths = readEverything<FW::TruthHitData>(inputDir, "truth.csv",
-                                                 optionalColumns, event);
+  auto truths = readEverything<ActsExamples::TruthHitData>(
+      inputDir, "truth.csv", optionalColumns, event);
   // sort for fast hit id look up
   std::sort(truths.begin(), truths.end(), CompareHitId{});
   return truths;
@@ -152,14 +143,14 @@ std::vector<FW::TruthHitData> readTruthHitsByHitId(const std::string& inputDir,
 
 }  // namespace
 
-FW::ProcessCode FW::CsvPlanarClusterReader::read(
-    const FW::AlgorithmContext& ctx) {
+ActsExamples::ProcessCode ActsExamples::CsvPlanarClusterReader::read(
+    const ActsExamples::AlgorithmContext& ctx) {
   // hit_id in the files is not required to be neither continuous nor
   // monotonic. internally, we want continous indices within [0,#hits)
   // to simplify data handling. to be able to perform this mapping we first
   // read all data into memory before converting to the internal event data
   // types.
-  auto hits = readHitsByGeoId(m_cfg.inputDir, ctx.eventNumber);
+  auto hits = readHitsByGeometryId(m_cfg.inputDir, ctx.eventNumber);
   auto cells = readCellsByHitId(m_cfg.inputDir, ctx.eventNumber);
   auto truths = readTruthHitsByHitId(m_cfg.inputDir, ctx.eventNumber);
 
@@ -174,7 +165,7 @@ FW::ProcessCode FW::CsvPlanarClusterReader::read(
   simHits.reserve(truths.size());
 
   for (const HitData& hit : hits) {
-    Acts::GeometryID geoId = extractGeometryId(hit);
+    Acts::GeometryIdentifier geoId = extractGeometryId(hit);
 
     // find associated truth/ simulation hits
     std::vector<std::size_t> simHitIndices;
@@ -183,7 +174,7 @@ FW::ProcessCode FW::CsvPlanarClusterReader::read(
                                               hit.hit_id, CompareHitId{}));
       simHitIndices.reserve(range.size());
       for (const auto& truth : range) {
-        const auto simGeometryId = Acts::GeometryID(truth.geometry_id);
+        const auto simGeometryId = Acts::GeometryIdentifier(truth.geometry_id);
         // TODO validate geo id consistency
         const auto simParticleId = ActsFatras::Barcode(truth.particle_id);
         const auto simIndex = truth.index;
@@ -228,32 +219,37 @@ FW::ProcessCode FW::CsvPlanarClusterReader::read(
       auto range = makeRange(std::equal_range(cells.begin(), cells.end(),
                                               hit.hit_id, CompareHitId{}));
       for (const auto& c : range) {
-        digitizationCells.emplace_back(c.ch0, c.ch1, c.value);
+        digitizationCells.emplace_back(c.channel0, c.channel1, c.value);
       }
     }
 
     // identify hit surface
-    auto it = m_surfaces.find(geoId);
-    if (it == m_surfaces.end() or not it->second) {
+    const Acts::Surface* surface = m_cfg.trackingGeometry->findSurface(geoId);
+    if (not surface) {
       ACTS_FATAL("Could not retrieve the surface for hit " << hit);
       return ProcessCode::ABORT;
     }
-    const Acts::Surface& surface = *(it->second);
 
     // transform global hit coordinates into local coordinates on the surface
-    Acts::Vector3D pos(hit.x * Acts::UnitConstants::mm,
-                       hit.y * Acts::UnitConstants::mm,
-                       hit.z * Acts::UnitConstants::mm);
+    Acts::Vector3 pos(hit.x * Acts::UnitConstants::mm,
+                      hit.y * Acts::UnitConstants::mm,
+                      hit.z * Acts::UnitConstants::mm);
     double time = hit.t * Acts::UnitConstants::ns;
-    Acts::Vector3D mom(1, 1, 1);  // fake momentum
-    Acts::Vector2D local(0, 0);
-    surface.globalToLocal(ctx.geoContext, pos, mom, local);
+    Acts::Vector3 mom(1, 1, 1);  // fake momentum
+    Acts::Vector2 local(0, 0);
+    auto lpResult = surface->globalToLocal(ctx.geoContext, pos, mom);
+    if (not lpResult.ok()) {
+      ACTS_FATAL("Global to local transformation did not succeed.");
+      return ProcessCode::ABORT;
+    }
+    local = lpResult.value();
+
     // TODO what to use as cluster uncertainty?
-    Acts::ActsSymMatrixD<3> cov = Acts::ActsSymMatrixD<3>::Identity();
+    Acts::ActsSymMatrix<3> cov = Acts::ActsSymMatrix<3>::Identity();
     // create the planar cluster
     Acts::PlanarModuleCluster cluster(
-        surface.getSharedPtr(),
-        Identifier(identifier_type(geoId.value()), std::move(simHitIndices)),
+        surface->getSharedPtr(),
+        Acts::DigitizationSourceLink(geoId, std::move(simHitIndices)),
         std::move(cov), local[0], local[1], time, std::move(digitizationCells));
 
     // due to the previous sorting of the raw hit data by geometry id, new
@@ -281,8 +277,9 @@ FW::ProcessCode FW::CsvPlanarClusterReader::read(
   // write the data to the EventStore
   ctx.eventStore.add(m_cfg.outputClusters, std::move(clusters));
   ctx.eventStore.add(m_cfg.outputHitIds, std::move(hitIds));
-  ctx.eventStore.add(m_cfg.outputHitParticlesMap, std::move(hitParticlesMap));
-  ctx.eventStore.add(m_cfg.outputSimulatedHits, std::move(simHits));
+  ctx.eventStore.add(m_cfg.outputMeasurementParticlesMap,
+                     std::move(hitParticlesMap));
+  ctx.eventStore.add(m_cfg.outputSimHits, std::move(simHits));
 
-  return FW::ProcessCode::SUCCESS;
+  return ActsExamples::ProcessCode::SUCCESS;
 }

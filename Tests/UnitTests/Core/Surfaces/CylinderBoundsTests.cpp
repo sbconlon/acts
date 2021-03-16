@@ -10,9 +10,9 @@
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Surfaces/CylinderBounds.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 #include <limits>
 
@@ -92,12 +92,12 @@ BOOST_AUTO_TEST_CASE(CylinderBoundsProperties) {
   BOOST_CHECK_EQUAL(cylinderBoundsObject.type(), SurfaceBounds::eCylinder);
 
   /// test for inside(), 2D coords are r or phi ,z? : needs clarification
-  const Vector2D origin{0., 0.};
-  const Vector2D atPiBy2{M_PI / 2., 0.0};
-  const Vector2D atPi{M_PI, 0.0};
-  const Vector2D beyondEnd{0, 30.0};
-  const Vector2D unitZ{0.0, 1.0};
-  const Vector2D unitPhi{1.0, 0.0};
+  const Vector2 origin{0., 0.};
+  const Vector2 atPiBy2{M_PI / 2., 0.0};
+  const Vector2 atPi{M_PI, 0.0};
+  const Vector2 beyondEnd{0, 30.0};
+  const Vector2 unitZ{0.0, 1.0};
+  const Vector2 unitPhi{1.0, 0.0};
   const BoundaryCheck trueBoundaryCheckWithTolerance(true, true, 0.1, 0.1);
   BOOST_CHECK(
       cylinderBoundsObject.inside(atPiBy2, trueBoundaryCheckWithTolerance));
@@ -106,21 +106,10 @@ BOOST_AUTO_TEST_CASE(CylinderBoundsProperties) {
   BOOST_CHECK(
       cylinderBoundsObject.inside(origin, trueBoundaryCheckWithTolerance));
 
-  /// test for inside3D() with Vector3D argument
-  const Vector3D origin3D{0., 0., 0.};
+  /// test for inside3D() with Vector3 argument
+  const Vector3 origin3D{0., 0., 0.};
   BOOST_CHECK(
       !cylinderBoundsObject.inside3D(origin3D, trueBoundaryCheckWithTolerance));
-
-  /// test for distanceToBoundary
-  CHECK_CLOSE_REL(cylinderBoundsObject.distanceToBoundary(origin), 0.5,
-                  1e-6);  // fail
-  CHECK_CLOSE_REL(cylinderBoundsObject.distanceToBoundary(beyondEnd), 10.0,
-                  1e-6);  // pass
-  double sinPiBy8 = std::sin(M_PI / 8.);
-  CHECK_CLOSE_REL(cylinderBoundsSegment.distanceToBoundary(atPi), sinPiBy8,
-                  1e-6);  // pass
-  CHECK_CLOSE_REL(cylinderBoundsSegment.distanceToBoundary(origin), 0.5,
-                  1e-6);  // fail
 
   /// test for r()
   CHECK_CLOSE_REL(cylinderBoundsObject.get(CylinderBounds::eR), nominalRadius,

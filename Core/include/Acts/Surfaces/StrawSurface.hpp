@@ -8,10 +8,10 @@
 
 #pragma once
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/LineBounds.hpp"
 #include "Acts/Surfaces/LineSurface.hpp"
-#include "Acts/Utilities/Definitions.hpp"
 
 namespace Acts {
 
@@ -29,22 +29,21 @@ class StrawSurface : public LineSurface {
   friend Surface;
 
  protected:
-  /// Constructor from Transform3D and bounds
+  /// Constructor from Transform3 and bounds
   ///
-  /// @param htrans is the transform that positions the surface in the global
+  /// @param transform the transform that positions the straw in the global
   /// frame
   /// @param radius is the straw radius
   /// @param halez is the half length in z
-  StrawSurface(std::shared_ptr<const Transform3D> htrans, double radius,
-               double halez);
+  StrawSurface(const Transform3& transform, double radius, double halez);
 
-  /// Constructor from Transform3D and a shared bounds object
+  /// Constructor from Transform3 and a shared bounds object
   ///
-  /// @param htrans is the transform that positions the surface in the global
+  /// @param transform the transform that positions the straw in the global
   /// frame
   /// @param lbounds are the bounds describing the straw dimensions, can be
   /// optionally nullptr
-  StrawSurface(std::shared_ptr<const Transform3D> htrans,
+  StrawSurface(const Transform3& transform,
                std::shared_ptr<const LineBounds> lbounds = nullptr);
 
   /// Constructor from DetectorElementBase : Element proxy
@@ -64,15 +63,12 @@ class StrawSurface : public LineSurface {
   ///
   /// @param gctx The current geometry context object, e.g. alignment
   /// @param other is the source cone surface
-  /// @param transf is the additional transfrom applied after copying
+  /// @param shift is the additional transfrom applied after copying
   StrawSurface(const GeometryContext& gctx, const StrawSurface& other,
-               const Transform3D& transf);
+               const Transform3& shift);
 
  public:
-  /// Destructor - defaulted
   ~StrawSurface() override = default;
-
-  /// Default Constructor - deleted
   StrawSurface() = delete;
 
   /// Assignment operator

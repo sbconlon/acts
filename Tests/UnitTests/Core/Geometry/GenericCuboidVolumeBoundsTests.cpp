@@ -8,13 +8,13 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include "Acts/Definitions/Algebra.hpp"
 #include "Acts/Geometry/GenericCuboidVolumeBounds.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/PlanarBounds.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Tests/CommonHelpers/FloatComparisons.hpp"
-#include "Acts/Utilities/Definitions.hpp"
-#include "Acts/Visualization/PlyVisualization.hpp"
+#include "Acts/Visualization/PlyVisualization3D.hpp"
 
 #include <chrono>
 #include <fstream>
@@ -29,7 +29,7 @@ GeometryContext gctx = GeometryContext();
 BOOST_AUTO_TEST_SUITE(Volumes)
 
 BOOST_AUTO_TEST_CASE(construction_test) {
-  std::array<Vector3D, 8> vertices;
+  std::array<Vector3, 8> vertices;
   vertices = {{{0, 0, 0},
                {2, 0, 0},
                {2, 1, 0},
@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(construction_test) {
 }
 
 BOOST_AUTO_TEST_CASE(GenericCuboidBoundsOrientedSurfaces) {
-  std::array<Vector3D, 8> vertices;
+  std::array<Vector3, 8> vertices;
   vertices = {{{0, 0, 0},
                {2, 0, 0},
                {2, 1, 0},
@@ -73,12 +73,11 @@ BOOST_AUTO_TEST_CASE(GenericCuboidBoundsOrientedSurfaces) {
     return false;
   };
 
-  auto surfaces = cubo.orientedSurfaces(nullptr);
+  auto surfaces = cubo.orientedSurfaces(Transform3::Identity());
   for (const auto& srf : surfaces) {
     auto pbounds = dynamic_cast<const PlanarBounds*>(&srf.first->bounds());
     for (const auto& vtx : pbounds->vertices()) {
-      Vector3D glob;
-      srf.first->localToGlobal(gctx, vtx, {}, glob);
+      Vector3 glob = srf.first->localToGlobal(gctx, vtx, {});
       // check if glob is in actual vertex list
       BOOST_CHECK(is_in(glob, vertices));
     }
@@ -94,27 +93,25 @@ BOOST_AUTO_TEST_CASE(GenericCuboidBoundsOrientedSurfaces) {
                {0, 1, 1}}};
   cubo = GenericCuboidVolumeBounds(vertices);
 
-  surfaces = cubo.orientedSurfaces(nullptr);
+  surfaces = cubo.orientedSurfaces(Transform3::Identity());
   for (const auto& srf : surfaces) {
     auto pbounds = dynamic_cast<const PlanarBounds*>(&srf.first->bounds());
     for (const auto& vtx : pbounds->vertices()) {
-      Vector3D glob;
-      srf.first->localToGlobal(gctx, vtx, {}, glob);
+      Vector3 glob = srf.first->localToGlobal(gctx, vtx, {});
       // check if glob is in actual vertex list
       BOOST_CHECK(is_in(glob, vertices));
     }
   }
 
-  Transform3D trf;
-  trf = Translation3D(Vector3D(0, 8, -5)) *
-        AngleAxis3D(M_PI / 3., Vector3D(1, -3, 9).normalized());
+  Transform3 trf;
+  trf = Translation3(Vector3(0, 8, -5)) *
+        AngleAxis3(M_PI / 3., Vector3(1, -3, 9).normalized());
 
-  surfaces = cubo.orientedSurfaces(&trf);
+  surfaces = cubo.orientedSurfaces(trf);
   for (const auto& srf : surfaces) {
     auto pbounds = dynamic_cast<const PlanarBounds*>(&srf.first->bounds());
     for (const auto& vtx : pbounds->vertices()) {
-      Vector3D glob;
-      srf.first->localToGlobal(gctx, vtx, {}, glob);
+      Vector3 glob = srf.first->localToGlobal(gctx, vtx, {});
       // check if glob is in actual vertex list
       BOOST_CHECK(is_in(trf.inverse() * glob, vertices));
     }
@@ -122,7 +119,7 @@ BOOST_AUTO_TEST_CASE(GenericCuboidBoundsOrientedSurfaces) {
 }
 
 BOOST_AUTO_TEST_CASE(ply_test) {
-  std::array<Vector3D, 8> vertices;
+  std::array<Vector3, 8> vertices;
   vertices = {{{0, 0, 0},
                {2, 0, 0},
                {2, 1, 0},
@@ -132,7 +129,7 @@ BOOST_AUTO_TEST_CASE(ply_test) {
                {2, 1, 1},
                {0, 1, 1}}};
   GenericCuboidVolumeBounds cubo(vertices);
-  PlyVisualization<double> ply;
+  PlyVisualization3D<double> ply;
   cubo.draw(ply);
 
   std::ofstream os("cuboid.ply");
@@ -142,7 +139,7 @@ BOOST_AUTO_TEST_CASE(ply_test) {
 
 BOOST_AUTO_TEST_CASE(bounding_box_creation) {
   float tol = 1e-4;
-  std::array<Vector3D, 8> vertices;
+  std::array<Vector3, 8> vertices;
   vertices = {{{0, 0, 0},
                {2, 0, 0.4},
                {2, 1, 0.4},
@@ -155,36 +152,36 @@ BOOST_AUTO_TEST_CASE(bounding_box_creation) {
   GenericCuboidVolumeBounds gcvb(vertices);
   auto bb = gcvb.boundingBox();
 
-  Transform3D rot;
-  rot = AngleAxis3D(M_PI / 2., Vector3D::UnitX());
+  Transform3 rot;
+  rot = AngleAxis3(M_PI / 2., Vector3::UnitX());
 
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
-  BOOST_CHECK_EQUAL(bb.max(), Vector3D(2, 1, 1));
-  BOOST_CHECK_EQUAL(bb.min(), Vector3D(0., 0., 0.));
+  BOOST_CHECK_EQUAL(bb.max(), Vector3(2, 1, 1));
+  BOOST_CHECK_EQUAL(bb.min(), Vector3(0., 0., 0.));
 
   bb = gcvb.boundingBox(&rot);
 
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
-  CHECK_CLOSE_ABS(bb.max(), Vector3D(2, 0, 1), tol);
-  BOOST_CHECK_EQUAL(bb.min(), Vector3D(0, -1, 0));
+  CHECK_CLOSE_ABS(bb.max(), Vector3(2, 0, 1), tol);
+  BOOST_CHECK_EQUAL(bb.min(), Vector3(0, -1, 0));
 
-  rot = AngleAxis3D(M_PI / 2., Vector3D::UnitZ());
+  rot = AngleAxis3(M_PI / 2., Vector3::UnitZ());
   bb = gcvb.boundingBox(&rot);
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
-  CHECK_CLOSE_ABS(bb.max(), Vector3D(0, 2, 1), tol);
-  CHECK_CLOSE_ABS(bb.min(), Vector3D(-1, 0., 0.), tol);
+  CHECK_CLOSE_ABS(bb.max(), Vector3(0, 2, 1), tol);
+  CHECK_CLOSE_ABS(bb.min(), Vector3(-1, 0., 0.), tol);
 
-  rot = AngleAxis3D(0.542, Vector3D::UnitZ()) *
-        AngleAxis3D(M_PI / 5., Vector3D(1, 3, 6).normalized());
+  rot = AngleAxis3(0.542, Vector3::UnitZ()) *
+        AngleAxis3(M_PI / 5., Vector3(1, 3, 6).normalized());
 
   bb = gcvb.boundingBox(&rot);
   BOOST_CHECK_EQUAL(bb.entity(), nullptr);
-  CHECK_CLOSE_ABS(bb.max(), Vector3D(1.00976, 2.26918, 1.11988), tol);
-  CHECK_CLOSE_ABS(bb.min(), Vector3D(-0.871397, 0, -0.0867708), tol);
+  CHECK_CLOSE_ABS(bb.max(), Vector3(1.00976, 2.26918, 1.11988), tol);
+  CHECK_CLOSE_ABS(bb.min(), Vector3(-0.871397, 0, -0.0867708), tol);
 }
 
 BOOST_AUTO_TEST_CASE(GenericCuboidVolumeBoundarySurfaces) {
-  std::array<Vector3D, 8> vertices;
+  std::array<Vector3, 8> vertices;
   vertices = {{{0, 0, 0},
                {4, 0, 0},
                {4, 2, 0},
@@ -196,8 +193,8 @@ BOOST_AUTO_TEST_CASE(GenericCuboidVolumeBoundarySurfaces) {
 
   GenericCuboidVolumeBounds cubo(vertices);
 
-  auto gcvbOrientedSurfaces = cubo.orientedSurfaces(nullptr);
-  BOOST_TEST(gcvbOrientedSurfaces.size(), 6);
+  auto gcvbOrientedSurfaces = cubo.orientedSurfaces(Transform3::Identity());
+  BOOST_CHECK_EQUAL(gcvbOrientedSurfaces.size(), 6);
 
   for (auto& os : gcvbOrientedSurfaces) {
     auto geoCtx = GeometryContext();

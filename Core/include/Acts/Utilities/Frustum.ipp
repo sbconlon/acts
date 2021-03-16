@@ -75,7 +75,7 @@ Acts::Frustum<value_t, DIM, SIDES>::Frustum(const VertexType& origin,
 
 template <typename value_t, size_t DIM, size_t SIDES>
 template <size_t D, std::enable_if_t<D == 3, int>>
-void Acts::Frustum<value_t, DIM, SIDES>::draw(IVisualization& helper,
+void Acts::Frustum<value_t, DIM, SIDES>::draw(IVisualization3D& helper,
                                               value_type far_distance) const {
   static_assert(DIM == 3, "Drawing is only supported in 3D");
 
@@ -167,7 +167,7 @@ std::ostream& Acts::Frustum<value_t, DIM, SIDES>::svg(std::ostream& os,
     os << "/>\n";
   };
 
-  using vec3 = ActsVector<value_type, 3>;
+  using vec3 = Eigen::Matrix<value_type, 3, 1>;
   auto ixLineLine = [](const VertexType& p1_2, const VertexType& d1_2,
                        const VertexType& p2_2,
                        const VertexType& d2_2) -> VertexType {

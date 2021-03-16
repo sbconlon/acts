@@ -19,7 +19,7 @@
 
 namespace Acts {
 
-///@class NeighborhooodIterator Iterates over the elements of all bins given
+/// Iterates over the elements of all bins given
 /// by the indices parameter in the given SpacePointGrid.
 /// Fullfills the forward iterator.
 template <typename external_spacepoint_t>
@@ -166,6 +166,10 @@ class BinnedSPGroupIterator {
     return (zIndex == otherState.zIndex && phiIndex == otherState.phiIndex);
   }
 
+  bool operator!=(const BinnedSPGroupIterator& otherState) {
+    return !(this->operator==(otherState));
+  }
+
   Neighborhood<external_spacepoint_t> middle() {
     return Neighborhood<external_spacepoint_t>(currentBin, grid);
   }
@@ -236,13 +240,13 @@ class BinnedSPGroup {
   template <typename spacepoint_iterator_t>
   BinnedSPGroup<external_spacepoint_t>(
       spacepoint_iterator_t spBegin, spacepoint_iterator_t spEnd,
-      std::function<Acts::Vector2D(const external_spacepoint_t&, float, float,
-                                   float)>
+      std::function<Acts::Vector2(const external_spacepoint_t&, float, float,
+                                  float)>
           covTool,
       std::shared_ptr<Acts::BinFinder<external_spacepoint_t>> botBinFinder,
       std::shared_ptr<Acts::BinFinder<external_spacepoint_t>> tBinFinder,
       std::unique_ptr<SpacePointGrid<external_spacepoint_t>> grid,
-      SeedfinderConfig<external_spacepoint_t>& config);
+      const SeedfinderConfig<external_spacepoint_t>& config);
 
   size_t size() { return m_binnedSP.size(); }
 
