@@ -11,7 +11,8 @@
 #include <iterator>
 
 namespace Acts{
-    
+
+  class     
     template <typename external_spacepoint_t, 
               typename external_truth_t, 
               typename external_cell_t, 

@@ -8,8 +8,8 @@
 
 #include "ActsExamples/GenericDetector/GenericDetector.hpp"
 
-#include "RecCKFTracks.hpp"
+#include "RecGNNTracks.hpp"
 
 int main(int argc, char* argv[]) {
-  return runRecCKFTracks(argc, argv, std::make_shared<GenericDetector>());
+  return runRecGNNTracks(argc, argv, std::make_shared<GenericDetector>());
 }

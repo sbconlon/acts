@@ -3,6 +3,7 @@ add_library(
   RecInput.cpp 
   RecTruthTracks.cpp
   RecCKFTracks.cpp
+  RecGNNTracks.cpp
   SeedingExample.cpp)
 target_include_directories(
   ActsExamplesRecTracksCommon
@@ -15,6 +16,7 @@ target_link_libraries(
     ActsExamplesDigitization
     ActsExamplesTrackFitting
     ActsExamplesTrackFinding
+    ActsExamplesTrackInferring
     ActsExamplesMagneticField
     ActsExamplesTruthTracking
     ActsExamplesIoCsv
