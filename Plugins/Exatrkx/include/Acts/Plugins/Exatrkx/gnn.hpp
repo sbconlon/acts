@@ -12,20 +12,50 @@
 
 namespace Acts{
 
-  class     
-    template <typename external_spacepoint_t, 
-              typename external_truth_t, 
-              typename external_cell_t, 
-              typename external_particle_t, 
-              typename external_track_t>
-    void inferTracks(std::vector<const external_spacepoint_t*>* hits,
-                     std::vector<const external_truth_t*>* truth,
-                     std::vector<const external_cell_t*>* cells,
-                     std::vector<const external_particle_t*>* particles,
-                     std::vector<external_track_t*>* tracks);
+  struct GraphNeuralNetworkOptions {
 
-    void print_hello();
+    /// Graph Neural Network Options
+    ///
+    /// @param moduleName Name of the ML Python module that should be imported
+    /// @param funcName Name of the Python function in the module which should
+    ///                 should be used to find tracks.
+    GraphNeuralNetworkOptions(std::string moduleName, std::string funcName)
+      : mlModuleName(moduleName), mlFuncName(funcName){}
+
+    /// Python module name
+    std::string mlModuleName;
+    /// Python function inside the module that performs tracking finding
+    std::string mlFuncName;
+  };
+
+  template <typename spacepoint_t>
+  struct GraphNeuralNetworkResults {
+    /// result of inference pipeline, list of spacepoints in a track
+    std::vector<spacepoint_t> spTrack;
+  };
+
+  class GraphNeuralNetwork {
+    public:
+      /// Default constructor is deleted
+      GraphNeuralNetwork() = delete;
+      /// Constructor
+      GraphNeuralNetwork() { return; }
+
+      /// Graph neural network inference implementation,
+      /// calls the Python inference pipeline.
+      ///
+      /// @tparam spacepoint_container_t Type of the spacepoint container
+      ///
+      /// @return a container of infer track results
+      template<typename spacepoint_container_t>
+      std::vector<Result<GraphNeuralNetworkResult<
+          typename spacepoint_container_t::value_type>>>
+      inferTracks(const spacepoint_container_t& hits,
+                  const GraphNeuralNetworkOptions& ifOptions) const;
+
+      void print_hello();
+  };
 
 } // namespace Acts
 
-#include "Acts/Plugins/Exatrkx/gnn_inference_impl.hpp"
+#include "Acts/Plugins/Exatrkx/gnn.ipp"

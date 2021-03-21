@@ -14,7 +14,7 @@
 namespace {
 
 
-using GNN = Acts::ExatrkxGNN<ActsExamples::EventData::SpacePoints>;
+using GNN = Acts::GraphNeuralNetwork;
 
 struct TrackInferrerFunctionImpl {
 

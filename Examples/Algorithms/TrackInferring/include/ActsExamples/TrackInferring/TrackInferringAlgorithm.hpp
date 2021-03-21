@@ -9,7 +9,7 @@
 #pragma once
 
 #include "Acts/Geometry/TrackingGeometry.hpp"
-//#include "Acts/TrackFinding/CombinatorialKalmanFilter.hpp"
+#include "Acts/Plugins/Exatrkx/gnn.hpp"
 #include "Acts/TrackFinding/MeasurementSelector.hpp"
 #include "ActsExamples/EventData/Measurement.hpp"
 #include "ActsExamples/EventData/Track.hpp"
@@ -23,7 +23,7 @@ namespace ActsExamples {
 
 class TrackInferringAlgorithm final : public BareAlgorithm {
  public:
-  /// Track inferrer function that takes input spacepoints and options and 
+  /// Track inferrer function that takes input spacepoints and options and
   /// returns some track-finder-specific result.
   using TrackInferrerOptions =
       Acts::GraphNeuralNetworkOptions<MeasurementCalibrator,
@@ -31,7 +31,7 @@ class TrackInferringAlgorithm final : public BareAlgorithm {
 
   using TrackInferrerResult = std::vector<
       Acts::Result<Acts::GraphNeuralNetworkResult<IndexSpacePoint>>>;
-  
+
   using TrackInferrerFunction = std::function<TrackInferrerResult(
       const IndexSpacePointContainer&, const TrackInferrerOptions&)>;
 

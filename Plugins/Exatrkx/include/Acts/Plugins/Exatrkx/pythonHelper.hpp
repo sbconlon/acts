@@ -1,12 +1,12 @@
 #include "Python.h"
 
-template <typename external_spacepoint_t>
-void hits_to_list(std::vector<external_spacepoint_t>* hits, PyListObject* phits){
+template <typename spacepoint_container_t>
+void hits_to_list(spacepoint_container_t& hits, PyListObject* phits){
   // This function translates a vector of hits into a 2D python list
   // Initialize variables
   PyListObject* row;
   PyObject *phid, *pX, *pY, *pZ, *pvolId, *playId, *pmodId;
-  // Iterate through every spacepoint object 
+  // Iterate through every spacepoint object
   for(size_t i=0; i<hits->size(); ++i){
     // Initialize a empty sub-list
     row = (PyListObject*) PyList_New(0);
@@ -37,7 +37,7 @@ void truth_to_list(std::vector<external_truth_t>* truth, PyListObject* ptruth){
   // Initialize variables
   PyListObject* row;
   PyObject *phid, *ppid, *ptx, *pty, *ptz, *ptpx, *ptpy, *ptpz, *pweight;
-  // Iterate through every spacepoint object 
+  // Iterate through every spacepoint object
   for(size_t i=0; i<truth->size(); ++i){
     // Initialize a empty sub-list
     row = (PyListObject*) PyList_New(0);
@@ -72,7 +72,7 @@ void cells_to_list(std::vector<external_cell_t>* cells, PyListObject* pcells){
   // Initialize variables
   PyListObject* row;
   PyObject *phid, *pch0, *pch1, *pvalue;
-  // Iterate through every cell object 
+  // Iterate through every cell object
   for(size_t i=0; i<cells->size(); ++i){
     // Initialize a empty sub-list
     row = (PyListObject*) PyList_New(0);
@@ -97,7 +97,7 @@ void particles_to_list(std::vector<external_particle_t>* particles, PyListObject
   // Initialize variables
   PyListObject* row;
   PyObject *ppid, *pvx, *pvy, *pvz, *ppx, *ppy, *ppz, *pq, *pnhits;
-  // Iterate through every particle object 
+  // Iterate through every particle object
   for(size_t i=0; i<particles->size(); ++i){
     // Initialize a empty sub-list
     row = (PyListObject*) PyList_New(0);
