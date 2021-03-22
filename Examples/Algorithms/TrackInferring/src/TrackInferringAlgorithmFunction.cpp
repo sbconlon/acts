@@ -23,7 +23,7 @@ struct TrackInferrerFunctionImpl {
   TrackInferrerFunctionImpl(GNN&& f) : trackInferrer(std::move(f)) {}
 
   ActsExamples::TrackInferringAlgorithm::TrackInferrerResult operator()(
-      const ActsExamples::IndexSpacePointsContainer& spacepoints,
+      const ActsExamples::SimSpacePointContainer& spacepoints,
       const ActsExamples::TrackInferringAlgorithm::TrackInferrerOptions& options)
       const {
     return trackInferrer.inferTracks(spacepoints, options);
@@ -32,10 +32,10 @@ struct TrackInferrerFunctionImpl {
 
 }  // namespace
 
-ActsExamples::TrackInferringAlgorithm::TrackInfererFunction
-ActsExamples::TrackInferringAlgorithm::makeTrackInfererFunction() {
+ActsExamples::TrackInferringAlgorithm::TrackInferrerFunction
+ActsExamples::TrackInferringAlgorithm::makeTrackInferrerFunction() {
 
-  CKF trackFinder();
+  GNN trackInferrer;
 
   // build the track inferrer functions. owns the infer track object.
   return TrackInferrerFunctionImpl(std::move(trackInferrer));

@@ -27,6 +27,13 @@ if(ACTS_BUILD_PLUGIN_ONNX)
   target_link_libraries(
     ActsExamplesRecTracksCommon PUBLIC ActsPluginOnnx)
 endif()
+if(ACTS_BUILD_PLUGIN_EXATRKX)
+  target_compile_definitions(
+    ActsExamplesRecTracksCommon PUBLIC ACTS_EXATRKX_PLUGIN)
+  target_link_libraries(
+    ActsExamplesRecTracksCommon PUBLIC ActsExatrkxPlugin)
+endif()
+
 
 install(
   TARGETS ActsExamplesRecTracksCommon

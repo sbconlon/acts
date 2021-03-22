@@ -38,6 +38,7 @@ add_executable(
 target_link_libraries(
   ActsExampleGNNTracksGeneric
   PRIVATE
+    ActsExatrkxPlugin
     ActsExamplesRecTracksCommon
     ActsExamplesDetectorGeneric)
 

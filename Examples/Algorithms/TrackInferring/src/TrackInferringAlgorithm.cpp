@@ -8,9 +8,7 @@
 
 #include "ActsExamples/TrackInferring/TrackInferringAlgorithm.hpp"
 
-#include "Acts/Surfaces/PerigeeSurface.hpp"
-#include "ActsExamples/EventData/Track.hpp"
-#include "ActsExamples/EventData/Trajectories.hpp"
+#include "ActsExamples/EventData/ProtoTrack.hpp"
 #include "ActsExamples/Framework/WhiteBoard.hpp"
 
 #include <stdexcept>
@@ -22,7 +20,7 @@ ActsExamples::TrackInferringAlgorithm::TrackInferringAlgorithm(
   if (m_cfg.inputSpacePoints.empty()) {
     throw std::invalid_argument("Missing space points input collection");
   }
-  if (m_cfg.outputTrajectories.empty()) {
+  if (m_cfg.outputProtoTracks.empty()) {
     throw std::invalid_argument("Missing trajectories output collection");
   }
 }
@@ -30,42 +28,44 @@ ActsExamples::TrackInferringAlgorithm::TrackInferringAlgorithm(
 ActsExamples::ProcessCode ActsExamples::TrackInferringAlgorithm::execute(
     const ActsExamples::AlgorithmContext& ctx) const {
   // Read input data
-  const auto& spacePoints =
-      ctx.eventStore.get<SpacePointContainer>(m_cfg.inputSpacePoints);
+  const auto& spacepoints =
+    ctx.eventStore.get<SimSpacePointContainer>(m_cfg.inputSpacePoints);
 
-  // Prepare the output data with MultiTrajectory
-  TrajectoriesContainer trajectories;
-  //trajectories.reserve(initialParameters.size());
+  // Prepare the output data with ProtoTracks
+  ProtoTrackContainer protoTracks;
 
   // Set the graph nueral network options
-  ActsExamples::TrackFindingAlgorithm::TrackInferOptions options();
+  ActsExamples::TrackInferringAlgorithm::TrackInferrerOptions options(m_cfg.mlModuleName, m_cfg.mlFuncName);
 
   // Perform the track inferring for all input space points
-  ACTS_DEBUG("Invoke track inferring with " << spacePoints.size()
+  ACTS_DEBUG("Invoke track inferring with " << spacepoints.size()
                                           << " space points.");
-  auto results = m_cfg.inferTracks(spacePoints, options);
+  auto results = m_cfg.inferTracks(spacepoints, options);
 
-  // Loop over the track inferring results for all initial space points
-  trajectories.reserve(results.size());
+  // Loop over the track inferring results for all output tracks
+  protoTracks.reserve(results.size());
   for (std::size_t itrack = 0; itrack < results.size(); ++itrack) {
     // The result for this seed
     auto& result = results[itrack];
     if (result.ok()) {
       // Get the track inferring output object
-      const auto& trackFindingOutput = result.value();
-      // Create a Trajectories result struct
-      trajectories.emplace_back(std::move(trackFindingOutput.fittedStates),
-                                std::move(trackFindingOutput.trackTips),
-                                std::move(trackFindingOutput.fittedParameters));
+      const auto& trackOutput = &(result.value().spTrack);
+      auto protoTrack = ProtoTrack();
+      for(std::size_t spi=0; spi<trackOutput->size(); spi++){
+        protoTrack.push_back(spacepoints[spi].measurementIndex());
+      }
+      // Add newly created prototrack to prototracks
+      protoTracks.push_back(protoTrack);
+
     } else {
       ACTS_WARNING("Track inferring failed for track " << itrack << " with error"
                                                        << result.error());
       // Track inferring failed. Add an empty result so the output container has
       // the same number of entries as the input.
-      trajectories.push_back(Trajectories());
+      protoTracks.push_back(ProtoTrack());
     }
   }
 
-  ctx.eventStore.add(m_cfg.outputTrajectories, std::move(trajectories));
+  ctx.eventStore.add(m_cfg.outputProtoTracks, std::move(protoTracks));
   return ActsExamples::ProcessCode::SUCCESS;
 }

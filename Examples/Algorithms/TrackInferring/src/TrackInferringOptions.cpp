@@ -6,36 +6,42 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ActsExamples/TrackFinding/TrackFindingOptions.hpp"
-
-#include "Acts/Geometry/GeometryIdentifier.hpp"
+#include "ActsExamples/TrackInferring/TrackInferringOptions.hpp"
 
 #include <string>
 
 #include <boost/program_options.hpp>
 
-void ActsExamples::Options::addTrackFindingOptions(
+void ActsExamples::Options::addTrackInferringOptions(
     ActsExamples::Options::Description& desc) {
+ 
   using boost::program_options::value;
-
   auto opt = desc.add_options();
+  opt("ml-module-name", value<std::string>()->default_value("inference_fn"),
+      "Name of ML Python module or file name to be imported");
+  opt("ml-function-name", value<std::string>()->default_value("gnn_track_finding"),
+      "Name of function in ML Python module to be imported and called");
+  /*
   opt("ckf-selection-chi2max", value<double>()->default_value(15),
       "Global criteria of maximum chi2 for CKF measurement selection");
   opt("ckf-selection-nmax", value<size_t>()->default_value(10),
       "Global criteria of maximum number of measurement candidates on a "
       "surface for CKF measurement selection");
+  */
 }
 
-ActsExamples::TrackFindingAlgorithm::Config
-ActsExamples::Options::readTrackFindingConfig(
+ActsExamples::TrackInferringAlgorithm::Config
+ActsExamples::Options::readTrackInferringConfig(
     const ActsExamples::Options::Variables& variables) {
-  auto chi2Max = variables["ckf-selection-chi2max"].template as<double>();
-  auto nMax = variables["ckf-selection-nmax"].template as<size_t>();
-
-  // config is a GeometryHierarchyMap with just the global default
-  TrackFindingAlgorithm::Config cfg;
-  cfg.measurementSelectorCfg = {
-      {Acts::GeometryIdentifier(), {chi2Max, nMax}},
-  };
+  
+  // Load inputs from variables
+  auto moduleName = variables["ml-module-name"].template as<std::string>();
+  auto funcName = variables["ml-function-name"].template as<std::string>();
+  
+  // Instantiate config
+  TrackInferringAlgorithm::Config cfg;
+  cfg.mlModuleName = moduleName;
+  cfg.mlFuncName = funcName;
+  
   return cfg;
 }

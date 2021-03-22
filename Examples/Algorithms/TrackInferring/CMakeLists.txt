@@ -10,6 +10,7 @@ target_link_libraries(
   ActsExamplesTrackInferring
   PUBLIC
     ActsCore
+    ActsExatrkxPlugin
     ActsExamplesFramework ActsExamplesMagneticField
     Boost::program_options)
 

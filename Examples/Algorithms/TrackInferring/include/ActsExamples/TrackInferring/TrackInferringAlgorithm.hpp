@@ -12,6 +12,7 @@
 #include "Acts/Plugins/Exatrkx/gnn.hpp"
 #include "Acts/TrackFinding/MeasurementSelector.hpp"
 #include "ActsExamples/EventData/Measurement.hpp"
+#include "ActsExamples/EventData/SimSpacePoint.hpp"
 #include "ActsExamples/EventData/Track.hpp"
 #include "ActsExamples/Framework/BareAlgorithm.hpp"
 #include "ActsExamples/MagneticField/MagneticField.hpp"
@@ -26,14 +27,13 @@ class TrackInferringAlgorithm final : public BareAlgorithm {
   /// Track inferrer function that takes input spacepoints and options and
   /// returns some track-finder-specific result.
   using TrackInferrerOptions =
-      Acts::GraphNeuralNetworkOptions<MeasurementCalibrator,
-                        Acts::MeasurementSelector>;
+      Acts::GraphNeuralNetworkOptions;
 
   using TrackInferrerResult = std::vector<
-      Acts::Result<Acts::GraphNeuralNetworkResult<IndexSpacePoint>>>;
+      Acts::Result<Acts::GraphNeuralNetworkResult<Index>>>;
 
   using TrackInferrerFunction = std::function<TrackInferrerResult(
-      const IndexSpacePointContainer&, const TrackInferrerOptions&)>;
+      const SimSpacePointContainer&, const TrackInferrerOptions&)>;
 
   /// Create the track inferrer function implementation.
   static TrackInferrerFunction makeTrackInferrerFunction();
@@ -41,8 +41,12 @@ class TrackInferringAlgorithm final : public BareAlgorithm {
   struct Config {
     /// Input space points collection.
     std::string inputSpacePoints;
+    /// Name of Python module for inference
+    std::string mlModuleName;
+    /// Name of Python function in module for inference
+    std::string mlFuncName;
     /// Output find trajectories collection.
-    std::string outputTrajectories;
+    std::string outputProtoTracks;
     /// Type erased track inferer function.
     TrackInferrerFunction inferTracks;
   };

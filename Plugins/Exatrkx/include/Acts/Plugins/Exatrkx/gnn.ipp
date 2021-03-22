@@ -4,26 +4,24 @@
 #include <stdexcept>
 
 #include "Python.h"
-
 #include "pythonHelper.hpp"
 
 
 namespace Acts {
 
-  template<typename spacepoint_container_t>
-  std::vector<Result<GraphNeuralNetworkResult<
-      typename spacepoint_container_t::value_type>>>
+  template<typename spacepoint_container_t, typename index_t=uint32_t>
+  std::vector<Result<GraphNeuralNetworkResult<index_t>>>
   inferTracks(const spacepoint_container_t& hits,
-              const GraphNeuralNetworkOptions& ifOptions) const {
+              const GraphNeuralNetworkOptions& ifOptions) {
 
-    using Spacepoint = typename spacepoint_container_t::value_type;
+    //using Spacepoint = typename spacepoint_container_t::value_type;
 
     // Variable declarations
     PyObject *pName, *pModule, *pFunc;
     PyObject *pTracks;
     ///PyListObject *pHits, *pTruth, *pCells, *pParticles;
     PyListObject *pHits;
-    std::vector<Result<GraphNeuralNetworkresult<Spacepoint>>> res_vect;
+    std::vector<Result<GraphNeuralNetworkResult<index_t>>> res_vect;
 
     // Initialize Python session
     Py_Initialize();
@@ -31,7 +29,7 @@ namespace Acts {
     PyRun_SimpleString("sys.path.append(\".\")");
 
     // Import Exatrkx Python module
-    pName = PyUnicode_FromString(ifOptions->mlModuleName);
+    pName = PyUnicode_FromString(&(ifOptions.mlModuleName[0]));
     if (pName == NULL){
       PyErr_Print();
       throw std::runtime_error("String to unicode conversion failed");
@@ -41,7 +39,7 @@ namespace Acts {
 
     if(pModule != NULL) {
       // Import python function
-      pFunc = PyObject_GetAttrString(pModule, ifOptions->mlFuncName);
+      pFunc = PyObject_GetAttrString(pModule, &(ifOptions.mlFuncName[0]));
       if (pFunc && PyCallable_Check(pFunc)) {
         // Initialize Python lists
         pHits = (PyListObject*) PyList_New(0);
@@ -60,7 +58,7 @@ namespace Acts {
         throw std::runtime_error("Failed to load track finding function");
       }
 
-      pTracks = PyObject_CallFunctionObjArgs(pFunc, pHits, pCells, pTruth, NULL);
+      pTracks = PyObject_CallFunctionObjArgs(pFunc, pHits, NULL);
 
       if(PyList_Check(pTracks)){
         PyObject* pTrack, pSpIdx;
@@ -69,13 +67,13 @@ namespace Acts {
 	        if(!PyList_Check(pTrack)){
 	          throw std::runtime_error("The returned value of the inference function must be a 2D list");
 	        }
-          Result<GraphNeuralNetworkresult<Spacepoint>> res;
-	        for(Py_ssize_t j=0; j<PyList_Size(ptrack); ++j){
-	          pSpIdx = PyList_GET_ITEM(ptrack, j);
+          Result<GraphNeuralNetworkResult<index_t>> res;
+	        for(Py_ssize_t j=0; j<PyList_Size(pTrack); ++j){
+	          pSpIdx = PyList_GET_ITEM(pTrack, j);
 	          if(!PyLong_Check(pSpIdx)){
 	            throw std::runtime_error("The elements of the sub-lists must be integers");
 	          }
-	          res.track.emplace_back(hits[PyLong_AsLong(pSpIdx)]);
+	          res.track.emplace_back((index_t) PyLong_AsLong(&pSpIdx));
 	        }
 	        res_vect.push_back(res);
        	}
@@ -86,6 +84,6 @@ namespace Acts {
       throw std::runtime_error("Failed to load inference python module");
     }
       Py_Finalize();
+      return res_vect;
     }
-    return res_vect;
 }

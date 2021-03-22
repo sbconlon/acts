@@ -29,7 +29,7 @@
 //#include "ActsExamples/TrackFinding/TrackFindingAlgorithm.hpp"
 #include "ActsExamples/TrackInferring/TrackInferringAlgorithm.hpp"
 //#include "ActsExamples/TrackFinding/TrackFindingOptions.hpp"
-#include "ActsExamples/TrackInferring/TrackInferringAlgorithm.hpp"
+#include "ActsExamples/TrackInferring/TrackInferringOptions.hpp"
 
 #include "ActsExamples/TrackFinding/TrackParamsEstimationAlgorithm.hpp"
 #include "ActsExamples/TruthTracking/ParticleSmearing.hpp"
@@ -63,7 +63,7 @@ void addRecGNNOptions(ActsExamples::Options::Description& desc) {
   */
 }
 
-int runRecCKFTracks(int argc, char* argv[],
+int runRecGNNTracks(int argc, char* argv[],
                     std::shared_ptr<ActsExamples::IBaseDetector> detector) {
   // setup and parse options
   auto desc = ActsExamples::Options::makeDefaultOptions();
@@ -75,7 +75,7 @@ int runRecCKFTracks(int argc, char* argv[],
   Options::addOutputOptions(desc, OutputFormat::DirectoryOnly);
   detector->addOptions(desc);
   Options::addMagneticFieldOptions(desc);
-  Options::addTrackFindingOptions(desc);
+  Options::addTrackInferringOptions(desc);
   addRecGNNOptions(desc);
   Options::addDigitizationOptions(desc);
 
@@ -161,7 +161,9 @@ int runRecCKFTracks(int argc, char* argv[],
   // It takes ...not sure yet...
   auto trackInferringCfg = Options::readTrackInferringConfig(vm);
   trackInferringCfg.inputSpacePoints = spCfg.outputSpacePoints;
-  trackInferringCfg.inferTracks = TrackFindingAlgorithm::makeTrackFinderFunction();
+  trackInferringCfg.mlModuleName = "inference_fn";
+  trackInferringCfg.mlFuncName = "gnn_track_finding";
+  trackInferringCfg.inferTracks = TrackInferringAlgorithm::makeTrackInferrerFunction();
   sequencer.addAlgorithm(
     std::make_shared<TrackInferringAlgorithm>(trackInferringCfg, logLevel));
 

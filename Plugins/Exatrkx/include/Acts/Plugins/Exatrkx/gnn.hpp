@@ -5,6 +5,7 @@
 #include "Acts/Seeding/InternalSpacePoint.hpp"
 #include "Acts/Seeding/SeedFilter.hpp"
 #include "Acts/Seeding/SeedfinderConfig.hpp"
+#include "Acts/Utilities/Result.hpp"
 
 #include <vector>
 #include <string>
@@ -28,18 +29,18 @@ namespace Acts{
     std::string mlFuncName;
   };
 
-  template <typename spacepoint_t>
-  struct GraphNeuralNetworkResults {
+  template <typename index_t>
+  struct GraphNeuralNetworkResult {
     /// result of inference pipeline, list of spacepoints in a track
-    std::vector<spacepoint_t> spTrack;
+    std::vector<index_t> spTrack;
   };
 
   class GraphNeuralNetwork {
     public:
       /// Default constructor is deleted
-      GraphNeuralNetwork() = delete;
+      //GraphNeuralNetwork() = delete;
       /// Constructor
-      GraphNeuralNetwork() { return; }
+      //GraphNeuralNetwork() { return; }
 
       /// Graph neural network inference implementation,
       /// calls the Python inference pipeline.
@@ -47,9 +48,8 @@ namespace Acts{
       /// @tparam spacepoint_container_t Type of the spacepoint container
       ///
       /// @return a container of infer track results
-      template<typename spacepoint_container_t>
-      std::vector<Result<GraphNeuralNetworkResult<
-          typename spacepoint_container_t::value_type>>>
+      template<typename spacepoint_container_t, typename index_t=uint32_t>
+      std::vector<Result<GraphNeuralNetworkResult<index_t>>>
       inferTracks(const spacepoint_container_t& hits,
                   const GraphNeuralNetworkOptions& ifOptions) const;
 
