@@ -1,14 +1,14 @@
-# shared code 
+# shared code
 add_subdirectory(Common)
 
-# Truth fitting for Generic detector 
+# Truth fitting for Generic detector
 add_executable(
   ActsExampleTruthTracksGeneric
   GenericRecTruthTracks.cpp)
 target_link_libraries(
   ActsExampleTruthTracksGeneric
   PRIVATE
-    ActsExamplesRecTracksCommon 
+    ActsExamplesRecTracksCommon
     ActsExamplesDetectorGeneric)
 
 # Truth fitting for Telescope detector
@@ -21,28 +21,17 @@ target_link_libraries(
     ActsExamplesRecTracksCommon
     ActsExamplesDetectorTelescope)
 
-# CKF reco for Generic detector 
+# CKF reco for Generic detector
 add_executable(
   ActsExampleCKFTracksGeneric
   GenericRecCKFTracks.cpp)
 target_link_libraries(
   ActsExampleCKFTracksGeneric
   PRIVATE
-    ActsExamplesRecTracksCommon 
-    ActsExamplesDetectorGeneric)
-
-# GNN reco for Generic detector
-add_executable(
-  ActsExampleGNNTracksGeneric
-  GenericRecGNNTracks.cpp)
-target_link_libraries(
-  ActsExampleGNNTracksGeneric
-  PRIVATE
-    ActsExatrkxPlugin
     ActsExamplesRecTracksCommon
     ActsExamplesDetectorGeneric)
 
-# CKF reco for Telescope detector 
+# CKF reco for Telescope detector
 add_executable(
   ActsExampleCKFTracksTelescope
   TelescopeRecCKFTracks.cpp)
@@ -68,9 +57,9 @@ install(
     ActsExampleTruthTracksGeneric
     ActsExampleTruthTracksTelescope
     ActsExampleCKFTracksGeneric
-    ActsExampleGNNTracksGeneric
     ActsExampleCKFTracksTelescope
-    ActsExampleSeedingGeneric 
+    ActsExampleSeedingGeneric
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_subdirectory_if(DD4hep ACTS_BUILD_EXAMPLES_DD4HEP)
+add_subdirectory_if(Exatrkx ACTS_PLUGIN_EXATRKX)
