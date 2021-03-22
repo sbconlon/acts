@@ -1,9 +1,8 @@
 add_library(
   ActsExamplesRecTracksCommon SHARED
-  RecInput.cpp 
+  RecInput.cpp
   RecTruthTracks.cpp
   RecCKFTracks.cpp
-  RecGNNTracks.cpp
   SeedingExample.cpp)
 target_include_directories(
   ActsExamplesRecTracksCommon
@@ -26,12 +25,6 @@ if(ACTS_BUILD_PLUGIN_ONNX)
     ActsExamplesRecTracksCommon PUBLIC ACTS_PLUGIN_ONNX)
   target_link_libraries(
     ActsExamplesRecTracksCommon PUBLIC ActsPluginOnnx)
-endif()
-if(ACTS_BUILD_PLUGIN_EXATRKX)
-  target_compile_definitions(
-    ActsExamplesRecTracksCommon PUBLIC ACTS_EXATRKX_PLUGIN)
-  target_link_libraries(
-    ActsExamplesRecTracksCommon PUBLIC ActsExatrkxPlugin)
 endif()
 
 
