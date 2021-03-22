@@ -4,9 +4,17 @@ add_executable(
 target_link_libraries(
   ActsExampleGNNTracksGeneric
   PRIVATE
+    ActsExamplesFramework
+    ActsExamplesCommon
+    ActsExamplesDigitization
+    ActsExamplesTrackFitting
+    ActsExamplesTrackFinding
     ActsExamplesTrackInferring
-    ActsExamplesRecTracksCommon
-    ActsExamplesRecDetectorGeneric)
+    ActsExamplesMagneticField
+    ActsExamplesTruthTracking
+    ActsExamplesIoCsv
+    ActsExamplesIoPerformance
+    ActsExamplesDetectorGeneric)
 
 install(
   TARGETS

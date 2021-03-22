@@ -52,6 +52,9 @@ using namespace std::placeholders;
 
 int runRecGNNTracks(int argc, char* argv[],
                     std::shared_ptr<ActsExamples::IBaseDetector> detector) {
+  
+  std::cout << "HERE HERE HERE" << std::endl;
+
   // setup and parse options
   auto desc = ActsExamples::Options::makeDefaultOptions();
   Options::addSequencerOptions(desc);
