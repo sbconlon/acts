@@ -11,6 +11,7 @@
 #include "Track.hpp"
 
 int main(int argc, char** argv) {
+  /*
   // --> Command line options
   std::string file{"./event0000000000"};
   std::string type{"lxyz"};
@@ -65,6 +66,6 @@ int main(int argc, char** argv) {
     std::cout << std::endl;
   }
   std::cout << std::endl;
-
+  */
   return 0;
 }

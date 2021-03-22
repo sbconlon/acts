@@ -15,7 +15,6 @@ target_link_libraries(
     ActsExamplesDigitization
     ActsExamplesTrackFitting
     ActsExamplesTrackFinding
-    ActsExamplesTrackInferring
     ActsExamplesMagneticField
     ActsExamplesTruthTracking
     ActsExamplesIoCsv
