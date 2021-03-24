@@ -51,9 +51,13 @@ ActsExamples::ProcessCode ActsExamples::TrackInferringAlgorithm::execute(
       // Get the track inferring output object
       const auto& trackOutput = &(result.value().spTrack);
       auto protoTrack = ProtoTrack();
+      std::cout << "Track #" << itrack << ": [";
       for(std::size_t spi=0; spi<trackOutput->size(); spi++){
-        protoTrack.push_back(spacepoints[spi].measurementIndex());
+        auto idx = trackOutput[0][spi];
+        std::cout << " " << idx;
+        protoTrack.push_back(trackOutput[0][spi]);
       }
+      std::cout << "]" << std::endl; 
       // Add newly created prototrack to prototracks
       protoTracks.push_back(protoTrack);
 
