@@ -6,14 +6,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-
-
-
-
 #include "ActsExamples/Detector/IBaseDetector.hpp"
 #include "ActsExamples/Digitization/DigitizationOptions.hpp"
 #include "ActsExamples/Framework/Sequencer.hpp"
 #include "ActsExamples/Framework/WhiteBoard.hpp"
+#include "ActsExamples/GenericDetector/GenericDetector.hpp"
 #include "ActsExamples/Geometry/CommonGeometry.hpp"
 #include "ActsExamples/Io/Csv/CsvOptionsReader.hpp"
 #include "ActsExamples/Io/Csv/CsvParticleReader.hpp"
@@ -37,8 +34,8 @@
 #include <Acts/Definitions/Units.hpp>
 
 #include <memory>
-
 #include <boost/filesystem.hpp>
+#include<fstream> // temporary for testing
 
 #include "RecInput.hpp"
 
@@ -47,14 +44,8 @@ using namespace ActsExamples;
 using namespace boost::filesystem;
 using namespace std::placeholders;
 
-#include<fstream>
-
-
-#include "ActsExamples/GenericDetector/GenericDetector.hpp"
-
 int main(int argc, char* argv[]) {
-  //return runRecGNNTracks(argc, argv, std::make_shared<GenericDetector>());
-  
+
   std::shared_ptr<ActsExamples::IBaseDetector> detector =
                   std::make_shared<GenericDetector>();
 
@@ -163,7 +154,6 @@ int main(int argc, char* argv[]) {
   sequencer.addAlgorithm(
     std::make_shared<TrackInferringAlgorithm>(trackInferringCfg, logLevel));
 
-  /*
   // Algorithm estimating track parameter from seed
   TrackParamsEstimationAlgorithm::Config paramsEstimationCfg;
   paramsEstimationCfg.inputSeeds = ""; // it will use spacepoints and input proto tracks as inputs.
@@ -233,7 +223,6 @@ int main(int argc, char* argv[]) {
   sequencer.addWriter(
       std::make_shared<CKFPerformanceWriter>(perfWriterCfg, logLevel));
 
-  */ 
   sequencer.run();
 
   return 0;
