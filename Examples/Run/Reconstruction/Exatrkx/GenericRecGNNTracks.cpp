@@ -16,16 +16,19 @@
 #include "ActsExamples/Io/Csv/CsvParticleReader.hpp"
 #include "ActsExamples/Io/Csv/CsvSimHitReader.hpp"
 #include "ActsExamples/Io/Performance/CKFPerformanceWriter.hpp"
+#include "ActsExamples/Io/Performance/TrackFinderPerformanceWriter.hpp"
 #include "ActsExamples/Io/Root/RootTrajectoryParametersWriter.hpp"
 #include "ActsExamples/Io/Root/RootTrajectoryStatesWriter.hpp"
 #include "ActsExamples/MagneticField/MagneticFieldOptions.hpp"
 #include "ActsExamples/Options/CommonOptions.hpp"
 #include "ActsExamples/TrackFinding/SeedingAlgorithm.hpp"
 #include "ActsExamples/TrackFinding/SpacePointMaker.hpp"
+#include "ActsExamples/TrackFinding/TrackParamsEstimationAlgorithm.hpp"
+#include "ActsExamples/TrackFitting/SurfaceSortingAlgorithm.hpp"
+#include "ActsExamples/TrackFitting/TrackFittingAlgorithm.hpp"
+#include "ActsExamples/TrackFitting/TrackFittingOptions.hpp"
 #include "ActsExamples/TrackInferring/TrackInferringAlgorithm.hpp"
 #include "ActsExamples/TrackInferring/TrackInferringOptions.hpp"
-
-#include "ActsExamples/TrackFinding/TrackParamsEstimationAlgorithm.hpp"
 #include "ActsExamples/TruthTracking/ParticleSmearing.hpp"
 #include "ActsExamples/TruthTracking/TruthSeedSelector.hpp"
 #include "ActsExamples/TruthTracking/TruthTrackFinder.hpp"
@@ -155,6 +158,7 @@ int main(int argc, char* argv[]) {
     std::make_shared<TrackInferringAlgorithm>(trackInferringCfg, logLevel));
 
   // Algorithm estimating track parameter from seed
+  auto inputProtoTracks = trackInferringCfg.outputProtoTracks;
   TrackParamsEstimationAlgorithm::Config paramsEstimationCfg;
   paramsEstimationCfg.inputSeeds = ""; // it will use spacepoints and input proto tracks as inputs.
   paramsEstimationCfg.inputProtoTracks = inputProtoTracks;
@@ -164,7 +168,7 @@ int main(int argc, char* argv[]) {
   paramsEstimationCfg.inputSourceLinks = digiCfg.outputSourceLinks;
   paramsEstimationCfg.outputTrackParameters = "estimatedparameters";
   paramsEstimationCfg.outputProtoTracks = "prototracks_estimated";
-  paramsEstimationCfg.trackingGeometry = tGeometry;
+  paramsEstimationCfg.trackingGeometry = trackingGeometry;
   paramsEstimationCfg.magneticField = magneticField;
   paramsEstimationCfg.bFieldMin = 0.1_T;
   paramsEstimationCfg.deltaRMax = 100._mm;
@@ -174,7 +178,7 @@ int main(int argc, char* argv[]) {
   paramsEstimationCfg.sigmaTheta = 0.001_degree;
   paramsEstimationCfg.sigmaQOverP = 0.1 / 1._GeV;
   paramsEstimationCfg.sigmaT0 = 1400._s;
-  paramsEstimationCfg.keepOneSeed = true;
+  //paramsEstimationCfg.keepOneSeed = true;
   sequencer.addAlgorithm(std::make_shared<TrackParamsEstimationAlgorithm>(
       paramsEstimationCfg, logLevel));
 
@@ -184,16 +188,13 @@ int main(int argc, char* argv[]) {
   TrackFittingAlgorithm::Config fitter;
   fitter.inputMeasurements = digiCfg.outputMeasurements;
   fitter.inputSourceLinks = digiCfg.outputSourceLinks;
-  fitter.inputProtoTracks = trkFinderCfg.outputProtoTracks;
-  if (dirNav) {
-    fitter.inputProtoTracks = sorterCfg.outputProtoTracks;
-  }
+  fitter.inputProtoTracks = trackInferringCfg.outputProtoTracks;
   fitter.inputInitialTrackParameters = paramsEstimationCfg.outputTrackParameters;
   fitter.outputTrajectories = "trajectories";
-  fitter.directNavigation = dirNav;
-  fitter.trackingGeometry = tGeometry;
+  fitter.directNavigation = false;
+  fitter.trackingGeometry = trackingGeometry;
   fitter.dFit = TrackFittingAlgorithm::makeTrackFitterFunction(magneticField);
-  fitter.fit = TrackFittingAlgorithm::makeTrackFitterFunction(tGeometry,
+  fitter.fit = TrackFittingAlgorithm::makeTrackFitterFunction(trackingGeometry,
                                                               magneticField);
   sequencer.addAlgorithm(
       std::make_shared<TrackFittingAlgorithm>(fitter, logLevel));
@@ -201,7 +202,7 @@ int main(int argc, char* argv[]) {
   // write out performance
   // write track finding/seeding performance
   TrackFinderPerformanceWriter::Config tfPerfCfg;
-  tfPerfCfg.inputProtoTracks = trkFinderCfg.outputProtoTracks;
+  tfPerfCfg.inputProtoTracks = trackInferringCfg.outputProtoTracks;
   // using selected particles
   tfPerfCfg.inputParticles = inputParticles;
   tfPerfCfg.inputMeasurementParticlesMap = digiCfg.outputMeasurementParticlesMap;
@@ -212,7 +213,7 @@ int main(int argc, char* argv[]) {
 
 
   // Write track finding performance data
-  CKFPerformanceWriter::Config perfWriterCfg;
+  ActsExamples::CKFPerformanceWriter::Config perfWriterCfg;
   perfWriterCfg.inputParticles = inputParticles;
   perfWriterCfg.inputTrajectories = fitter.outputTrajectories;
   perfWriterCfg.inputMeasurementParticlesMap =
