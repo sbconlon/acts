@@ -107,21 +107,21 @@ namespace Acts{
           pTracks = PyObject_CallFunctionObjArgs(pFunc, pHits, NULL);
 
           if(PyList_Check(pTracks)){
-            PyObject* pTrack, pSpIdx;
+            PyObject *pTrack, *pSpIdx;
             for(Py_ssize_t i=0; i<PyList_Size(pTracks); ++i){
     	        pTrack = PyList_GET_ITEM(pTracks, i);
     	        if(!PyList_Check(pTrack)){
     	          throw std::runtime_error("The returned value of the inference function must be a 2D list");
     	        }
-              Result<GraphNeuralNetworkResult<index_t>> res;
+                GraphNeuralNetworkResult<index_t> res_track;
     	        for(Py_ssize_t j=0; j<PyList_Size(pTrack); ++j){
     	          pSpIdx = PyList_GET_ITEM(pTrack, j);
     	          if(!PyLong_Check(pSpIdx)){
     	            throw std::runtime_error("The elements of the sub-lists must be integers");
     	          }
-    	          res.track.emplace_back((index_t) PyLong_AsLong(&pSpIdx));
+    	          res_track.spTrack.emplace_back((index_t) PyLong_AsLong(pSpIdx));
     	        }
-    	        res_vect.push_back(res);
+    	        res_vect.push_back(res_track);
            	}
           }
 
@@ -131,7 +131,6 @@ namespace Acts{
         }
           Py_Finalize();
           return res_vect;
-        }
       }
 
       void print_hello();

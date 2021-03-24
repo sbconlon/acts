@@ -5,7 +5,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+/*
 #include "ActsExamples/Detector/IBaseDetector.hpp"
 #include "ActsExamples/Digitization/DigitizationOptions.hpp"
 
@@ -35,6 +35,46 @@
 #include "ActsExamples/TrackInferring/TrackInferringAlgorithm.hpp"
 #include "ActsExamples/TrackInferring/TrackInferringOptions.hpp"
 
+#include "ActsExamples/Utilities/Options.hpp"
+#include "ActsExamples/Utilities/Paths.hpp"
+#include <Acts/Definitions/Units.hpp>
+
+#include <memory>
+
+#include <boost/filesystem.hpp>
+
+#include "RecInput.hpp"
+*/
+
+#include "ActsExamples/Detector/IBaseDetector.hpp"
+#ifdef ACTS_PLUGIN_ONNX
+#include "Acts/Plugins/Onnx/MLTrackClassifier.hpp"
+#endif
+#include "ActsExamples/Digitization/DigitizationOptions.hpp"
+#include "ActsExamples/Framework/Sequencer.hpp"
+#include "ActsExamples/Framework/WhiteBoard.hpp"
+#include "ActsExamples/Geometry/CommonGeometry.hpp"
+#include "ActsExamples/Io/Csv/CsvOptionsReader.hpp"
+#include "ActsExamples/Io/Csv/CsvParticleReader.hpp"
+#include "ActsExamples/Io/Csv/CsvSimHitReader.hpp"
+#include "ActsExamples/Io/Performance/CKFPerformanceWriter.hpp"
+////#include "ActsExamples/Io/Performance/TrackFinderPerformanceWriter.hpp"
+#include "ActsExamples/Io/Root/RootTrajectoryParametersWriter.hpp"
+#include "ActsExamples/Io/Root/RootTrajectoryStatesWriter.hpp"
+#include "ActsExamples/MagneticField/MagneticFieldOptions.hpp"
+#include "ActsExamples/Options/CommonOptions.hpp"
+#include "ActsExamples/TrackFinding/SeedingAlgorithm.hpp"
+#include "ActsExamples/TrackFinding/SpacePointMaker.hpp"
+
+////#include "ActsExamples/TrackFinding/TrackFindingAlgorithm.hpp"
+#include "ActsExamples/TrackInferring/TrackInferringAlgorithm.hpp"
+////#include "ActsExamples/TrackFinding/TrackFindingOptions.hpp"
+#include "ActsExamples/TrackInferring/TrackInferringOptions.hpp"
+
+#include "ActsExamples/TrackFinding/TrackParamsEstimationAlgorithm.hpp"
+#include "ActsExamples/TruthTracking/ParticleSmearing.hpp"
+#include "ActsExamples/TruthTracking/TruthSeedSelector.hpp"
+#include "ActsExamples/TruthTracking/TruthTrackFinder.hpp"
 #include "ActsExamples/Utilities/Options.hpp"
 #include "ActsExamples/Utilities/Paths.hpp"
 #include <Acts/Definitions/Units.hpp>
@@ -160,7 +200,7 @@ int runRecGNNTracks(int argc, char* argv[],
   sequencer.addAlgorithm(
     std::make_shared<TrackInferringAlgorithm>(trackInferringCfg, logLevel));
   
-  
+  /*
   // Algorithm estimating track parameter from seed
   TrackParamsEstimationAlgorithm::Config paramsEstimationCfg;
   paramsEstimationCfg.inputSeeds = ""; // it will use spacepoints and input proto tracks as inputs.
@@ -231,6 +271,6 @@ int runRecGNNTracks(int argc, char* argv[],
   sequencer.addWriter(
       std::make_shared<CKFPerformanceWriter>(perfWriterCfg, logLevel));
 
-
+  */
   return sequencer.run();
 }

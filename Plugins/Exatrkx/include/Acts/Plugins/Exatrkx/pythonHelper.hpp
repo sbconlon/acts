@@ -1,36 +1,39 @@
 #include "Python.h"
+#include <vector>
 
 template <typename spacepoint_container_t>
-void hits_to_list(spacepoint_container_t& hits, PyListObject* phits){
-  // This function translates a vector of hits into a 2D python list
+void hits_to_list(spacepoint_container_t& sps, PyListObject* phits){
+  // This function translates a container of external spacepoints into a 
+  // 2D python list
+
   // Initialize variables
   PyListObject* row;
   PyObject *phid, *pX, *pY, *pZ, *pvolId, *playId, *pmodId;
   // Iterate through every spacepoint object
-  for(size_t i=0; i<hits->size(); ++i){
+  for(size_t i=0; i<sps.size(); ++i){
     // Initialize a empty sub-list
     row = (PyListObject*) PyList_New(0);
     // Convert spacepoint data to python data
-    phid = PyLong_FromLong((*hits)[i]->hid());
-    pX = PyFloat_FromDouble((*hits)[i]->x());
-    pY = PyFloat_FromDouble((*hits)[i]->y());
-    pZ = PyFloat_FromDouble((*hits)[i]->z());
-    pvolId = PyLong_FromLong((*hits)[i]->vols->volId());
-    playId = PyLong_FromLong((*hits)[i]->vols->layId());
-    pmodId = PyLong_FromLong((*hits)[i]->vols->modId());
+    phid = PyLong_FromLong(sps[i].measurementIndex());
+    pX = PyFloat_FromDouble(sps[i].x());
+    pY = PyFloat_FromDouble(sps[i].y());
+    pZ = PyFloat_FromDouble(sps[i].z());
+    ///pvolId = PyLong_FromLong(hits[i]->vols->volId());
+    ///playId = PyLong_FromLong((*hits)[i]->vols->layId());
+    ///pmodId = PyLong_FromLong((*hits)[i]->vols->modId());
     // Fill sub-list with the spacepoint data
     PyList_Append((PyObject*) row, phid);
     PyList_Append((PyObject*) row, pX);
     PyList_Append((PyObject*) row, pY);
     PyList_Append((PyObject*) row, pZ);
-    PyList_Append((PyObject*) row, pvolId);
-    PyList_Append((PyObject*) row, playId);
-    PyList_Append((PyObject*) row, pmodId);
+    ///PyList_Append((PyObject*) row, pvolId);
+    ///PyList_Append((PyObject*) row, playId);
+    ///PyList_Append((PyObject*) row, pmodId);
     // Append sub-list to final list
     PyList_Append((PyObject*) phits, (PyObject*) row);
   }
 }
-
+/*
 template <typename external_truth_t>
 void truth_to_list(std::vector<external_truth_t>* truth, PyListObject* ptruth){
   // This function translates a vector of truth into a 2D python list
@@ -125,3 +128,4 @@ void particles_to_list(std::vector<external_particle_t>* particles, PyListObject
     PyList_Append((PyObject*) pparticles, (PyObject*) row);
   }
 }
+*/
