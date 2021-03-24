@@ -6,15 +6,57 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#include "ActsExamples/GenericDetector/GenericDetector.hpp"
 
-//#include "RecGNNTracks.hpp"
+
+
+
+#include "ActsExamples/Detector/IBaseDetector.hpp"
+#include "ActsExamples/Digitization/DigitizationOptions.hpp"
+#include "ActsExamples/Framework/Sequencer.hpp"
+#include "ActsExamples/Framework/WhiteBoard.hpp"
+#include "ActsExamples/Geometry/CommonGeometry.hpp"
+#include "ActsExamples/Io/Csv/CsvOptionsReader.hpp"
+#include "ActsExamples/Io/Csv/CsvParticleReader.hpp"
+#include "ActsExamples/Io/Csv/CsvSimHitReader.hpp"
+#include "ActsExamples/Io/Performance/CKFPerformanceWriter.hpp"
+#include "ActsExamples/Io/Root/RootTrajectoryParametersWriter.hpp"
+#include "ActsExamples/Io/Root/RootTrajectoryStatesWriter.hpp"
+#include "ActsExamples/MagneticField/MagneticFieldOptions.hpp"
+#include "ActsExamples/Options/CommonOptions.hpp"
+#include "ActsExamples/TrackFinding/SeedingAlgorithm.hpp"
+#include "ActsExamples/TrackFinding/SpacePointMaker.hpp"
+#include "ActsExamples/TrackInferring/TrackInferringAlgorithm.hpp"
+#include "ActsExamples/TrackInferring/TrackInferringOptions.hpp"
+
+#include "ActsExamples/TrackFinding/TrackParamsEstimationAlgorithm.hpp"
+#include "ActsExamples/TruthTracking/ParticleSmearing.hpp"
+#include "ActsExamples/TruthTracking/TruthSeedSelector.hpp"
+#include "ActsExamples/TruthTracking/TruthTrackFinder.hpp"
+#include "ActsExamples/Utilities/Options.hpp"
+#include "ActsExamples/Utilities/Paths.hpp"
+#include <Acts/Definitions/Units.hpp>
+
+#include <memory>
+
+#include <boost/filesystem.hpp>
+
+#include "RecInput.hpp"
+
+using namespace Acts::UnitLiterals;
+using namespace ActsExamples;
+using namespace boost::filesystem;
+using namespace std::placeholders;
+
+#include<fstream>
+
+
+#include "ActsExamples/GenericDetector/GenericDetector.hpp"
 
 int main(int argc, char* argv[]) {
   //return runRecGNNTracks(argc, argv, std::make_shared<GenericDetector>());
+  
   std::shared_ptr<ActsExamples::IBaseDetector> detector =
                   std::make_shared<GenericDetector>();
-  std::cout << "HERE HERE HERE" << std::endl;
 
   // setup and parse options
   auto desc = ActsExamples::Options::makeDefaultOptions();
@@ -44,8 +86,8 @@ int main(int argc, char* argv[]) {
       Options::readRandomNumbersConfig(vm));
 
   // Read inference options
-  auto moduleName = variables["ml-module-name"].template as<std::string>();
-  auto funcName = variables["ml-function-name"].template as<std::string>();
+  auto moduleName = vm["ml-module-name"].template as<std::string>();
+  auto funcName = vm["ml-function-name"].template as<std::string>();
 
   // Setup detector geometry
   auto geometry = Geometry::build(vm, *detector);
@@ -166,7 +208,6 @@ int main(int argc, char* argv[]) {
   sequencer.addAlgorithm(
       std::make_shared<TrackFittingAlgorithm>(fitter, logLevel));
 
-
   // write out performance
   // write track finding/seeding performance
   TrackFinderPerformanceWriter::Config tfPerfCfg;
@@ -192,6 +233,8 @@ int main(int argc, char* argv[]) {
   sequencer.addWriter(
       std::make_shared<CKFPerformanceWriter>(perfWriterCfg, logLevel));
 
-  */
-  return sequencer.run();
+  */ 
+  sequencer.run();
+
+  return 0;
 }
