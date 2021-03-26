@@ -72,7 +72,7 @@ You should now have a container loaded with ACTS dependencies and a Python virtu
 This section guides the user through the installation of ACTS and Exatrkx's inference pipeline. It is assumed the user already has ACTS's dependencies installed.
 
 ### Installing Exatrkx Inference Pipeline
-Go to https://github.com/exatrkx/exatrkx-iml2020 and follow the setup steps.
+Go to https://github.com/sbconlon/exatrkx-iml2020 and follow the setup steps.
 Now add `inference_fn.py` to the `PYTHONPATH` environment variable.
 ```
 export PYTHONPATH=/path/to/exatrkx-iml2020/notebooks:$PYTHONPATH
