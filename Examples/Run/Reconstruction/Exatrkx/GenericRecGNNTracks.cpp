@@ -170,7 +170,7 @@ int main(int argc, char* argv[]) {
   paramsEstimationCfg.outputProtoTracks = "prototracks_estimated";
   paramsEstimationCfg.trackingGeometry = trackingGeometry;
   paramsEstimationCfg.magneticField = magneticField;
-  paramsEstimationCfg.bFieldMin = 0.1_T;
+  paramsEstimationCfg.bFieldMin = 0.0_T; // 0.1_T;
   paramsEstimationCfg.deltaRMax = 100._mm;
   paramsEstimationCfg.sigmaLoc0 = 25._um;
   paramsEstimationCfg.sigmaLoc1 = 100._um;

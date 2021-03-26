@@ -55,7 +55,7 @@ ActsExamples::ProcessCode ActsExamples::TrackInferringAlgorithm::execute(
       for(std::size_t spi=0; spi<trackOutput->size(); spi++){
         auto idx = trackOutput[0][spi];
         std::cout << " " << idx;
-        protoTrack.push_back(trackOutput[0][spi]);
+        protoTrack.push_back(idx);
       }
       std::cout << "]" << std::endl; 
       // Add newly created prototrack to prototracks
@@ -69,7 +69,7 @@ ActsExamples::ProcessCode ActsExamples::TrackInferringAlgorithm::execute(
       protoTracks.push_back(ProtoTrack());
     }
   }
-
+  ACTS_DEBUG("Created " << protoTracks.size() << " prototracks");
   ctx.eventStore.add(m_cfg.outputProtoTracks, std::move(protoTracks));
   return ActsExamples::ProcessCode::SUCCESS;
 }
