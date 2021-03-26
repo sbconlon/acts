@@ -14,7 +14,7 @@ void hits_to_list(spacepoint_container_t& sps, PyListObject* phits){
     // Initialize a empty sub-list
     row = (PyListObject*) PyList_New(0);
     // Convert spacepoint data to python data
-    phid = PyLong_FromLong(sps[i].measurementIndex());
+    //phid = PyLong_FromLong(sps[i].measurementIndex());
     pX = PyFloat_FromDouble(sps[i].x());
     pY = PyFloat_FromDouble(sps[i].y());
     pZ = PyFloat_FromDouble(sps[i].z());
@@ -22,7 +22,7 @@ void hits_to_list(spacepoint_container_t& sps, PyListObject* phits){
     ///playId = PyLong_FromLong((*hits)[i]->vols->layId());
     ///pmodId = PyLong_FromLong((*hits)[i]->vols->modId());
     // Fill sub-list with the spacepoint data
-    PyList_Append((PyObject*) row, phid);
+    //PyList_Append((PyObject*) row, phid);
     PyList_Append((PyObject*) row, pX);
     PyList_Append((PyObject*) row, pY);
     PyList_Append((PyObject*) row, pZ);
@@ -44,7 +44,17 @@ void cells_to_list(spacepoint_container_t& sps, PyListObject* pcells){
     for(size_t j=0; j<9; ++j){
       PyList_Append((PyObject*) row, PyLong_FromLong(0));
     }
-    PyList_append((PyObject*) pcells, (PyObject*) row);
+    PyList_Append((PyObject*) pcells, (PyObject*) row);
+  }
+}
+
+template <typename spacepoint_container_t>
+void hids_to_list(spacepoint_container_t& sps, PyListObject* phids) {
+  // Eventually this function should be merged with hits_to_list to avoid
+  // looping through spacepoint container twice.
+  for(size_t i=0; i<sps.size(); ++i){
+    PyList_Append((PyObject*) phids, PyLong_FromLong(
+          sps[i].measurementIndex()));
   }
 }
 
