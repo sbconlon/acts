@@ -3,7 +3,7 @@
 
 template <typename spacepoint_container_t>
 void hits_to_list(spacepoint_container_t& sps, PyListObject* phits){
-  // This function translates a container of external spacepoints into a 
+  // This function translates a container of external spacepoints into a
   // 2D python list
 
   // Initialize variables
@@ -33,6 +33,21 @@ void hits_to_list(spacepoint_container_t& sps, PyListObject* phits){
     PyList_Append((PyObject*) phits, (PyObject*) row);
   }
 }
+
+template <typename spacepoint_container_t>
+void cells_to_list(spacepoint_container_t& sps, PyListObject* pcells){
+  // Because we do not currently have cell information, this list is
+  // intentionally filled with zeros
+  PyListObject* row;
+  for(size_t i=0; i<sps.size(); ++i){
+    row = (PyListObject*) PyList_New(0);
+    for(size_t j=0; j<9; ++j){
+      PyList_Append((PyObject*) row, PyLong_FromLong(0));
+    }
+    PyList_append((PyObject*) pcells, (PyObject*) row);
+  }
+}
+
 /*
 template <typename external_truth_t>
 void truth_to_list(std::vector<external_truth_t>* truth, PyListObject* ptruth){

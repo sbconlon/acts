@@ -66,7 +66,7 @@ namespace Acts{
         PyObject *pName, *pModule, *pFunc;
         PyObject *pTracks;
         ///PyListObject *pHits, *pTruth, *pCells, *pParticles;
-        PyListObject *pHits;
+        PyListObject *pHits, *pCells;
         std::vector<Result<GraphNeuralNetworkResult<index_t>>> res_vect;
 
         // Initialize Python session
@@ -90,13 +90,13 @@ namespace Acts{
             // Initialize Python lists
             pHits = (PyListObject*) PyList_New(0);
             //pTruth = (PyListObject*) PyList_New(0);
-            //pCells = (PyListObject*) PyList_New(0);
+            pCells = (PyListObject*) PyList_New(0);
             //pParticles = (PyListObject*) PyList_New(0);
 
             // Convert C vectors to Python lists
             hits_to_list(hits, pHits);
             //truth_to_list(truth, pTruth);
-            //cells_to_list(cells, pCells);
+            cells_to_list(cells, pCells);
             //particles_to_list(particles, pParticles);
 
           } else {
@@ -104,7 +104,7 @@ namespace Acts{
             throw std::runtime_error("Failed to load track finding function");
           }
 
-          pTracks = PyObject_CallFunctionObjArgs(pFunc, pHits, NULL);
+          pTracks = PyObject_CallFunctionObjArgs(pFunc, pHits, pCells, NULL);
 
           if(PyList_Check(pTracks)){
             PyObject *pTrack, *pSpIdx;
