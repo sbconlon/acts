@@ -18,7 +18,8 @@ target_link_libraries(
   ActsExatrkxPlugin 
   PUBLIC 
     ActsCore
-    ${Python3_LIBRARIES})
+    ${Python3_LIBRARIES}
+    "${TORCH_LIBRARIES}")
 
 install(
   TARGETS ActsExatrkxPlugin

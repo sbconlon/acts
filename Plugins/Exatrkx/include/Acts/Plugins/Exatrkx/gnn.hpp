@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pythonHelper.hpp"
+#include "torchHelper.hpp"
 
 #include "Acts/Seeding/Seed.hpp"
 #include "Acts/Seeding/InternalSeed.hpp"
@@ -8,6 +9,8 @@
 #include "Acts/Seeding/SeedFilter.hpp"
 #include "Acts/Seeding/SeedfinderConfig.hpp"
 #include "Acts/Utilities/Result.hpp"
+
+#include <torch/script.h>
 
 #include "Python.h"
 
@@ -23,17 +26,25 @@ namespace Acts{
   struct GraphNeuralNetworkOptions {
 
     /// Graph Neural Network Options
-    ///
     /// @param moduleName Name of the ML Python module that should be imported
     /// @param funcName Name of the Python function in the module which should
     ///                 should be used to find tracks.
-    GraphNeuralNetworkOptions(std::string moduleName, std::string funcName)
-      : mlModuleName(moduleName), mlFuncName(funcName){}
+    /// @param scriptPath Path to PyTorch scripted model
+    GraphNeuralNetworkOptions(std::string moduleName, std::string funcName, std::string scriptPath)
+      : mlModuleName(moduleName), mlFuncName(funcName), mlScriptPath(scriptPath){}
 
-    /// Python module name
-    std::string mlModuleName;
-    /// Python function inside the module that performs tracking finding
-    std::string mlFuncName;
+    GraphNeuralNetworkOptions(std::string moduleName, std::string funcName)
+      : mlModuleName(moduleName), mlFuncName(funcName), mlScriptPath(""){}
+    
+    GraphNeuralNetworkOptions(std::string scriptPath)
+      : mlModuleName(""), mlFuncName(""), mlScriptPath(scriptPath){}
+    
+    GraphNeuralNetworkOptions()
+      : mlModuleName(""), mlFuncName(""), mlScriptPath(""){}
+
+    std::string mlModuleName;   // Name of Python module to import
+    std::string mlFuncName;     // Name of Python inference function to call
+    std::string mlScriptPath;   // Path to PyTorch scripted model
   };
 
   template <typename index_t>
@@ -44,13 +55,9 @@ namespace Acts{
 
   class GraphNeuralNetwork {
     public:
-      /// Default constructor is deleted
-      //GraphNeuralNetwork() = delete;
-      /// Constructor
-      //GraphNeuralNetwork() { return; }
-
       /// Graph neural network inference implementation,
-      /// calls the Python inference pipeline.
+      /// uses Torch Script model if mlScriptedPath is not empty.
+      /// Otherwise, python implimentation is used.
       ///
       /// @tparam spacepoint_container_t Type of the spacepoint container
       ///
@@ -59,6 +66,44 @@ namespace Acts{
       std::vector<Result<GraphNeuralNetworkResult<index_t>>>
       inferTracks(const spacepoint_container_t& hits,
                   const GraphNeuralNetworkOptions& ifOptions) const {
+        if(ifOptions.mlScriptPath.empty()){ 
+         return pythonInferTracks(hits, ifOptions);
+        } 
+        else {
+          return scriptedInferTracks(hits, ifOptions);
+        }
+      }
+
+    private:
+      /// Graph neural network inference implementation,
+      /// uses Torch Script model to run track reconstruction.
+      ///
+      /// @tparam spacepoint_container_t Type of the spacepoint container
+      ///
+      /// @return a container of infer track results
+      template<typename spacepoint_container_t, typename index_t=uint32_t>
+      std::vector<Result<GraphNeuralNetworkResult<index_t>>>
+      scriptedInferTracks(const spacepoint_container_t& hits,
+                          const GraphNeuralNetworkOptions& ifOptions) const {
+        
+        // Convert C spacepoints to a PyTorch Tensor
+        torch::Tensor hits_tensor = hits_to_tensor(hits);
+        std::cout << hits_tensor << std::endl;
+
+        std::vector<Result<GraphNeuralNetworkResult<index_t>>> res;
+        return res;
+      }
+      
+      /// Graph neural network inference implementation,
+      /// uses python function to run track reconstruction.
+      ///
+      /// @tparam spacepoint_container_t Type of the spacepoint container
+      ///
+      /// @return a container of infer track results
+      template<typename spacepoint_container_t, typename index_t=uint32_t>
+      std::vector<Result<GraphNeuralNetworkResult<index_t>>>
+      pythonInferTracks(const spacepoint_container_t& hits,
+                        const GraphNeuralNetworkOptions& ifOptions) const {
 
         //using Spacepoint = typename spacepoint_container_t::value_type;
 
@@ -103,7 +148,14 @@ namespace Acts{
           }
 
           pTracks = PyObject_CallFunctionObjArgs(pFunc, pHids, pHits, pCells, NULL);
-
+          
+          if(pTracks == NULL) {
+            PyErr_Print();
+            throw std::runtime_error("Error occurred during inference.");
+          }
+          
+          std::cout << "here" << std::endl;
+          std::cout << "Returned size: " << PyList_Size(pTracks) << std::endl;
           if(PyList_Check(pTracks)){
             PyObject *pTrack, *pSpIdx;
             for(Py_ssize_t i=0; i<PyList_Size(pTracks); ++i){

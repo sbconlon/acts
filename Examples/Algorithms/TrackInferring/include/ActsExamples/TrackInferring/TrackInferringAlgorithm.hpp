@@ -45,6 +45,8 @@ class TrackInferringAlgorithm final : public BareAlgorithm {
     std::string mlModuleName;
     /// Name of Python function in module for inference
     std::string mlFuncName;
+    /// Path to PyTorch Script model
+    std::string mlScriptPath;
     /// Output find trajectories collection.
     std::string outputProtoTracks;
     /// Type erased track inferer function.

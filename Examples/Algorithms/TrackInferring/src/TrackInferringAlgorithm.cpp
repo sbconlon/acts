@@ -35,7 +35,7 @@ ActsExamples::ProcessCode ActsExamples::TrackInferringAlgorithm::execute(
   ProtoTrackContainer protoTracks;
 
   // Set the graph nueral network options
-  ActsExamples::TrackInferringAlgorithm::TrackInferrerOptions options(m_cfg.mlModuleName, m_cfg.mlFuncName);
+  ActsExamples::TrackInferringAlgorithm::TrackInferrerOptions options(m_cfg.mlModuleName, m_cfg.mlFuncName, m_cfg.mlScriptPath);
 
   // Perform the track inferring for all input space points
   ACTS_DEBUG("Invoke track inferring with " << spacepoints.size()

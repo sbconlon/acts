@@ -21,13 +21,8 @@ void ActsExamples::Options::addTrackInferringOptions(
       "Name of ML Python module or file name to be imported");
   opt("ml-function-name", value<std::string>()->default_value("gnn_track_finding"),
       "Name of function in ML Python module to be imported and called");
-  /*
-  opt("ckf-selection-chi2max", value<double>()->default_value(15),
-      "Global criteria of maximum chi2 for CKF measurement selection");
-  opt("ckf-selection-nmax", value<size_t>()->default_value(10),
-      "Global criteria of maximum number of measurement candidates on a "
-      "surface for CKF measurement selection");
-  */
+  opt("ml-script-path", value<std::string>()->default_value(""),
+      "Path to PyTorch script model");
 }
 
 ActsExamples::TrackInferringAlgorithm::Config
@@ -37,11 +32,13 @@ ActsExamples::Options::readTrackInferringConfig(
   // Load inputs from variables
   auto moduleName = variables["ml-module-name"].template as<std::string>();
   auto funcName = variables["ml-function-name"].template as<std::string>();
-  
+  auto scriptPath = variables["ml-script-path"].template as<std::string>();  
+
   // Instantiate config
   TrackInferringAlgorithm::Config cfg;
   cfg.mlModuleName = moduleName;
   cfg.mlFuncName = funcName;
+  cfg.mlScriptPath = scriptPath;
   
   return cfg;
 }
